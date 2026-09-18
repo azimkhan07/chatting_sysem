@@ -1,4 +1,7 @@
 import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
+import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
+import type { Story, StoryGroup } from '@/types/story'
+import type { FollowResult, PublicUser, UserPage } from '@/types/user'
 
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
@@ -126,4 +129,45 @@ export const passwordApi = {
       password: payload.password,
       password_confirmation: payload.password,
     }),
+}
+
+export const usersApi = {
+  get: (identifier: string | number) =>
+    api.get<PublicUser>(`/users/${encodeURIComponent(String(identifier))}`),
+  postsOf: (identifier: string | number, cursor?: string) =>
+    api.get<FeedPage>(
+      `/users/${encodeURIComponent(String(identifier))}/posts?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  followers: (identifier: string | number, cursor?: string) =>
+    api.get<UserPage>(
+      `/users/${encodeURIComponent(String(identifier))}/followers?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  following: (identifier: string | number, cursor?: string) =>
+    api.get<UserPage>(
+      `/users/${encodeURIComponent(String(identifier))}/following?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  follow: (identifier: string | number) =>
+    api.post<FollowResult>(`/users/${encodeURIComponent(String(identifier))}/follow`, {}),
+  unfollow: (identifier: string | number) =>
+    api.delete<FollowResult>(`/users/${encodeURIComponent(String(identifier))}/follow`),
+}
+
+export const notificationsApi = {
+  list: (cursor?: string) =>
+    api.get<NotificationsPage>(
+      `/notifications?limit=30${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  unreadCount: () => api.get<UnreadCountResult>('/notifications/unread-count'),
+  markAllRead: () => api.post<{ updated: number }>('/notifications/read', {}),
+}
+
+export const storiesApi = {
+  list: () => api.get<{ stories: StoryGroup[] }>('/stories'),
+  create: (form: { media: File; caption: string }) => {
+    const data = new FormData()
+    data.append('media', form.media)
+    data.append('caption', form.caption)
+    return api.postForm<{ story: Story }>('/stories', data)
+  },
+  destroy: (storyId: number) => api.delete<null>(`/stories/${storyId}`),
 }

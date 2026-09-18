@@ -8,10 +8,12 @@ import { path } from '@/lib/paths'
 import ForgotPassword from '@/pages/ForgotPassword'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
+import Notifications from '@/pages/Notifications'
 import PlaceholderPage from '@/pages/PlaceholderPage'
 import Profile from '@/pages/Profile'
 import Register from '@/pages/Register'
 import ResetPassword from '@/pages/ResetPassword'
+import UserProfile from '@/pages/UserProfile'
 
 export default function App() {
   return (
@@ -46,14 +48,9 @@ export default function App() {
               />
               <Route
                 path={path('notifications')}
-                element={
-                  <PlaceholderPage
-                    title="Activity"
-                    caption="Likes, follows, comments and mentions."
-                    rows={6}
-                  />
-                }
+                element={<Notifications />}
               />
+              <Route path="/u/:username" element={<UserProfile />} />
               <Route
                 path={path('profile')}
                 element={<Profile />}

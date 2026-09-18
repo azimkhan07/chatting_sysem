@@ -1,10 +1,13 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { Spinner } from '@/components/AuthLayout'
+import StoriesRow from '@/components/StoriesRow'
 import { HeartIcon, MessageIcon, ShareIcon } from '@/components/icons'
 import { commentsApi, postsApi } from '@/lib/api'
+import { userProfile } from '@/lib/paths'
 import { timeAgo } from '@/lib/time'
 import { useAuthStore } from '@/stores/authStore'
 import type { Comment, Post, PostMedia } from '@/types/post'
@@ -137,6 +140,8 @@ export default function Home() {
         </p>
       </header>
 
+      <StoriesRow />
+
       <motion.form
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -265,6 +270,7 @@ export default function Home() {
 }
 
 function PostCard({ post }: { post: Post }) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const sessionUser = useAuthStore((state) => state.user)
   const initials = post.author.display_name.charAt(0).toUpperCase()
@@ -353,21 +359,30 @@ function PostCard({ post }: { post: Post }) {
       className="glass-card p-4"
     >
       <div className="flex gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-500/30 to-fuchsia-500/30 text-sm font-bold text-brand-200">
+        <button
+          type="button"
+          onClick={() => navigate(userProfile(post.author.username))}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-500/30 to-fuchsia-500/30 text-sm font-bold text-brand-200 transition hover:from-brand-500/50 hover:to-fuchsia-500/50"
+          aria-label={`View ${post.author.display_name}'s profile`}
+        >
           {initials}
-        </span>
+        </button>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <p className="text-sm font-semibold text-slate-200">
+          <button
+            type="button"
+            onClick={() => navigate(userProfile(post.author.username))}
+            className="flex flex-wrap items-baseline gap-x-2 text-left transition hover:opacity-80"
+          >
+            <span className="text-sm font-semibold text-slate-200">
               {post.author.display_name}
-            </p>
+            </span>
             {post.author.is_verified ? (
               <span className="badge bg-sky-500/15 text-sky-300">✓</span>
             ) : null}
-            <p className="text-xs text-slate-500">
+            <span className="text-xs text-slate-500">
               @{post.author.username} · {timeAgo(post.created_at)}
-            </p>
-          </div>
+            </span>
+          </button>
           {post.body ? (
             <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-wrap text-slate-200">
               {post.body}

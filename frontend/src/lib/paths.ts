@@ -20,3 +20,7 @@ export type RouteKey = keyof typeof ROUTES
 export function path(key: RouteKey): string {
   return ROUTES[key]
 }
+
+export function userProfile(userIdOrUsername: string | number): string {
+  return `/u/${encodeURIComponent(String(userIdOrUsername))}`
+}

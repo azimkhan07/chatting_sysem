@@ -11,6 +11,7 @@ export interface NavItem {
   to: string
   label: string
   icon: ReactNode
+  badge?: number
 }
 
 interface AppShellProps {
@@ -52,7 +53,12 @@ export default function AppShell({ nav, children }: AppShellProps) {
                 }
               >
                 {item.icon}
-                {item.label}
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                {item.badge ? (
+                  <span className="rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                ) : null}
               </NavLink>
             ))}
           </nav>
@@ -126,7 +132,14 @@ export default function AppShell({ nav, children }: AppShellProps) {
               ].join(' ')
             }
           >
-            {item.icon}
+            <span className="relative">
+              {item.icon}
+              {item.badge ? (
+                <span className="absolute -right-2 -top-1.5 grid h-3.5 w-3.5 place-items-center rounded-full bg-brand-500 text-[8px] font-bold text-white">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </span>
+              ) : null}
+            </span>
             {item.label}
           </NavLink>
         ))}
