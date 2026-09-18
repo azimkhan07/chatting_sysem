@@ -42,4 +42,14 @@ final class Post extends Model
     {
         return $this->hasMany(PostMedia::class)->orderBy('sort_order');
     }
+
+    public function likes(): HasMany
+    {
+        return $this->hasMany(PostLike::class);
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
 }

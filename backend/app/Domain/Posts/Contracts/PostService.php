@@ -6,6 +6,7 @@ namespace App\Domain\Posts\Contracts;
 
 use App\Domain\Auth\Models\User;
 use App\Domain\Posts\Data\CreatePostData;
+use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
 use Illuminate\Pagination\CursorPaginator;
 
@@ -19,4 +20,24 @@ interface PostService
      * @return CursorPaginator<int, Post>
      */
     public function feedFor(User $user, int $limit = 20, ?string $cursor = null): CursorPaginator;
+
+    /**
+     * A user's own posts, newest first — powers the profile grid.
+     *
+     * @return CursorPaginator<int, Post>
+     */
+    public function postsBy(User $viewer, User $owner, int $limit = 20, ?string $cursor = null): CursorPaginator;
+
+    public function like(User $user, Post $post): int;
+
+    public function unlike(User $user, Post $post): int;
+
+    public function addComment(User $user, Post $post, string $body): Comment;
+
+    /**
+     * Latest comments on a post, newest first.
+     *
+     * @return CursorPaginator<int, Comment>
+     */
+    public function commentsFor(Post $post, int $limit = 20, ?string $cursor = null): CursorPaginator;
 }

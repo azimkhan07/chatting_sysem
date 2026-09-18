@@ -15,8 +15,16 @@ final class ListFeedAction
 
     public function handle(int $userId, int $limit, ?string $cursor): CursorPaginator
     {
-        $limit = max(1, min($limit, self::MAX_LIMIT));
+        return $this->repository->feedFor($userId, $this->sanitizeLimit($limit), $cursor);
+    }
 
-        return $this->repository->feedFor($userId, $limit, $cursor);
+    public function handleFor(int $ownerId, int $viewerId, int $limit, ?string $cursor): CursorPaginator
+    {
+        return $this->repository->profileFeedFor($ownerId, $viewerId, $this->sanitizeLimit($limit), $cursor);
+    }
+
+    private function sanitizeLimit(int $limit): int
+    {
+        return max(1, min($limit, self::MAX_LIMIT));
     }
 }

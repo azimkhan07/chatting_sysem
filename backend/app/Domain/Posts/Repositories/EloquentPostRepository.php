@@ -6,7 +6,9 @@ namespace App\Domain\Posts\Repositories;
 
 use App\Domain\Posts\Contracts\PostRepository;
 use App\Domain\Posts\Data\CreatePostData;
+use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\CursorPaginator;
 
 final class EloquentPostRepository implements PostRepository
@@ -26,9 +28,59 @@ final class EloquentPostRepository implements PostRepository
 
     public function feedFor(int $userId, int $limit, ?string $cursor): CursorPaginator
     {
-        return Post::query()
-            ->with(['user', 'media'])
+        return $this->baseQuery($userId)
             ->orderByDesc('id')
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
+    }
+
+    public function profileFeedFor(int $ownerId, int $viewerId, int $limit, ?string $cursor): CursorPaginator
+    {
+        return $this->baseQuery($viewerId)
+            ->where('user_id', $ownerId)
+            ->orderByDesc('id')
+            ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
+    }
+
+    public function like(Post $post, int $userId): void
+    {
+        $post->likes()->firstOrCreate(['user_id' => $userId]);
+    }
+
+    public function unlike(Post $post, int $userId): void
+    {
+        $post->likes()->where('user_id', $userId)->delete();
+    }
+
+    public function likeCount(Post $post): int
+    {
+        $post->loadCount('likes');
+
+        return (int) $post->likes_count;
+    }
+
+    public function addComment(Post $post, int $userId, string $body): Comment
+    {
+        return $post->comments()->create([
+            'user_id' => $userId,
+            'body' => $body,
+        ]);
+    }
+
+    public function commentsFor(Post $post, int $limit, ?string $cursor): CursorPaginator
+    {
+        return $post->comments()
+            ->with('user')
+            ->orderByDesc('id')
+            ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
+    }
+
+    private function baseQuery(int $viewerId): Builder
+    {
+        return Post::query()
+            ->with(['user', 'media'])
+            ->withCount(['likes', 'comments'])
+            ->withExists([
+                'likes as liked_by_me' => fn (Builder $query): Builder => $query->where('user_id', $viewerId),
+            ]);
     }
 }

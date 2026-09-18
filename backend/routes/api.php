@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Posts\PostController;
+use App\Http\Controllers\Api\V1\Posts\PostInteractionController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -26,5 +27,11 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('posts')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
         Route::get('/', [PostController::class, 'index']);
         Route::post('/', [PostController::class, 'store']);
+        Route::get('me', [PostController::class, 'mine']);
+
+        Route::post('{post}/like', [PostInteractionController::class, 'like']);
+        Route::delete('{post}/like', [PostInteractionController::class, 'unlike']);
+        Route::get('{post}/comments', [PostInteractionController::class, 'comments']);
+        Route::post('{post}/comments', [PostInteractionController::class, 'storeComment']);
     });
 });

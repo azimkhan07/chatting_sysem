@@ -12,6 +12,7 @@ use App\Http\Resources\PostResource;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\CursorPaginator;
 
 final class PostController extends Controller
 {
@@ -19,21 +20,24 @@ final class PostController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $paginator = $this->postService->feedFor(
-            $request->user(),
-            limit: $request->integer('limit', 15),
-            cursor: $request->query('cursor'),
+        return $this->feedPayload(
+            $this->postService->feedFor(
+                $request->user(),
+                limit: $request->integer('limit', 15),
+                cursor: $request->query('cursor'),
+            ),
         );
+    }
 
-        return ApiResponse::success(
-            data: [
-                'posts' => PostResource::collection($paginator->items()),
-                'next_cursor' => $paginator->nextCursor()?->encode(),
-            ],
-            meta: [
-                'has_more' => $paginator->hasMorePages(),
-                'limit' => $paginator->perPage(),
-            ],
+    public function mine(Request $request): JsonResponse
+    {
+        return $this->feedPayload(
+            $this->postService->postsBy(
+                viewer: $request->user(),
+                owner: $request->user(),
+                limit: $request->integer('limit', 15),
+                cursor: $request->query('cursor'),
+            ),
         );
     }
 
@@ -51,6 +55,20 @@ final class PostController extends Controller
         return ApiResponse::success(
             data: ['post' => (new PostResource($post))->resolve()],
             status: 201,
+        );
+    }
+
+    private function feedPayload(CursorPaginator $paginator): JsonResponse
+    {
+        return ApiResponse::success(
+            data: [
+                'posts' => PostResource::collection($paginator->items()),
+                'next_cursor' => $paginator->nextCursor()?->encode(),
+            ],
+            meta: [
+                'has_more' => $paginator->hasMorePages(),
+                'limit' => $paginator->perPage(),
+            ],
         );
     }
 }

@@ -5,12 +5,14 @@ use App\Domain\Auth\Exceptions\UsernameTakenException;
 use App\Domain\Posts\Exceptions\InvalidPostMediaException;
 use App\Support\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -44,5 +46,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(static function (AuthenticationException $e, Request $request): JsonResponse {
             return ApiResponse::error('UNAUTHENTICATED', 'Authentication is required.', 401);
+        });
+
+        $exceptions->render(static function (ModelNotFoundException $e, Request $request): JsonResponse {
+            return ApiResponse::error('NOT_FOUND', 'The requested resource was not found.', 404);
+        });
+
+        $exceptions->render(static function (NotFoundHttpException $e, Request $request): JsonResponse {
+            return ApiResponse::error('NOT_FOUND', 'The requested resource was not found.', 404);
         });
     })->create();
