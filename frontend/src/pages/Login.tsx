@@ -38,20 +38,20 @@ export default function Login() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: 'easeOut' }}
-        className="space-y-6"
+        className="space-y-5"
       >
-        <div className="space-y-2">
-          <h2 className="text-3xl font-extrabold tracking-tight text-white">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-extrabold tracking-tight text-white">
             Welcome back
           </h2>
-          <p className="text-slate-400">
+          <p className="text-sm text-slate-400">
             Sign in to continue to your world.
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="glass-card space-y-5 p-6 sm:p-8"
+          className="glass-card space-y-4 p-5 sm:p-6"
           noValidate
         >
           {formError ? <FormError message={formError} /> : null}

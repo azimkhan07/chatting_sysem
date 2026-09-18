@@ -72,20 +72,20 @@ export default function Register() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: 'easeOut' }}
-        className="space-y-6"
+        className="space-y-5"
       >
-        <div className="space-y-2">
-          <h2 className="text-3xl font-extrabold tracking-tight text-white">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-extrabold tracking-tight text-white">
             Create your account
           </h2>
-          <p className="text-slate-400">
+          <p className="text-sm text-slate-400">
             Takes less than a minute. Join the conversation.
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="glass-card space-y-5 p-6 sm:p-8"
+          className="glass-card space-y-4 p-5 sm:p-6"
           noValidate
         >
           {formError ? <FormError message={formError} /> : null}
@@ -107,25 +107,27 @@ export default function Register() {
             onChange={update('display_name')}
           />
 
-          <AuthField
-            label="Email"
-            name="email"
-            type="email"
-            value={values.email}
-            placeholder="you@example.com"
-            autoComplete="email"
-            onChange={update('email')}
-          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AuthField
+              label="Email"
+              name="email"
+              type="email"
+              value={values.email}
+              placeholder="you@example.com"
+              autoComplete="email"
+              onChange={update('email')}
+            />
 
-          <AuthField
-            label="Mobile"
-            name="mobile"
-            type="tel"
-            value={values.mobile}
-            placeholder="+91 98765 43210"
-            autoComplete="tel"
-            onChange={update('mobile')}
-          />
+            <AuthField
+              label="Mobile"
+              name="mobile"
+              type="tel"
+              value={values.mobile}
+              placeholder="+91 98765 43210"
+              autoComplete="tel"
+              onChange={update('mobile')}
+            />
+          </div>
 
           <AuthField
             label="Password"

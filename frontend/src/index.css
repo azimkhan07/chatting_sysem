@@ -24,11 +24,25 @@
   color-scheme: dark;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   @apply bg-midnight-950 text-slate-100 antialiased;
   font-family: var(--font-sans);
-  min-height: 100svh;
+  height: 100svh;
   margin: 0;
+  overflow: hidden;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes orb-drift {
@@ -90,7 +104,7 @@ body {
   }
 
   .input-field {
-    @apply w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-slate-100 transition outline-none;
+    @apply w-full rounded-xl border border-white/10 bg-slate-900/80 px-3.5 py-2.5 text-sm text-slate-100 transition outline-none;
     @apply placeholder:text-slate-500 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/20;
   }
 
@@ -99,7 +113,7 @@ body {
   }
 
   .btn-primary {
-    @apply flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition;
+    @apply flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition;
     background-image: linear-gradient(
       90deg,
       var(--color-brand-500),

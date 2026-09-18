@@ -129,7 +129,7 @@ function ChatBubble({
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="relative grid min-h-svh lg:grid-cols-2">
+    <div className="relative grid h-svh overflow-hidden lg:grid-cols-2">
       <div className="mesh-bg">
         <div className="orb -top-32 -left-32 h-96 w-96 bg-brand-600/30" />
         <div className="orb bottom-0 right-0 h-96 w-96 bg-fuchsia-600/20 [animation-delay:-6s]" />
@@ -174,10 +174,10 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </p>
       </div>
 
-      <main className="relative z-10 flex items-center justify-center px-4 py-10 sm:px-6">
+      <main className="relative z-10 flex items-center justify-center px-4 py-6 sm:px-6">
         <div className="w-full max-w-md">
-          <div className="mb-8 flex justify-center lg:hidden">
-            <BrandMark />
+          <div className="mb-5 flex justify-center lg:hidden">
+            <BrandMark compact />
           </div>
           {children}
         </div>
