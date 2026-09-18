@@ -128,6 +128,11 @@ body {
     @apply hover:border-rose-500/50 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-70;
   }
 
+  .btn-quiet {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 text-slate-300 transition;
+    @apply hover:border-brand-400/40 hover:text-brand-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(

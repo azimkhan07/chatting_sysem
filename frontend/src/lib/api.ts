@@ -75,6 +75,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  postForm: <T>(path: string, data: FormData) =>
+    request<T>(path, {
+      method: 'POST',
+      body: data,
+    }),
 }
 
 export const postsApi = {
@@ -82,5 +87,10 @@ export const postsApi = {
     api.get<FeedPage>(
       `/posts?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
     ),
-  create: (body: string) => api.post<{ post: Post }>('/posts', { body }),
+  create: (form: { body: string; media: File[] }) => {
+    const data = new FormData()
+    data.append('body', form.body)
+    for (const file of form.media) data.append('media[]', file)
+    return api.postForm<{ post: Post }>('/posts', data)
+  },
 }

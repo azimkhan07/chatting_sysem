@@ -6,14 +6,22 @@ import { Spinner } from '@/components/AuthLayout'
 import { postsApi } from '@/lib/api'
 import { timeAgo } from '@/lib/time'
 import { useAuthStore } from '@/stores/authStore'
-import type { Post } from '@/types/post'
+import type { Post, PostMedia } from '@/types/post'
 
 const MAX_POST_LENGTH = 5000
+const ACCEPTED_EXTENSIONS = /\.(jpe?g|png|webp|gif|mp4|webm|mov)$/i
+
+interface PendingMedia {
+  file: File
+  previewUrl: string
+}
 
 export default function Home() {
   const sessionUser = useAuthStore((state) => state.user)
   const queryClient = useQueryClient()
   const [body, setBody] = useState('')
+  const [media, setMedia] = useState<PendingMedia[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const [loadMoreVisible, setLoadMoreVisible] = useState(false)
 
@@ -29,6 +37,11 @@ export default function Home() {
 
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    const urls = media.map((item) => item.previewUrl)
+    return () => urls.forEach((url) => URL.revokeObjectURL(url))
+  }, [media])
 
   const feed = useInfiniteQuery({
     queryKey: ['posts', 'feed'],
@@ -59,7 +72,7 @@ export default function Home() {
   ])
 
   const createPost = useMutation({
-    mutationFn: (text: string) => postsApi.create(text),
+    mutationFn: (form: { body: string; media: File[] }) => postsApi.create(form),
     onSuccess: (result) => {
       queryClient.setQueryData<{
         pages: { posts: Post[]; next_cursor: string | null }[]
@@ -75,17 +88,42 @@ export default function Home() {
         }
       })
       setBody('')
+      setMedia([])
     },
   })
 
   const posts = feedPages?.pages.flatMap((page) => page.posts) ?? []
 
+  function addFiles(list: FileList | null) {
+    if (!list) return
+    const files = Array.from(list).filter(
+      (file) => file.size > 0 && ACCEPTED_EXTENSIONS.test(file.name),
+    )
+    if (files.length === 0) return
+
+    setMedia((current) => [
+      ...current,
+      ...files.map((file) => ({ file, previewUrl: URL.createObjectURL(file) })),
+    ].slice(0, 5))
+  }
+
+  function removeMedia(index: number) {
+    setMedia((current) => {
+      const next = current.filter((_, i) => i !== index)
+      return next
+    })
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     const text = body.trim()
-    if (!text || text.length > MAX_POST_LENGTH || createPost.isPending) return
-    createPost.mutate(text)
+    if (createPost.isPending) return
+    if (!text && media.length === 0) return
+    if (text.length > MAX_POST_LENGTH) return
+    createPost.mutate({ body: text, media: media.map((item) => item.file) })
   }
+
+  const canPost = body.trim().length > 0 || media.length > 0
 
   return (
     <div className="space-y-4">
@@ -118,25 +156,83 @@ export default function Home() {
             aria-label="Post body"
           />
         </div>
+
+        {media.length > 0 ? (
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {media.map((item, index) => (
+              <div
+                key={item.previewUrl}
+                className="group relative aspect-square overflow-hidden rounded-2xl bg-white/5"
+              >
+                {item.file.type.startsWith('video/') ? (
+                  <video
+                    src={item.previewUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={item.previewUrl}
+                    alt="Attached preview"
+                    className="h-full w-full object-cover"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeMedia(index)}
+                  aria-label="Remove attachment"
+                  className="absolute top-1 right-1 grid h-5 w-5 place-items-center rounded-full bg-black/70 text-xs text-white backdrop-blur transition hover:bg-rose-500"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-3">
-          <p
-            className={`text-xs ${
-              body.length > MAX_POST_LENGTH ? 'text-rose-400' : 'text-slate-500'
-            }`}
-          >
-            {body.length.toLocaleString()} / {MAX_POST_LENGTH.toLocaleString()}
-          </p>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+              multiple
+              className="sr-only"
+              onChange={(event) => addFiles(event.target.files)}
+              aria-label="Attach media"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-quiet px-3 py-1.5 text-xs"
+              disabled={media.length >= 5}
+            >
+              {media.length >= 5 ? 'Limit reached' : 'Add photo / video'}
+            </button>
+            <p
+              className={`text-xs ${
+                body.length > MAX_POST_LENGTH ? 'text-rose-400' : 'text-slate-500'
+              }`}
+              aria-live="polite"
+            >
+              {body.length.toLocaleString()} / {MAX_POST_LENGTH.toLocaleString()}
+            </p>
+          </div>
           <button
             type="submit"
-            disabled={
-              !body.trim() || body.length > MAX_POST_LENGTH || createPost.isPending
-            }
+            disabled={!canPost || body.length > MAX_POST_LENGTH || createPost.isPending}
             className="btn-primary w-auto px-4 py-2"
           >
             {createPost.isPending ? <Spinner className="h-4 w-4" /> : null}
             {createPost.isPending ? 'Posting…' : 'Post'}
           </button>
         </div>
+
+        {createPost.isError ? (
+          <p className="mt-2 text-xs text-rose-400">{createPost.error.message}</p>
+        ) : null}
       </motion.form>
 
       <div className="space-y-3">
@@ -193,11 +289,55 @@ function PostCard({ post }: { post: Post }) {
               @{post.author.username} · {timeAgo(post.created_at)}
             </p>
           </div>
-          <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-wrap text-slate-200">
-            {post.body}
-          </p>
+          {post.body ? (
+            <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-wrap text-slate-200">
+              {post.body}
+            </p>
+          ) : null}
+          {post.media.length > 0 ? <PostMediaGrid media={post.media} /> : null}
         </div>
       </div>
     </motion.article>
+  )
+}
+
+function PostMediaGrid({ media }: { media: PostMedia[] }) {
+  const images = media.filter((item) => item.type === 'image')
+  const videos = media.filter((item) => item.type === 'video')
+  const cols = images.length >= 3 ? 3 : Math.max(images.length, 1)
+
+  return (
+    <div className="mt-3 space-y-2">
+      {images.length > 0 ? (
+        <div
+          className={`grid gap-2 ${cols === 1 ? 'grid-cols-1' : cols === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}
+        >
+          {images.map((image, index) => (
+            <div
+              key={image.id}
+              className={`overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10 ${cols === 1 ? 'aspect-video max-h-96' : 'aspect-square'}`}
+            >
+              <img
+                src={image.url}
+                alt={`Media ${index + 1}`}
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {videos.map((video) => (
+        <video
+          key={video.id}
+          src={video.url}
+          controls
+          preload="metadata"
+          playsInline
+          className="aspect-video w-full rounded-2xl bg-black/40 ring-1 ring-white/10"
+        />
+      ))}
+    </div>
   )
 }
