@@ -65,15 +65,25 @@ export default function Login() {
             onChange={setIdentifier}
           />
 
-          <AuthField
-            label="Password"
-            name="password"
-            type="password"
-            value={password}
-            placeholder="••••••••"
-            autoComplete="current-password"
-            onChange={setPassword}
-          />
+          <div className="space-y-1">
+            <AuthField
+              label="Password"
+              name="password"
+              type="password"
+              value={password}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              onChange={setPassword}
+            />
+            <div className="text-right">
+              <Link
+                to="/forgot-password"
+                className="text-xs text-slate-500 transition hover:text-brand-300"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          </div>
 
           <button type="submit" disabled={submitting} className="btn-primary">
             {submitting ? <Spinner /> : 'Sign in'}

@@ -94,3 +94,15 @@ export const postsApi = {
     return api.postForm<{ post: Post }>('/posts', data)
   },
 }
+
+export const passwordApi = {
+  sendLink: (email: string) =>
+    api.post<{ message: string }>('/password/email', { email }),
+  reset: (payload: { email: string; token: string; password: string }) =>
+    api.post<{ message: string }>('/password/reset', {
+      email: payload.email,
+      token: payload.token,
+      password: payload.password,
+      password_confirmation: payload.password,
+    }),
+}
