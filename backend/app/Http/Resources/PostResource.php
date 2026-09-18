@@ -17,6 +17,7 @@ final class PostResource extends JsonResource
             'id' => $this->id,
             'body' => $this->body,
             'author' => new UserResource($this->whenLoaded('user', $this->user)),
+            'media' => PostMediaResource::collection($this->relationLoaded('media') ? $this->media : collect()),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

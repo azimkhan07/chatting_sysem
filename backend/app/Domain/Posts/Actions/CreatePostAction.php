@@ -7,13 +7,25 @@ namespace App\Domain\Posts\Actions;
 use App\Domain\Posts\Contracts\PostRepository;
 use App\Domain\Posts\Data\CreatePostData;
 use App\Domain\Posts\Models\Post;
+use App\Domain\Posts\Services\PostMediaProcessor;
 
 final class CreatePostAction
 {
-    public function __construct(private readonly PostRepository $repository) {}
+    public function __construct(
+        private readonly PostRepository $repository,
+        private readonly PostMediaProcessor $mediaProcessor,
+    ) {}
 
     public function handle(int $userId, CreatePostData $data): Post
     {
-        return $this->repository->create($userId, $data);
+        $post = $this->repository->create($userId, $data);
+
+        if ($data->media !== []) {
+            $media = $this->mediaProcessor->processAll($userId, $data->media);
+            $this->repository->attachMedia($post, $media);
+            $post->load('media');
+        }
+
+        return $post;
     }
 }

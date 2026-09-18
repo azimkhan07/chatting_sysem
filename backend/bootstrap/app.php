@@ -2,6 +2,7 @@
 
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Domain\Auth\Exceptions\UsernameTakenException;
+use App\Domain\Posts\Exceptions\InvalidPostMediaException;
 use App\Support\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -24,6 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(static function (InvalidCredentialsException $e, Request $request): JsonResponse {
             return ApiResponse::error('INVALID_CREDENTIALS', $e->getMessage(), 401);
+        });
+
+        $exceptions->render(static function (InvalidPostMediaException $e, Request $request): JsonResponse {
+            return ApiResponse::error('INVALID_MEDIA', $e->getMessage(), 422, 'media');
         });
 
         $exceptions->render(static function (UsernameTakenException $e, Request $request): JsonResponse {

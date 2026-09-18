@@ -19,10 +19,15 @@ final class EloquentPostRepository implements PostRepository
         ]);
     }
 
+    public function attachMedia(Post $post, array $media): void
+    {
+        $post->media()->createMany($media);
+    }
+
     public function feedFor(int $userId, int $limit, ?string $cursor): CursorPaginator
     {
         return Post::query()
-            ->with('user')
+            ->with(['user', 'media'])
             ->orderByDesc('id')
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
     }

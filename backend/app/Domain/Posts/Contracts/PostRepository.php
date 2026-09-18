@@ -12,5 +12,10 @@ interface PostRepository
 {
     public function create(int $userId, CreatePostData $data): Post;
 
+    /**
+     * @param  list<array<string, mixed>>  $media  normalized media rows
+     */
+    public function attachMedia(Post $post, array $media): void;
+
     public function feedFor(int $userId, int $limit, ?string $cursor): CursorPaginator;
 }

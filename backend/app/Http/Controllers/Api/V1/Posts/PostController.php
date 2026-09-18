@@ -41,9 +41,12 @@ final class PostController extends Controller
     {
         $post = $this->postService->create(
             $request->user(),
-            new CreatePostData(body: $request->validated('body')),
+            new CreatePostData(
+                body: (string) $request->validated('body') ?: '',
+                media: $request->file('media') ?? [],
+            ),
         );
-        $post->load('user');
+        $post->load(['user', 'media']);
 
         return ApiResponse::success(
             data: ['post' => (new PostResource($post))->resolve()],
