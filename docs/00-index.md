@@ -22,6 +22,10 @@ any feature. If something is not documented here, decide → document → implem
 | 11 | [DevOps & CI/CD](11-devops-cicd.md) | GitHub Actions, Docker, environments, deployment |
 | 12 | [Coding Standards](12-coding-standards.md) | Senior-level rules: typing, tests, style, code review |
 | 13 | [Git Workflow](13-git-workflow.md) | Branching, commits, releases |
+| 15 | [UI Design System](15-ui-design-system.md) | "Midnight Bloom" theme, tokens, primitives, motion |
+| 16 | [Security & Route Strategy](16-security-and-route-strategy.md) | Encrypted/opaque routes, auth, admin perimeter |
+| 17 | [Admin Panel & Subscriptions](17-admin-panel-and-subscriptions.md) | Admin app, roles, subscription/billing, AI support |
+| 18 | [Business Strategy](18-business-strategy.md) | Monetization, growth, KPIs, phased roadmap |
 
 ## Non-negotiable principles
 
@@ -45,3 +49,5 @@ Major decisions get recorded here so we never forget *why*.
 | ADR-002 | Server-rendered JSON API, React SPA | Backend owns all logic; consistent with "backend computes everything" | 2026-09-17 |
 | ADR-003 | Redis required (cache + queues + presence) | Single well-understood infra primitive for performance | 2026-09-17 |
 | ADR-004 | Reverb + WebSockets for chat | Native Laravel, first-party, Laravel-ecosystem-aligned | 2026-09-17 |
+| ADR-005 | Opaque route tokens for user pages | Shrinks attack surface by hiding page topology; real gates stay on the API (see 16) | 2026-09-18 |
+| ADR-006 | Admin is a separate `/admin` surface | Independent auth perimeter + roles; never ships inside the user SPA shell | 2026-09-18 |
