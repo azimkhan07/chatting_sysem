@@ -1,0 +1,31 @@
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs / temp
+*.log
+tmp/
+temp/
+
+# Dependencies (each app also has its own .gitignore)
+node_modules/
+vendor/
+
+# Build output
+dist/
+build/
+coverage/
