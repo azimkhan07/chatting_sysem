@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 interface AuthFieldProps {
   label: string
@@ -39,12 +39,7 @@ export function AuthField({
         placeholder={placeholder}
         autoComplete={autoComplete ?? name}
         onChange={(event) => onChange(event.target.value)}
-        className={[
-          'w-full rounded-xl border bg-slate-900/60 px-4 py-3 text-slate-100',
-          'placeholder:text-slate-500 outline-none transition',
-          'focus:border-brand-400 focus:ring-4 focus:ring-brand-500/20',
-          error ? 'border-rose-500/60' : 'border-slate-700',
-        ].join(' ')}
+        className={error ? 'input-field is-invalid' : 'input-field'}
       />
       {error ? (
         <p className="text-sm text-rose-400">{error}</p>
@@ -79,7 +74,7 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
       {compact ? null : (
-        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-600/30">
+        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 shadow-lg shadow-brand-600/30">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -102,30 +97,78 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
   )
 }
 
+function ChatBubble({
+  style,
+  initials,
+  lines,
+}: {
+  style: CSSProperties
+  initials: string
+  lines: string[]
+}) {
+  return (
+    <div
+      className="bubble flex items-end gap-2.5 rounded-2xl border border-white/10 bg-slate-900/70 p-3.5 backdrop-blur"
+      style={style}
+    >
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[11px] font-bold text-white">
+        {initials}
+      </span>
+      <div className="space-y-1.5">
+        {lines.map((line, index) => (
+          <div
+            key={index}
+            className="h-2 rounded-full bg-slate-700/70"
+            style={{ width: line }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="relative grid min-h-svh lg:grid-cols-2">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden lg:relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-brand-950/60 to-slate-950" />
-        <div className="absolute -top-40 -left-40 h-96 w-96 rounded-full bg-brand-600/30 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-fuchsia-600/20 blur-3xl" />
+      <div className="mesh-bg">
+        <div className="orb -top-32 -left-32 h-96 w-96 bg-brand-600/30" />
+        <div className="orb bottom-0 right-0 h-96 w-96 bg-fuchsia-600/20 [animation-delay:-6s]" />
+        <div className="orb top-1/2 -left-40 h-72 w-72 bg-brand-500/20 [animation-delay:-12s]" />
       </div>
 
       <div className="relative z-10 hidden flex-col justify-between p-10 lg:flex xl:p-14">
         <BrandMark />
+
         <div className="max-w-md">
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-white xl:text-5xl">
             Where your world
             <br />
-            <span className="bg-gradient-to-r from-brand-300 to-fuchsia-300 bg-clip-text text-transparent">
-              stays close.
-            </span>
+            <span className="text-gradient">stays close.</span>
           </h1>
           <p className="mt-4 text-lg text-slate-400">
             One account, every conversation. Quick, smooth and built for the
             way you move online.
           </p>
+
+          <div className="mt-10 hidden space-y-4 xl:block">
+            <ChatBubble
+              style={{ animationDelay: '0s' }}
+              initials="AR"
+              lines={['w-44', 'w-28']}
+            />
+            <ChatBubble
+              style={{ animationDelay: '1.5s', marginLeft: '4rem' }}
+              initials="SM"
+              lines={['w-56', 'w-36']}
+            />
+            <ChatBubble
+              style={{ animationDelay: '3s' }}
+              initials="PK"
+              lines={['w-32', 'w-48']}
+            />
+          </div>
         </div>
+
         <p className="text-sm text-slate-500">
           amteCHAT · a social hub in the making
         </p>

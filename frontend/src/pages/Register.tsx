@@ -63,7 +63,7 @@ export default function Register() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: 'easeOut' }}
-        className="space-y-8"
+        className="space-y-6"
       >
         <div className="space-y-2">
           <h2 className="text-3xl font-extrabold tracking-tight text-white">
@@ -74,7 +74,11 @@ export default function Register() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <form
+          onSubmit={handleSubmit}
+          className="glass-card space-y-5 p-6 sm:p-8"
+          noValidate
+        >
           {formError ? <FormError message={formError} /> : null}
 
           <AuthField
@@ -125,17 +129,7 @@ export default function Register() {
             onChange={update('password')}
           />
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className={[
-              'flex w-full items-center justify-center gap-2 rounded-xl',
-              'bg-gradient-to-r from-brand-500 to-brand-700 py-3 text-sm font-semibold text-white',
-              'transition hover:brightness-110 active:scale-[0.99]',
-              'focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30',
-              'disabled:cursor-not-allowed disabled:opacity-70',
-            ].join(' ')}
-          >
+          <button type="submit" disabled={submitting} className="btn-primary">
             {submitting ? <Spinner /> : 'Create account'}
           </button>
         </form>
