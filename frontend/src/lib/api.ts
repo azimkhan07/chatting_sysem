@@ -1,3 +1,5 @@
+import type { FeedPage, Post } from '@/types/post'
+
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
 
@@ -73,4 +75,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+}
+
+export const postsApi = {
+  list: (cursor?: string) =>
+    api.get<FeedPage>(
+      `/posts?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  create: (body: string) => api.post<{ post: Post }>('/posts', { body }),
 }

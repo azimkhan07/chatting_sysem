@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
+import AppLayout from '@/components/AppLayout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { queryClient } from '@/lib/queryClient'
 import { path } from '@/lib/paths'
@@ -17,46 +18,48 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route element={<ProtectedRoute />}>
-            <Route path={path('home')} element={<Home />} />
-            <Route
-              path={path('chat')}
-              element={
-                <PlaceholderPage
-                  title="Chats"
-                  caption="Your conversations will live here — DMs and groups."
-                />
-              }
-            />
-            <Route
-              path={path('explore')}
-              element={
-                <PlaceholderPage
-                  title="Explore"
-                  caption="Discovery, trending topics and new people."
-                  rows={12}
-                />
-              }
-            />
-            <Route
-              path={path('notifications')}
-              element={
-                <PlaceholderPage
-                  title="Activity"
-                  caption="Likes, follows, comments and mentions."
-                  rows={6}
-                />
-              }
-            />
-            <Route
-              path={path('settings')}
-              element={
-                <PlaceholderPage
-                  title="Settings"
-                  caption="Account, privacy and the blue tick — coming soon."
-                  rows={4}
-                />
-              }
-            />
+            <Route element={<AppLayout />}>
+              <Route path={path('home')} element={<Home />} />
+              <Route
+                path={path('chat')}
+                element={
+                  <PlaceholderPage
+                    title="Chats"
+                    caption="Your conversations will live here — DMs and groups."
+                  />
+                }
+              />
+              <Route
+                path={path('explore')}
+                element={
+                  <PlaceholderPage
+                    title="Explore"
+                    caption="Discovery, trending topics and new people."
+                    rows={12}
+                  />
+                }
+              />
+              <Route
+                path={path('notifications')}
+                element={
+                  <PlaceholderPage
+                    title="Activity"
+                    caption="Likes, follows, comments and mentions."
+                    rows={6}
+                  />
+                }
+              />
+              <Route
+                path={path('settings')}
+                element={
+                  <PlaceholderPage
+                    title="Settings"
+                    caption="Account, privacy and the blue tick — coming soon."
+                    rows={4}
+                  />
+                }
+              />
+            </Route>
           </Route>
           <Route path="/admin" element={<AdminSkeleton />} />
           <Route path="*" element={<Navigate to={path('home')} replace />} />
