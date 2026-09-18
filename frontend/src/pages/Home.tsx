@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import AppShell, { ShellLoading } from '@/components/AppShell'
 import { BellIcon, ChatIcon, CompassIcon, HomeIcon, SettingsIcon } from '@/components/icons'
 import { api } from '@/lib/api'
+import { path } from '@/lib/paths'
 import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types/user'
 
@@ -37,11 +38,11 @@ export default function Home() {
   }
 
   const nav = [
-    { to: '/', label: 'Home', icon: <HomeIcon /> },
-    { to: '/chat', label: 'Chats', icon: <ChatIcon /> },
-    { to: '/explore', label: 'Explore', icon: <CompassIcon /> },
-    { to: '/notifications', label: 'Activity', icon: <BellIcon /> },
-    { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
+    { to: path('home'), label: 'Home', icon: <HomeIcon /> },
+    { to: path('chat'), label: 'Chats', icon: <ChatIcon /> },
+    { to: path('explore'), label: 'Explore', icon: <CompassIcon /> },
+    { to: path('notifications'), label: 'Activity', icon: <BellIcon /> },
+    { to: path('settings'), label: 'Settings', icon: <SettingsIcon /> },
   ]
 
   return (

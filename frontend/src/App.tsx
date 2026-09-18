@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { queryClient } from '@/lib/queryClient'
+import { path } from '@/lib/paths'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import PlaceholderPage from '@/pages/PlaceholderPage'
@@ -16,9 +17,9 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Home />} />
+            <Route path={path('home')} element={<Home />} />
             <Route
-              path="/chat"
+              path={path('chat')}
               element={
                 <PlaceholderPage
                   title="Chats"
@@ -27,7 +28,7 @@ export default function App() {
               }
             />
             <Route
-              path="/explore"
+              path={path('explore')}
               element={
                 <PlaceholderPage
                   title="Explore"
@@ -37,7 +38,7 @@ export default function App() {
               }
             />
             <Route
-              path="/notifications"
+              path={path('notifications')}
               element={
                 <PlaceholderPage
                   title="Activity"
@@ -47,7 +48,7 @@ export default function App() {
               }
             />
             <Route
-              path="/settings"
+              path={path('settings')}
               element={
                 <PlaceholderPage
                   title="Settings"
@@ -58,7 +59,7 @@ export default function App() {
             />
           </Route>
           <Route path="/admin" element={<AdminSkeleton />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={path('home')} replace />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

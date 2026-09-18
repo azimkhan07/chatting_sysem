@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 import { BrandMark, Spinner } from '@/components/AuthLayout'
+import SupportChat from '@/components/SupportChat'
 import { LogoutIcon } from '@/components/icons'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -130,6 +131,8 @@ export default function AppShell({ nav, children }: AppShellProps) {
           </NavLink>
         ))}
       </nav>
+
+      <SupportChat />
     </div>
   )
 }
