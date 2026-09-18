@@ -1,7 +1,7 @@
 import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
 import type { Story, StoryGroup } from '@/types/story'
-import type { FollowResult, PublicUser, UserPage } from '@/types/user'
+import type { FollowResult, PublicUser, User, UserPage } from '@/types/user'
 
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
@@ -134,6 +134,10 @@ export const passwordApi = {
 export const usersApi = {
   get: (identifier: string | number) =>
     api.get<PublicUser>(`/users/${encodeURIComponent(String(identifier))}`),
+  search: (query: string) =>
+    api.get<{ users: User[] }>(
+      `/users/search?query=${encodeURIComponent(query)}`,
+    ),
   postsOf: (identifier: string | number, cursor?: string) =>
     api.get<FeedPage>(
       `/users/${encodeURIComponent(String(identifier))}/posts?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
@@ -163,10 +167,11 @@ export const notificationsApi = {
 
 export const storiesApi = {
   list: () => api.get<{ stories: StoryGroup[] }>('/stories'),
-  create: (form: { media: File; caption: string }) => {
+  create: (form: { media: File; caption: string; effects: string }) => {
     const data = new FormData()
     data.append('media', form.media)
     data.append('caption', form.caption)
+    data.append('effects', form.effects)
     return api.postForm<{ story: Story }>('/stories', data)
   },
   destroy: (storyId: number) => api.delete<null>(`/stories/${storyId}`),

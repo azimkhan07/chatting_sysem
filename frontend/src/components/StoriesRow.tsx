@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { Spinner } from '@/components/AuthLayout'
-import { storiesApi } from '@/lib/api'
+import { storiesApi, usersApi } from '@/lib/api'
 import { userProfile } from '@/lib/paths'
+import { filterCss, STORY_FILTERS } from '@/lib/storyFilters'
 import { useAuthStore } from '@/stores/authStore'
 import type { Story, StoryGroup } from '@/types/story'
 import type { User } from '@/types/user'
@@ -90,38 +91,45 @@ export default function StoriesRow() {
   return (
     <>
       <div className="no-scrollbar -mx-1 flex items-start gap-3 overflow-x-auto px-1 py-1">
-        <button
-          type="button"
-          onClick={() => {
-            if (mine) {
-              setViewingUserId(mine.user.id)
-            } else {
-              setCreating(true)
-            }
-          }}
-          className="flex w-16 shrink-0 flex-col items-center gap-1.5"
-          title={mine ? 'View your story' : 'Add a story'}
-        >
+        <div className="flex w-16 shrink-0 flex-col items-center gap-1.5">
           <span className="relative">
-            {mine ? (
-              <span className={`block rounded-full ${RING}`}>
-                <span className="block h-[60px] w-[60px] overflow-hidden rounded-full bg-midnight-950 ring-2 ring-midnight-950">
-                  <StoryMediaThumb story={mine.stories[mine.stories.length - 1]} />
+            <button
+              type="button"
+              onClick={() => {
+                if (mine) {
+                  setViewingUserId(mine.user.id)
+                } else {
+                  setCreating(true)
+                }
+              }}
+              className="block rounded-full"
+              title={mine ? 'View your story' : 'Add a story'}
+            >
+              {mine ? (
+                <span className={`block rounded-full ${RING}`}>
+                  <span className="block h-[60px] w-[60px] overflow-hidden rounded-full bg-midnight-950 ring-2 ring-midnight-950">
+                    <StoryMediaThumb story={mine.stories[mine.stories.length - 1]} />
+                  </span>
                 </span>
-              </span>
-            ) : (
-              <span className="grid h-[60px] w-[60px] place-items-center rounded-full bg-slate-800/80 text-2xl font-light text-brand-300 transition group-hover:brightness-110">
+              ) : (
+                <span className="grid h-[60px] w-[60px] place-items-center rounded-full bg-slate-800/80 text-2xl font-light text-brand-300">
+                  +
+                </span>
+              )}
+            </button>
+            {mine ? (
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                aria-label="Add a story"
+                className="absolute -bottom-1 left-1/2 grid h-[18px] w-[18px] -translate-x-1/2 place-items-center rounded-full bg-[#fff] text-[11px] font-bold leading-none text-brand-600 shadow-md ring-2 ring-[#0d1324] transition hover:scale-110 active:scale-95"
+              >
                 +
-              </span>
-            )}
-            {!mine ? (
-              <span className="absolute -right-0.5 -bottom-0.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-brand-500 text-[10px] font-bold text-[#fff] ring-2 ring-midnight-950">
-                +
-              </span>
+              </button>
             ) : null}
           </span>
           <span className="text-[11px] text-slate-400">Your story</span>
-        </button>
+        </div>
 
         {others.map((group) => {
           const unseen = group.stories.some((story) => !seen.has(story.id))
@@ -181,7 +189,15 @@ export default function StoriesRow() {
 
 function StoryMediaThumb({ story }: { story: Story }) {
   if (story.type === 'image') {
-    return <img src={story.url} alt="" draggable={false} className="h-full w-full object-cover" />
+    return (
+      <img
+        src={story.url}
+        alt=""
+        draggable={false}
+        style={{ filter: filterCss(story.effects) }}
+        className="h-full w-full object-cover"
+      />
+    )
   }
   return (
     <span className="grid h-full w-full place-items-center bg-gradient-to-br from-brand-500/30 to-fuchsia-500/30 text-lg font-bold text-brand-200">
@@ -214,10 +230,16 @@ function HoverPreview({ hover }: { hover: { group: StoryGroup; x: number; y: num
             autoPlay
             loop
             playsInline
+            style={{ filter: filterCss(story.effects) }}
             className="h-full w-full object-cover"
           />
         ) : (
-          <img src={story.url} alt="" className="h-full w-full object-cover" />
+          <img
+            src={story.url}
+            alt=""
+            style={{ filter: filterCss(story.effects) }}
+            className="h-full w-full object-cover"
+          />
         )}
       </div>
       <div className="flex items-center gap-2 p-2">
@@ -244,27 +266,74 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [caption, setCaption] = useState('')
+  const [effects, setEffects] = useState('none')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mentionTerm, setMentionTerm] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<User[]>([])
+  const [searchingMentions, setSearchingMentions] = useState(false)
+  const debounceRef = useRef<number | null>(null)
 
   useEffect(() => {
     inputRef.current?.click()
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    }
   }, [])
+
+  const previewUrl = file ? URL.createObjectURL(file) : null
+  const isVideo = Boolean(file?.type.startsWith('video'))
+
+  function updateCaption(value: string) {
+    setCaption(value)
+    const term = value.match(/(?:^|\s)@([A-Za-z0-9_.]*)$/)?.[1] ?? null
+    setMentionTerm(term)
+
+    if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    if (!term) {
+      setSuggestions([])
+      setSearchingMentions(false)
+      return
+    }
+    if (term.length < 1) {
+      setSuggestions([])
+      setSearchingMentions(false)
+      return
+    }
+    debounceRef.current = window.setTimeout(() => {
+      setSearchingMentions(true)
+      void usersApi
+        .search(term)
+        .then((data) => setSuggestions(data.users))
+        .catch(() => setSuggestions([]))
+        .finally(() => setSearchingMentions(false))
+    }, 200)
+  }
+
+  function pickMention(user: User) {
+    const match = caption.match(/(?:^|\s)@[A-Za-z0-9_.]*$/)
+    if (!match) {
+      setCaption(`${caption}@${user.username} `)
+    } else {
+      const prefix = match[0].startsWith(' ') ? ' ' : ''
+      setCaption(caption.slice(0, caption.length - match[0].length) + `${prefix}@${user.username} `)
+    }
+    setMentionTerm(null)
+    setSuggestions([])
+  }
 
   async function submit() {
     if (!file || saving) return
     setSaving(true)
     setError(null)
     try {
-      await storiesApi.create({ media: file, caption })
+      await storiesApi.create({ media: file, caption: caption.trim(), effects })
       onCreated()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not post your story.')
       setSaving(false)
     }
   }
-
-  const previewUrl = file ? URL.createObjectURL(file) : null
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
@@ -291,12 +360,15 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
           type="file"
           accept="image/*,video/mp4,video/webm,video/quicktime"
           className="hidden"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null)
+            setEffects('none')
+          }}
         />
 
         <div className="mt-4 aspect-[3/4] max-h-72 w-full overflow-hidden rounded-2xl bg-black">
           {previewUrl ? (
-            file?.type.startsWith('video') ? (
+            isVideo ? (
               <video
                 src={previewUrl}
                 autoPlay
@@ -306,7 +378,12 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
                 className="h-full w-full object-contain"
               />
             ) : (
-              <img src={previewUrl} alt="" className="h-full w-full object-contain" />
+              <img
+                src={previewUrl}
+                alt=""
+                style={{ filter: filterCss(effects) }}
+                className="h-full w-full object-contain"
+              />
             )
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-6 text-center">
@@ -318,13 +395,79 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
           )}
         </div>
 
-        <input
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          maxLength={500}
-          placeholder="Add a caption…"
-          className="input-field mt-3"
-        />
+        {file && !isVideo ? (
+          <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-0.5">
+            {STORY_FILTERS.map((filter) => {
+              const active = effects === filter.key
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => setEffects(filter.key)}
+                  className={`flex shrink-0 flex-col items-center gap-1 rounded-lg p-0.5 transition ${
+                    active ? 'ring-2 ring-brand-400' : 'ring-1 ring-white/10 hover:ring-white/30'
+                  }`}
+                >
+                  <img
+                    src={previewUrl ?? ''}
+                    alt=""
+                    style={{ filter: filter.css }}
+                    className="h-10 w-10 rounded-md object-cover"
+                  />
+                  <span className={`text-[9px] ${active ? 'text-brand-300' : 'text-slate-400'}`}>
+                    {filter.name}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+
+        <div className="relative">
+          <input
+            value={caption}
+            onChange={(e) => updateCaption(e.target.value)}
+            maxLength={500}
+            placeholder="Add a caption…  (use @name to mention, #tag for hashtags)"
+            className="input-field mt-3"
+          />
+
+          {mentionTerm ? (
+            <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl bg-zinc-800/95 p-1 shadow-2xl backdrop-blur">
+              {searchingMentions ? (
+                <div className="flex items-center justify-center gap-2 px-3 py-2 text-xs text-[rgba(255,255,255,0.65)]">
+                  <Spinner className="h-3 w-3" />
+                  Searching…
+                </div>
+              ) : suggestions.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-[rgba(255,255,255,0.65)]">
+                  No one found — keep typing…
+                </p>
+              ) : (
+                suggestions.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => pickMention(user)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-[rgba(255,255,255,0.12)]"
+                  >
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[10px] font-bold text-[#fff]">
+                      {(user.display_name || user.username).charAt(0).toUpperCase()}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-semibold text-[#fff]">
+                        {user.display_name || user.username}
+                      </span>
+                      <span className="block truncate text-[11px] text-[rgba(255,255,255,0.65)]">
+                        @{user.username}
+                      </span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          ) : null}
+        </div>
 
         {error ? <p className="mt-2 text-sm text-rose-300">{error}</p> : null}
 
@@ -568,6 +711,7 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
               src={current.story.url}
               alt=""
               draggable={false}
+              style={{ filter: filterCss(current.story.effects) }}
               className={`max-h-full w-full object-contain ${pause ? 'opacity-90' : ''}`}
             />
           )}
@@ -575,7 +719,7 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
 
         {current.story.caption ? (
           <p className="absolute inset-x-0 bottom-16 z-20 px-6 text-center text-sm text-[#fff] [text-shadow:0_1px_3px_rgba(0,0,0,0.75)]">
-            {current.story.caption}
+            {renderCaption(current.story.caption, navigate)}
           </p>
         ) : null}
 
@@ -642,6 +786,7 @@ function VideoStory({
       playsInline
       muted
       onEnded={onEnded}
+      style={{ filter: filterCss(story.effects) }}
       className="max-h-full w-full object-contain"
     />
   )
@@ -666,6 +811,32 @@ function MuteIcon({ muted }: { muted: boolean }) {
       )}
     </svg>
   )
+}
+
+function renderCaption(caption: string, navigate: (path: string) => void) {
+  const tokens = caption.split(/(@[A-Za-z0-9_.]+|#[A-Za-z0-9_]+)/g)
+  return tokens.map((token, index) => {
+    if (token.startsWith('@')) {
+      return (
+        <button
+          key={index}
+          type="button"
+          onClick={() => navigate(userProfile(token.slice(1)))}
+          className="font-semibold text-sky-300 hover:underline"
+        >
+          {token}
+        </button>
+      )
+    }
+    if (token.startsWith('#')) {
+      return (
+        <span key={index} className="font-semibold text-amber-300">
+          {token}
+        </span>
+      )
+    }
+    return <span key={index}>{token}</span>
+  })
 }
 
 function relativeTime(value: string): string {

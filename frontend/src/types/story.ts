@@ -7,6 +7,7 @@ export interface Story {
   type: StoryMediaType
   url: string
   caption: string | null
+  effects: string | null
   created_at: string
   expires_at: string
 }
