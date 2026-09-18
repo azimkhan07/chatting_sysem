@@ -25,6 +25,7 @@ export interface RegisterInput {
   email?: string
   mobile?: string
   password: string
+  password_confirmation: string
 }
 
 export interface LoginInput {

@@ -21,6 +21,7 @@ export default function Register() {
     email: '',
     mobile: '',
     password: '',
+    password_confirmation: '',
   })
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -35,6 +36,13 @@ export default function Register() {
 
     setSubmitting(true)
     setFormError(null)
+
+    if (values.password !== values.password_confirmation) {
+      setFormError('Passwords do not match.')
+      setSubmitting(false)
+      return
+    }
+
     try {
       await register({
         username: values.username,
@@ -42,6 +50,7 @@ export default function Register() {
         email: values.email || undefined,
         mobile: values.mobile || undefined,
         password: values.password,
+        password_confirmation: values.password_confirmation,
       })
       navigate('/', { replace: true })
     } catch (error) {
@@ -127,6 +136,16 @@ export default function Register() {
             autoComplete="new-password"
             hint="Min 8 characters."
             onChange={update('password')}
+          />
+
+          <AuthField
+            label="Confirm password"
+            name="password_confirmation"
+            type="password"
+            value={values.password_confirmation}
+            placeholder="Repeat your password"
+            autoComplete="new-password"
+            onChange={update('password_confirmation')}
           />
 
           <button type="submit" disabled={submitting} className="btn-primary">
