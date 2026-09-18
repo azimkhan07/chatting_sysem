@@ -2,6 +2,9 @@
 
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Domain\Auth\Exceptions\UsernameTakenException;
+use App\Domain\Chat\Exceptions\ConversationNotFoundException;
+use App\Domain\Chat\Exceptions\ConversationPermissionException;
+use App\Domain\Chat\Exceptions\InvalidConversationException;
 use App\Domain\Posts\Exceptions\InvalidPostMediaException;
 use App\Domain\Social\Exceptions\SelfFollowException;
 use App\Domain\Stories\Exceptions\StoryNotAuthorizedException;
@@ -20,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
+        channels: __DIR__.'/../routes/channels.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -49,6 +53,18 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(static function (StoryNotAuthorizedException $e, Request $request): JsonResponse {
             return ApiResponse::error('FORBIDDEN', $e->getMessage(), 403);
+        });
+
+        $exceptions->render(static function (ConversationNotFoundException $e, Request $request): JsonResponse {
+            return ApiResponse::error('NOT_FOUND', $e->getMessage(), 404);
+        });
+
+        $exceptions->render(static function (ConversationPermissionException $e, Request $request): JsonResponse {
+            return ApiResponse::error('FORBIDDEN', $e->getMessage(), 403);
+        });
+
+        $exceptions->render(static function (InvalidConversationException $e, Request $request): JsonResponse {
+            return ApiResponse::error('INVALID_OPERATION', $e->getMessage(), 422);
         });
 
         $exceptions->render(static function (ValidationException $e, Request $request): JsonResponse {

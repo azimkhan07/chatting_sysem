@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
+use App\Http\Controllers\Api\V1\Chat\ChatMemberController;
+use App\Http\Controllers\Api\V1\Chat\ChatMessageController;
+use App\Http\Controllers\Api\V1\Chat\ChatUnreadController;
+use App\Http\Controllers\Api\V1\Chat\ConversationController;
 use App\Http\Controllers\Api\V1\Hashtags\HashtagController;
 use App\Http\Controllers\Api\V1\Music\SongController;
 use App\Http\Controllers\Api\V1\Posts\PostController;
@@ -49,6 +53,23 @@ Route::prefix('v1')->group(function (): void {
 
     Route::prefix('songs')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
         Route::get('/', [SongController::class, 'index']);
+    });
+
+    Route::prefix('chat')->middleware(['auth:sanctum', 'throttle:chat'])->group(function (): void {
+        Route::get('unread-total', [ChatUnreadController::class, 'total']);
+
+        Route::get('conversations', [ConversationController::class, 'index']);
+        Route::post('conversations', [ConversationController::class, 'store']);
+        Route::get('conversations/{conversation}', [ConversationController::class, 'show'])->whereNumber('conversation');
+        Route::patch('conversations/{conversation}', [ConversationController::class, 'update'])->whereNumber('conversation');
+
+        Route::get('conversations/{conversation}/messages', [ChatMessageController::class, 'index'])->whereNumber('conversation');
+        Route::post('conversations/{conversation}/messages', [ChatMessageController::class, 'store'])->whereNumber('conversation');
+        Route::post('conversations/{conversation}/read', [ChatMessageController::class, 'read'])->whereNumber('conversation');
+        Route::post('conversations/{conversation}/typing', [ChatMessageController::class, 'typing'])->whereNumber('conversation');
+
+        Route::post('conversations/{conversation}/members', [ChatMemberController::class, 'store'])->whereNumber('conversation');
+        Route::delete('conversations/{conversation}/members/{member}', [ChatMemberController::class, 'destroy'])->whereNumber(['conversation', 'member']);
     });
 
     Route::prefix('users')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {

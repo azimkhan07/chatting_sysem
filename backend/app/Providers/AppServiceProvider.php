@@ -10,6 +10,9 @@ use App\Domain\Auth\Contracts\PasswordResetService as PasswordResetServiceContra
 use App\Domain\Auth\Models\User;
 use App\Domain\Auth\Repositories\EloquentAuthRepository;
 use App\Domain\Auth\Services\LaravelPasswordResetService;
+use App\Domain\Chat\Contracts\ChatRepository;
+use App\Domain\Chat\Contracts\ChatService as ChatServiceContract;
+use App\Domain\Chat\Repositories\EloquentChatRepository;
 use App\Domain\Hashtags\Contracts\HashtagRepository;
 use App\Domain\Hashtags\Repositories\EloquentHashtagRepository;
 use App\Domain\Posts\Contracts\PostRepository;
@@ -25,6 +28,7 @@ use App\Domain\Stories\Contracts\StoryRepository;
 use App\Domain\Stories\Repositories\EloquentStoryRepository;
 use App\Domain\Stories\Services\StoryService;
 use App\Services\AuthService;
+use App\Services\ChatService;
 use App\Services\PostService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -46,6 +50,8 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(NotificationRepository::class, EloquentNotificationRepository::class);
         $this->app->bind(StoryRepository::class, EloquentStoryRepository::class);
         $this->app->bind(StoryService::class, StoryService::class);
+        $this->app->bind(ChatRepository::class, EloquentChatRepository::class);
+        $this->app->bind(ChatServiceContract::class, ChatService::class);
         $this->app->bind(PasswordResetServiceContract::class, LaravelPasswordResetService::class);
     }
 
@@ -55,6 +61,9 @@ final class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinutes(1, 60)->by($request->ip()));
         RateLimiter::for('password', fn (Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
         RateLimiter::for('notifications', fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
+        RateLimiter::for('chat', fn (Request $request): Limit => Limit::perMinute(300)->by(
+            $request->user()?->id ?? $request->ip(),
+        ));
 
         Route::bind('user', function (string $value): User {
             return User::whereKey($value)
