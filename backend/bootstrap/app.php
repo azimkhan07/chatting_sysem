@@ -3,6 +3,8 @@
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Domain\Auth\Exceptions\UsernameTakenException;
 use App\Domain\Posts\Exceptions\InvalidPostMediaException;
+use App\Domain\Social\Exceptions\SelfFollowException;
+use App\Domain\Stories\Exceptions\StoryNotAuthorizedException;
 use App\Support\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -35,6 +37,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(static function (UsernameTakenException $e, Request $request): JsonResponse {
             return ApiResponse::error('USERNAME_TAKEN', $e->getMessage(), 409, 'username');
+        });
+
+        $exceptions->render(static function (SelfFollowException $e, Request $request): JsonResponse {
+            return ApiResponse::error('INVALID_OPERATION', $e->getMessage(), 422);
+        });
+
+        $exceptions->render(static function (StoryNotAuthorizedException $e, Request $request): JsonResponse {
+            return ApiResponse::error('FORBIDDEN', $e->getMessage(), 403);
         });
 
         $exceptions->render(static function (ValidationException $e, Request $request): JsonResponse {

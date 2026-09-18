@@ -22,7 +22,7 @@ interface PostRepository
 
     public function profileFeedFor(int $ownerId, int $viewerId, int $limit, ?string $cursor): CursorPaginator;
 
-    public function like(Post $post, int $userId): void;
+    public function like(Post $post, int $userId): bool;
 
     public function unlike(Post $post, int $userId): void;
 

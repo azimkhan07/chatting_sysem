@@ -23,6 +23,10 @@ final class UserResource extends JsonResource
             'is_verified' => $this->is_verified,
             'status' => $this->status->value,
             'created_at' => $this->created_at?->toIso8601String(),
+            'posts_count' => $this->whenCounted('posts', fn (): int => (int) $this->posts_count, 0),
+            'followers_count' => $this->whenCounted('followers', fn (): int => (int) $this->followers_count, 0),
+            'following_count' => $this->whenCounted('following', fn (): int => (int) $this->following_count, 0),
+            'is_followed_by_me' => (bool) ($this->is_followed_by_me ?? false),
         ];
     }
 }

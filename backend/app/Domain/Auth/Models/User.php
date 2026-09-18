@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\Auth\Models;
 
 use App\Domain\Auth\Enums\UserStatus;
+use App\Domain\Posts\Models\Post;
+use App\Domain\Social\Models\Follow;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -65,6 +69,41 @@ class User extends Authenticatable
     protected static function newFactory(): UserFactory
     {
         return UserFactory::new();
+    }
+
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class, 'user_id');
+    }
+
+    /**
+     * The people following this user.
+     */
+    public function followers(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            User::class,
+            Follow::class,
+            'following_id',
+            'id',
+            'id',
+            'follower_id'
+        );
+    }
+
+    /**
+     * The people this user follows.
+     */
+    public function following(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            User::class,
+            Follow::class,
+            'follower_id',
+            'id',
+            'id',
+            'following_id'
+        );
     }
 
     /**

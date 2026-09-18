@@ -41,9 +41,11 @@ final class EloquentPostRepository implements PostRepository
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
     }
 
-    public function like(Post $post, int $userId): void
+    public function like(Post $post, int $userId): bool
     {
-        $post->likes()->firstOrCreate(['user_id' => $userId]);
+        $like = $post->likes()->firstOrCreate(['user_id' => $userId]);
+
+        return $like->wasRecentlyCreated;
     }
 
     public function unlike(Post $post, int $userId): void
