@@ -15,10 +15,25 @@ export interface Post {
   body: string
   author: User
   media: PostMedia[]
+  likes_count: number
+  comments_count: number
+  liked_by_me: boolean
+  created_at: string
+}
+
+export interface Comment {
+  id: number
+  body: string
+  author: User
   created_at: string
 }
 
 export interface FeedPage {
   posts: Post[]
+  next_cursor: string | null
+}
+
+export interface CommentsPage {
+  comments: Comment[]
   next_cursor: string | null
 }

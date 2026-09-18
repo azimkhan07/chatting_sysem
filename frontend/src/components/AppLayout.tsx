@@ -3,7 +3,14 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 
 import AppShell, { ShellLoading } from '@/components/AppShell'
-import { BellIcon, ChatIcon, CompassIcon, HomeIcon, SettingsIcon } from '@/components/icons'
+import {
+  BellIcon,
+  ChatIcon,
+  CompassIcon,
+  HomeIcon,
+  SettingsIcon,
+  UserIcon,
+} from '@/components/icons'
 import { api, ApiError } from '@/lib/api'
 import { path } from '@/lib/paths'
 import { useAuthStore } from '@/stores/authStore'
@@ -14,6 +21,7 @@ const NAV = [
   { to: path('chat'), label: 'Chats', icon: <ChatIcon /> },
   { to: path('explore'), label: 'Explore', icon: <CompassIcon /> },
   { to: path('notifications'), label: 'Activity', icon: <BellIcon /> },
+  { to: path('profile'), label: 'Profile', icon: <UserIcon /> },
   { to: path('settings'), label: 'Settings', icon: <SettingsIcon /> },
 ]
 

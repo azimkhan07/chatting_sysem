@@ -12,6 +12,7 @@ export const ROUTES = {
   explore: '/e9w2k',
   notifications: '/n5r7s',
   settings: '/s2v6q',
+  profile: '/p8f1r',
 } as const
 
 export type RouteKey = keyof typeof ROUTES

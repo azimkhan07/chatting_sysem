@@ -72,3 +72,40 @@ export function SparkleIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function UserIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 19a7 7 0 0 1 14 0" />
+    </svg>
+  )
+}
+
+export function HeartIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M12 20.5C7.5 17 3.5 13.6 3.5 9.3 3.5 6.9 5.4 5 7.8 5c1.7 0 3.2.9 4.2 2.3C13 5.9 14.5 5 16.2 5c2.4 0 4.3 1.9 4.3 4.3 0 4.3-4 7.7-8.5 11.2Z" />
+    </svg>
+  )
+}
+
+export function MessageIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M21 12a8 8 0 0 1-8 8H4.5L7 17.5A8 8 0 1 1 21 12Z" />
+      <path d="M8.5 12h7M8.5 8.5h7" />
+    </svg>
+  )
+}
+
+export function ShareIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <circle cx="18" cy="5.5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="18.5" r="2.5" />
+      <path d="m8.2 11 7.6-4.2M8.2 13l7.6 4.2" />
+    </svg>
+  )
+}

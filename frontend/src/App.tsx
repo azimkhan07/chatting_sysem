@@ -9,6 +9,7 @@ import ForgotPassword from '@/pages/ForgotPassword'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import PlaceholderPage from '@/pages/PlaceholderPage'
+import Profile from '@/pages/Profile'
 import Register from '@/pages/Register'
 import ResetPassword from '@/pages/ResetPassword'
 
@@ -52,6 +53,10 @@ export default function App() {
                     rows={6}
                   />
                 }
+              />
+              <Route
+                path={path('profile')}
+                element={<Profile />}
               />
               <Route
                 path={path('settings')}

@@ -1,4 +1,4 @@
-import type { FeedPage, Post } from '@/types/post'
+import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
@@ -80,6 +80,12 @@ export const api = {
       method: 'POST',
       body: data,
     }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+}
+
+export interface LikeResult {
+  liked: boolean
+  likes_count: number
 }
 
 export const postsApi = {
@@ -87,12 +93,27 @@ export const postsApi = {
     api.get<FeedPage>(
       `/posts?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
     ),
+  mine: (cursor?: string) =>
+    api.get<FeedPage>(
+      `/posts/me?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
   create: (form: { body: string; media: File[] }) => {
     const data = new FormData()
     data.append('body', form.body)
     for (const file of form.media) data.append('media[]', file)
     return api.postForm<{ post: Post }>('/posts', data)
   },
+  like: (postId: number) => api.post<LikeResult>(`/posts/${postId}/like`, {}),
+  unlike: (postId: number) => api.delete<LikeResult>(`/posts/${postId}/like`),
+}
+
+export const commentsApi = {
+  list: (postId: number, cursor?: string) =>
+    api.get<CommentsPage>(
+      `/posts/${postId}/comments?limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  create: (postId: number, body: string) =>
+    api.post<{ comment: Comment }>(`/posts/${postId}/comments`, { body }),
 }
 
 export const passwordApi = {

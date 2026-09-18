@@ -1,12 +1,13 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 
 import { Spinner } from '@/components/AuthLayout'
-import { postsApi } from '@/lib/api'
+import { HeartIcon, MessageIcon, ShareIcon } from '@/components/icons'
+import { commentsApi, postsApi } from '@/lib/api'
 import { timeAgo } from '@/lib/time'
 import { useAuthStore } from '@/stores/authStore'
-import type { Post, PostMedia } from '@/types/post'
+import type { Comment, Post, PostMedia } from '@/types/post'
 
 const MAX_POST_LENGTH = 5000
 const ACCEPTED_EXTENSIONS = /\.(jpe?g|png|webp|gif|mp4|webm|mov)$/i
@@ -264,7 +265,85 @@ export default function Home() {
 }
 
 function PostCard({ post }: { post: Post }) {
+  const queryClient = useQueryClient()
+  const sessionUser = useAuthStore((state) => state.user)
   const initials = post.author.display_name.charAt(0).toUpperCase()
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [commentBody, setCommentBody] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const feedKey = ['posts', 'feed']
+
+  const patchPost = (postId: number, mutator: (post: Post) => Post) => {
+    queryClient.setQueryData<{ pages: { posts: Post[] }[] }>(feedKey, (current) => {
+      if (!current) return current
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          posts: page.posts.map((p) => (p.id === postId ? mutator(p) : p)),
+        })),
+      }
+    })
+  }
+
+  const toggleLike = useMutation({
+    mutationFn: () =>
+      post.liked_by_me ? postsApi.unlike(post.id) : postsApi.like(post.id),
+    onMutate: () => {
+      const previous = queryClient.getQueryData(feedKey)
+      patchPost(post.id, (p) => ({
+        ...p,
+        liked_by_me: !p.liked_by_me,
+        likes_count: p.likes_count + (p.liked_by_me ? -1 : 1),
+      }))
+      return previous
+    },
+    onError: (_error, _vars, rollback) => {
+      if (rollback !== undefined) queryClient.setQueryData(feedKey, rollback)
+    },
+  })
+
+  const commentsQuery = useQuery({
+    queryKey: ['comments', post.id],
+    queryFn: () => commentsApi.list(post.id),
+    enabled: commentsOpen,
+    placeholderData: keepPreviousData,
+  })
+  const comments = commentsQuery.data?.comments ?? []
+
+  const postComment = useMutation({
+    mutationFn: (body: string) => commentsApi.create(post.id, body),
+    onSuccess: (result) => {
+      setCommentBody('')
+      queryClient.setQueryData<{ comments: Comment[] }>(['comments', post.id], (current) => ({
+        comments: [result.comment, ...(current?.comments ?? [])],
+      }))
+      patchPost(post.id, (p) => ({ ...p, comments_count: p.comments_count + 1 }))
+    },
+  })
+
+  async function handleShare() {
+    const url = window.location.href
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'amteCHAT post', text: post.body, url })
+        return
+      }
+    } catch {
+      return
+    }
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1500)
+  }
+
+  function handleCommentSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    const body = commentBody.trim()
+    if (!body || postComment.isPending) return
+    postComment.mutate(body)
+  }
 
   return (
     <motion.article
@@ -295,9 +374,108 @@ function PostCard({ post }: { post: Post }) {
             </p>
           ) : null}
           {post.media.length > 0 ? <PostMediaGrid media={post.media} /> : null}
+
+          <div className="mt-3 flex items-center gap-1 border-t border-white/5 pt-2.5">
+            <button
+              type="button"
+              onClick={() => toggleLike.mutate()}
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                post.liked_by_me
+                  ? 'text-rose-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              aria-label={post.liked_by_me ? 'Unlike post' : 'Like post'}
+            >
+              <HeartIcon
+                className={`h-[18px] w-[18px] ${post.liked_by_me ? 'fill-rose-500 text-rose-500' : ''}`}
+              />
+              {post.likes_count > 0 ? post.likes_count.toLocaleString() : null}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCommentsOpen((open) => !open)}
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                commentsOpen ? 'text-brand-300' : 'text-slate-400 hover:text-slate-200'
+              }`}
+              aria-expanded={commentsOpen}
+            >
+              <MessageIcon className="h-[18px] w-[18px]" />
+              {post.comments_count > 0 ? post.comments_count.toLocaleString() : null}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleShare()}
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-slate-400 transition hover:text-slate-200"
+              aria-label="Share post"
+            >
+              <ShareIcon className="h-[18px] w-[18px]" />
+              {copied ? 'Copied!' : null}
+            </button>
+          </div>
+
+          {commentsOpen ? (
+            <div className="mt-3 space-y-3 border-t border-white/5 pt-3">
+              <ul className="space-y-2.5">
+                {comments.map((comment) => (
+                  <CommentRow key={comment.id} comment={comment} />
+                ))}
+                {comments.length === 0 ? (
+                  <li className="text-xs text-slate-500">
+                    No comments yet — start the conversation.
+                  </li>
+                ) : null}
+              </ul>
+
+              <form onSubmit={handleCommentSubmit} className="flex items-center gap-2">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[10px] font-bold text-white">
+                  {(sessionUser?.display_name ?? '?').charAt(0).toUpperCase()}
+                </span>
+                <input
+                  value={commentBody}
+                  onChange={(event) => setCommentBody(event.target.value)}
+                  placeholder="Add a comment…"
+                  maxLength={2000}
+                  className="input-field flex-1 !py-2 text-xs"
+                  aria-label="Comment body"
+                />
+                <button
+                  type="submit"
+                  disabled={!commentBody.trim() || postComment.isPending}
+                  className="btn-primary w-auto !px-3 !py-2 text-xs disabled:opacity-50"
+                >
+                  Post
+                </button>
+              </form>
+            </div>
+          ) : null}
         </div>
       </div>
     </motion.article>
+  )
+}
+
+function CommentRow({ comment }: { comment: Comment }) {
+  const initials = comment.author.display_name.charAt(0).toUpperCase()
+
+  return (
+    <li className="flex gap-2">
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-500/20 text-[10px] font-bold text-brand-200">
+        {initials}
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs leading-relaxed text-slate-300">
+          <span className="font-semibold text-slate-200">
+            {comment.author.display_name}
+          </span>{' '}
+          {comment.body}
+        </p>
+        <p className="mt-0.5 text-[10px] text-slate-500">
+          @{comment.author.username} · {timeAgo(comment.created_at)}
+        </p>
+      </div>
+    </li>
   )
 }
 
