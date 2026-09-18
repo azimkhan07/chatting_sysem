@@ -25,6 +25,8 @@ final class LoginUserAction
 
         $this->assertCredentialsValid($user, $data->password);
 
+        $user->forceFill(['last_seen_at' => now()])->saveQuietly();
+
         return new AuthUserResult(
             user: $user,
             accessToken: $this->tokenIssuer->issueFor($user),
@@ -34,7 +36,12 @@ final class LoginUserAction
 
     private function assertCredentialsValid(?User $user, string $password): void
     {
-        if ($user === null || ! Hash::check($password, $user->password)) {
+        $matches = $user !== null && (
+            Hash::check($password, $user->password)
+            || Hash::check(trim($password), $user->password)
+        );
+
+        if (! $matches) {
             throw new InvalidCredentialsException;
         }
     }

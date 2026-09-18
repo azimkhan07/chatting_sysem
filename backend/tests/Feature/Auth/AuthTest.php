@@ -139,6 +139,17 @@ final class AuthTest extends TestCase
             ->assertJsonPath('errors.0.code', 'INVALID_CREDENTIALS');
     }
 
+    public function test_login_accepts_password_with_autofill_whitespace(): void
+    {
+        User::factory()->create(['username' => 'ayaankhan', 'password' => 'secretpass123']);
+
+        $this->postJson('/api/v1/auth/login', [
+            'identifier' => 'ayaankhan',
+            'password' => '  secretpass123 ',
+        ])->assertOk()
+            ->assertJsonPath('data.user.username', 'ayaankhan');
+    }
+
     public function test_login_with_unknown_identifier_is_rejected(): void
     {
         $this->postJson('/api/v1/auth/login', [
