@@ -17,7 +17,7 @@ final class StoryService
         private readonly StoryMediaProcessor $mediaProcessor,
     ) {}
 
-    public function create(User $user, UploadedFile $file, ?string $caption): Story
+    public function create(User $user, UploadedFile $file, ?string $caption, ?string $effects = null): Story
     {
         $media = $this->mediaProcessor->process($user->id, $file);
 
@@ -28,6 +28,7 @@ final class StoryService
             'width' => $media['width'],
             'height' => $media['height'],
             'caption' => $caption,
+            'effects' => $effects,
         ]);
     }
 

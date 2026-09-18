@@ -24,6 +24,7 @@ final class CreateStoryRequest extends FormRequest
         return [
             'media' => ['required', 'file', File::types($accepted)->max(100 * 1024)],
             'caption' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'effects' => ['sometimes', 'nullable', 'string', 'max:32'],
         ];
     }
 }

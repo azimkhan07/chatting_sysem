@@ -27,7 +27,7 @@ function persistSeen(seen: Set<number>) {
   try {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]))
   } catch {
-    // Storage unavailable â€” the session still marks stories as seen.
+    // Storage unavailable — the session still marks stories as seen.
   }
 }
 
@@ -185,7 +185,7 @@ function StoryMediaThumb({ story }: { story: Story }) {
   }
   return (
     <span className="grid h-full w-full place-items-center bg-gradient-to-br from-brand-500/30 to-fuchsia-500/30 text-lg font-bold text-brand-200">
-      â–¶
+      ▶
     </span>
   )
 }
@@ -282,7 +282,7 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
             aria-label="Close"
           >
-            âœ•
+            ✕
           </button>
         </div>
 
@@ -312,7 +312,7 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-6 text-center">
               <span className="text-3xl text-brand-300">+</span>
               <p className="text-sm text-slate-400">
-                Pick an image or a video â€” it disappears after 24 hours.
+                Pick an image or a video — it disappears after 24 hours.
               </p>
             </div>
           )}
@@ -322,7 +322,7 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           maxLength={500}
-          placeholder="Add a captionâ€¦"
+          placeholder="Add a caption…"
           className="input-field mt-3"
         />
 
@@ -334,7 +334,7 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
           disabled={!file || saving}
           className="btn-primary mt-4"
         >
-          {saving ? 'Postingâ€¦' : 'Share'}
+          {saving ? 'Posting…' : 'Share'}
         </button>
       </motion.div>
     </div>
@@ -500,7 +500,7 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
                   className="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-[rgba(255,255,255,0.8)] transition hover:bg-[rgba(255,255,255,0.12)]"
                   aria-label="Story options"
                 >
-                  â€¦
+                  …
                 </button>
                 <AnimatePresence>
                   {menuOpen ? (
@@ -533,7 +533,7 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
                           } ${confirmDelete ? 'bg-rose-600/80' : ''}`}
                         >
                           {deleting
-                            ? 'Deletingâ€¦'
+                            ? 'Deleting…'
                             : confirmDelete
                               ? 'Confirm delete?'
                               : 'Delete story'}
@@ -549,7 +549,7 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
                 className="grid h-8 w-8 place-items-center rounded-lg text-[rgba(255,255,255,0.8)] transition hover:bg-[rgba(255,255,255,0.12)]"
                 aria-label="Close"
               >
-                âœ•
+                ✕
               </button>
             </div>
           </div>

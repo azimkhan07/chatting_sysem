@@ -21,6 +21,7 @@ final class Story extends Model
         'width',
         'height',
         'caption',
+        'effects',
         'expires_at',
     ];
 

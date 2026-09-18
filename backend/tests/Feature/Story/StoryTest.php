@@ -39,6 +39,26 @@ final class StoryTest extends TestCase
         ]);
     }
 
+    public function test_user_can_add_effects_to_a_story(): void
+    {
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/stories', [
+                'media' => FakeMedia::png(600, 800),
+                'caption' => 'Golden hour',
+                'effects' => 'clarendon',
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.story.effects', 'clarendon');
+
+        $this->assertDatabaseHas('stories', [
+            'user_id' => $user->id,
+            'caption' => 'Golden hour',
+            'effects' => 'clarendon',
+        ]);
+    }
+
     public function test_story_requires_media(): void
     {
         $user = User::factory()->create();

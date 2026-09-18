@@ -39,6 +39,7 @@ Route::prefix('v1')->group(function (): void {
     });
 
     Route::prefix('users')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+        Route::get('search', [UserController::class, 'search']);
         Route::get('{user}', [UserController::class, 'show']);
         Route::get('{user}/posts', [UserController::class, 'posts']);
         Route::get('{user}/followers', [UserController::class, 'followers']);

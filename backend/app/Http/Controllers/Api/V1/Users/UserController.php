@@ -22,6 +22,34 @@ final class UserController extends Controller
         private readonly PostService $postService,
     ) {}
 
+    public function search(Request $request): JsonResponse
+    {
+        $term = trim((string) $request->query('query', ''));
+
+        if ($term === '') {
+            return ApiResponse::success(data: ['users' => []]);
+        }
+
+        $users = User::query()
+            ->where(function ($query) use ($term): void {
+                $query->where('username', 'like', "%{$term}%")
+                    ->orWhere('display_name', 'like', "%{$term}%");
+            })
+            ->orderByRaw(
+                'CASE
+                    WHEN username LIKE ? THEN 0
+                    WHEN display_name LIKE ? THEN 1
+                    ELSE 2
+                 END',
+                ["{$term}%", "{$term}%"],
+            )
+            ->orderBy('username')
+            ->limit(8)
+            ->get();
+
+        return ApiResponse::success(data: ['users' => UserResource::collection($users)->resolve()]);
+    }
+
     public function show(Request $request, User $user): JsonResponse
     {
         $viewer = $request->user();

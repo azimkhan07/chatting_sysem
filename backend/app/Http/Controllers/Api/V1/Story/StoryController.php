@@ -34,6 +34,7 @@ final class StoryController extends Controller
             $request->user(),
             $request->file('media'),
             $request->validated('caption'),
+            $request->validated('effects'),
         );
 
         return ApiResponse::success(
