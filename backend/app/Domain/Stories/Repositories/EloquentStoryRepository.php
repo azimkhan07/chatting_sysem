@@ -23,7 +23,7 @@ final class EloquentStoryRepository implements StoryRepository
     public function activeGroupedFeed(): array
     {
         $active = Story::query()
-            ->with('user')
+            ->with(['user', 'song'])
             ->where('expires_at', '>', now())
             ->orderByDesc('id')
             ->get();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Stories\Models;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Songs\Models\Song;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -22,6 +23,7 @@ final class Story extends Model
         'height',
         'caption',
         'effects',
+        'song_id',
         'expires_at',
     ];
 
@@ -38,5 +40,10 @@ final class Story extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function song(): BelongsTo
+    {
+        return $this->belongsTo(Song::class);
     }
 }

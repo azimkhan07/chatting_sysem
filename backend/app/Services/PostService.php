@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Hashtags\Models\Hashtag;
 use App\Domain\Posts\Actions\CommentOnPostAction;
 use App\Domain\Posts\Actions\CreatePostAction;
 use App\Domain\Posts\Actions\LikePostAction;
@@ -41,6 +42,21 @@ final class PostService implements PostServiceContract
     public function postsBy(User $viewer, User $owner, int $limit = 20, ?string $cursor = null): CursorPaginator
     {
         return $this->listFeedAction->handleFor($owner->id, $viewer->id, $limit, $cursor);
+    }
+
+    public function reelsFor(User $user, int $limit = 20, ?string $cursor = null): CursorPaginator
+    {
+        return $this->listFeedAction->handleReels($user->id, $limit, $cursor);
+    }
+
+    public function exploreFor(User $user, int $limit = 20, ?string $cursor = null): CursorPaginator
+    {
+        return $this->listFeedAction->handleExplore($user->id, $limit, $cursor);
+    }
+
+    public function hashtagFeedFor(User $viewer, Hashtag $hashtag, int $limit = 20, ?string $cursor = null): CursorPaginator
+    {
+        return $this->listFeedAction->handleHashtag($hashtag, $viewer->id, $limit, $cursor);
     }
 
     public function like(User $user, Post $post): int

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1\Story;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\File;
 
 final class CreateStoryRequest extends FormRequest
@@ -15,7 +16,7 @@ final class CreateStoryRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<int, string|File>>
+     * @return array<string, array<int, string|File|Exists>>
      */
     public function rules(): array
     {
@@ -25,6 +26,7 @@ final class CreateStoryRequest extends FormRequest
             'media' => ['required', 'file', File::types($accepted)->max(100 * 1024)],
             'caption' => ['sometimes', 'nullable', 'string', 'max:500'],
             'effects' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'song_id' => ['sometimes', 'nullable', 'integer', new Exists('songs', 'id')],
         ];
     }
 }

@@ -41,6 +41,28 @@ final class PostController extends Controller
         );
     }
 
+    public function reels(Request $request): JsonResponse
+    {
+        return $this->feedPayload(
+            $this->postService->reelsFor(
+                $request->user(),
+                limit: $request->integer('limit', 15),
+                cursor: $request->query('cursor'),
+            ),
+        );
+    }
+
+    public function explore(Request $request): JsonResponse
+    {
+        return $this->feedPayload(
+            $this->postService->exploreFor(
+                $request->user(),
+                limit: $request->integer('limit', 24),
+                cursor: $request->query('cursor'),
+            ),
+        );
+    }
+
     public function store(CreatePostRequest $request): JsonResponse
     {
         $post = $this->postService->create(
@@ -50,7 +72,7 @@ final class PostController extends Controller
                 media: $request->file('media') ?? [],
             ),
         );
-        $post->load(['user', 'media']);
+        $post->load(['user', 'media', 'hashtags']);
 
         return ApiResponse::success(
             data: ['post' => (new PostResource($post))->resolve()],

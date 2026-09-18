@@ -19,6 +19,9 @@ final class StoryResource extends JsonResource
             'url' => asset('storage/'.$this->media_path),
             'caption' => $this->caption,
             'effects' => $this->effects,
+            'song' => $this->relationLoaded('song') && $this->song !== null
+                ? (new SongResource($this->song))->resolve()
+                : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),
         ];

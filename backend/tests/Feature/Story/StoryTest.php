@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Story;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Songs\Models\Song;
 use App\Domain\Stories\Models\Story;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\FakeMedia;
@@ -57,6 +58,46 @@ final class StoryTest extends TestCase
             'caption' => 'Golden hour',
             'effects' => 'clarendon',
         ]);
+    }
+
+    public function test_user_can_add_a_song_to_a_story(): void
+    {
+        $user = User::factory()->create();
+        $song = Song::query()->create([
+            'name' => 'Neon Nights',
+            'artist' => 'SoundHelix',
+            'url' => 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+            'duration' => 354,
+        ]);
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/stories', [
+                'media' => FakeMedia::png(600, 800),
+                'caption' => 'Lofi beats 🎧',
+                'effects' => 'crema',
+                'song_id' => $song->id,
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.story.song.id', $song->id)
+            ->assertJsonPath('data.story.song.name', 'Neon Nights');
+
+        $this->assertDatabaseHas('stories', [
+            'user_id' => $user->id,
+            'song_id' => $song->id,
+        ]);
+    }
+
+    public function test_unknown_song_on_a_story_is_rejected(): void
+    {
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/stories', [
+                'media' => FakeMedia::png(600, 800),
+                'song_id' => 9999,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.0.field', 'song_id');
     }
 
     public function test_story_requires_media(): void

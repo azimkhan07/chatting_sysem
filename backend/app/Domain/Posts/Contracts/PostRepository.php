@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Posts\Contracts;
 
+use App\Domain\Hashtags\Models\Hashtag;
 use App\Domain\Posts\Data\CreatePostData;
 use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
@@ -21,6 +22,21 @@ interface PostRepository
     public function feedFor(int $userId, int $limit, ?string $cursor): CursorPaginator;
 
     public function profileFeedFor(int $ownerId, int $viewerId, int $limit, ?string $cursor): CursorPaginator;
+
+    /**
+     * Video-only posts — the reels feed.
+     */
+    public function reelsFor(int $viewerId, int $limit, ?string $cursor): CursorPaginator;
+
+    /**
+     * Posts that have media attached — the explore grid.
+     */
+    public function exploreFor(int $viewerId, int $limit, ?string $cursor): CursorPaginator;
+
+    /**
+     * Posts carrying the hashtag, newest first.
+     */
+    public function hashtagFeedFor(Hashtag $hashtag, int $viewerId, int $limit, ?string $cursor): CursorPaginator;
 
     public function like(Post $post, int $userId): bool;
 

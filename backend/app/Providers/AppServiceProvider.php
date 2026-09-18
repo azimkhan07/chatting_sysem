@@ -10,6 +10,8 @@ use App\Domain\Auth\Contracts\PasswordResetService as PasswordResetServiceContra
 use App\Domain\Auth\Models\User;
 use App\Domain\Auth\Repositories\EloquentAuthRepository;
 use App\Domain\Auth\Services\LaravelPasswordResetService;
+use App\Domain\Hashtags\Contracts\HashtagRepository;
+use App\Domain\Hashtags\Repositories\EloquentHashtagRepository;
 use App\Domain\Posts\Contracts\PostRepository;
 use App\Domain\Posts\Contracts\PostService as PostServiceContract;
 use App\Domain\Posts\Repositories\EloquentPostRepository;
@@ -17,6 +19,8 @@ use App\Domain\Social\Contracts\FollowRepository;
 use App\Domain\Social\Contracts\NotificationRepository;
 use App\Domain\Social\Repositories\EloquentFollowRepository;
 use App\Domain\Social\Repositories\EloquentNotificationRepository;
+use App\Domain\Songs\Contracts\SongRepository;
+use App\Domain\Songs\Repositories\EloquentSongRepository;
 use App\Domain\Stories\Contracts\StoryRepository;
 use App\Domain\Stories\Repositories\EloquentStoryRepository;
 use App\Domain\Stories\Services\StoryService;
@@ -36,6 +40,8 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(AuthRepository::class, EloquentAuthRepository::class);
         $this->app->bind(PostServiceContract::class, PostService::class);
         $this->app->bind(PostRepository::class, EloquentPostRepository::class);
+        $this->app->bind(HashtagRepository::class, EloquentHashtagRepository::class);
+        $this->app->bind(SongRepository::class, EloquentSongRepository::class);
         $this->app->bind(FollowRepository::class, EloquentFollowRepository::class);
         $this->app->bind(NotificationRepository::class, EloquentNotificationRepository::class);
         $this->app->bind(StoryRepository::class, EloquentStoryRepository::class);

@@ -35,7 +35,9 @@ final class StoryController extends Controller
             $request->file('media'),
             $request->validated('caption'),
             $request->validated('effects'),
+            $request->validated('song_id'),
         );
+        $story->load('song');
 
         return ApiResponse::success(
             data: ['story' => (new StoryResource($story))->resolve()],

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
+use App\Http\Controllers\Api\V1\Hashtags\HashtagController;
+use App\Http\Controllers\Api\V1\Music\SongController;
 use App\Http\Controllers\Api\V1\Posts\PostController;
 use App\Http\Controllers\Api\V1\Posts\PostInteractionController;
 use App\Http\Controllers\Api\V1\Story\StoryController;
@@ -31,11 +33,22 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/', [PostController::class, 'index']);
         Route::post('/', [PostController::class, 'store']);
         Route::get('me', [PostController::class, 'mine']);
+        Route::get('reels', [PostController::class, 'reels']);
+        Route::get('explore', [PostController::class, 'explore']);
 
         Route::post('{post}/like', [PostInteractionController::class, 'like']);
         Route::delete('{post}/like', [PostInteractionController::class, 'unlike']);
         Route::get('{post}/comments', [PostInteractionController::class, 'comments']);
         Route::post('{post}/comments', [PostInteractionController::class, 'storeComment']);
+    });
+
+    Route::prefix('hashtags')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+        Route::get('search', [HashtagController::class, 'search']);
+        Route::get('{name}', [HashtagController::class, 'show']);
+    });
+
+    Route::prefix('songs')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+        Route::get('/', [SongController::class, 'index']);
     });
 
     Route::prefix('users')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
