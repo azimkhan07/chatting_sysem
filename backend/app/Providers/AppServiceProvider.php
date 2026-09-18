@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Domain\Auth\Contracts\AuthRepository;
 use App\Domain\Auth\Contracts\AuthService as AuthServiceContract;
 use App\Domain\Auth\Contracts\PasswordResetService as PasswordResetServiceContract;
+use App\Domain\Auth\Models\User;
 use App\Domain\Auth\Repositories\EloquentAuthRepository;
 use App\Domain\Auth\Services\LaravelPasswordResetService;
 use App\Domain\Posts\Contracts\PostRepository;
@@ -24,6 +25,7 @@ use App\Services\PostService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
@@ -47,5 +49,11 @@ final class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinutes(1, 60)->by($request->ip()));
         RateLimiter::for('password', fn (Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
         RateLimiter::for('notifications', fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
+
+        Route::bind('user', function (string $value): User {
+            return User::whereKey($value)
+                ->orWhere('username', $value)
+                ->firstOrFail();
+        });
     }
 }
