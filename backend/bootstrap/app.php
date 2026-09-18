@@ -24,7 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->redirectGuestsTo(static fn (Request $request): JsonResponse => ApiResponse::error(
+            'UNAUTHENTICATED',
+            'Authentication is required.',
+            401,
+        ));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(static function (InvalidCredentialsException $e, Request $request): JsonResponse {

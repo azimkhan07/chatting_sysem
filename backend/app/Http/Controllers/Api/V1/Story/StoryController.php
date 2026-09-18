@@ -30,12 +30,14 @@ final class StoryController extends Controller
 
     public function store(CreateStoryRequest $request): JsonResponse
     {
+        $songId = $request->validated('song_id');
+
         $story = $this->storyService->create(
             $request->user(),
             $request->file('media'),
             $request->validated('caption'),
             $request->validated('effects'),
-            $request->validated('song_id'),
+            $songId !== null ? (int) $songId : null,
         );
         $story->load('song');
 

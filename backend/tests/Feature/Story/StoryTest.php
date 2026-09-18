@@ -87,6 +87,32 @@ final class StoryTest extends TestCase
         ]);
     }
 
+    public function test_song_id_received_as_form_string_still_works(): void
+    {
+        $user = User::factory()->create();
+        $song = Song::query()->create([
+            'name' => 'Carefree',
+            'artist' => 'Kevin MacLeod',
+            'url' => 'https://incompetech.com/music/royalty-free/mp3-royaltyfree/Carefree.mp3',
+            'duration' => 247,
+        ]);
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/stories', [
+                'media' => FakeMedia::png(600, 800),
+                'caption' => 'Multipart string song id',
+                'effects' => 'clarendon',
+                'song_id' => (string) $song->id,
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.story.song.id', $song->id);
+
+        $this->assertDatabaseHas('stories', [
+            'user_id' => $user->id,
+            'song_id' => $song->id,
+        ]);
+    }
+
     public function test_unknown_song_on_a_story_is_rejected(): void
     {
         $user = User::factory()->create();
