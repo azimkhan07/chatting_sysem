@@ -1,5 +1,6 @@
 import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
+import type { Song } from '@/types/song'
 import type { Story, StoryGroup } from '@/types/story'
 import type { FollowResult, PublicUser, User, UserPage } from '@/types/user'
 
@@ -91,6 +92,17 @@ export interface LikeResult {
   likes_count: number
 }
 
+export interface HashtagSummary {
+  name: string
+  posts_count: number
+}
+
+export interface HashtagPageData {
+  hashtag: HashtagSummary
+  posts: Post[]
+  next_cursor: string | null
+}
+
 export const postsApi = {
   list: (cursor?: string) =>
     api.get<FeedPage>(
@@ -100,6 +112,14 @@ export const postsApi = {
     api.get<FeedPage>(
       `/posts/me?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
     ),
+  reels: (cursor?: string) =>
+    api.get<FeedPage>(
+      `/posts/reels?limit=10${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  explore: (cursor?: string) =>
+    api.get<FeedPage>(
+      `/posts/explore?limit=24${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
   create: (form: { body: string; media: File[] }) => {
     const data = new FormData()
     data.append('body', form.body)
@@ -108,6 +128,21 @@ export const postsApi = {
   },
   like: (postId: number) => api.post<LikeResult>(`/posts/${postId}/like`, {}),
   unlike: (postId: number) => api.delete<LikeResult>(`/posts/${postId}/like`),
+}
+
+export const hashtagsApi = {
+  page: (tag: string, cursor?: string) =>
+    api.get<HashtagPageData>(
+      `/hashtags/${encodeURIComponent(tag)}?limit=15${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  search: (query: string) =>
+    api.get<{ hashtags: HashtagSummary[] }>(
+      `/hashtags/search?query=${encodeURIComponent(query)}`,
+    ),
+}
+
+export const songsApi = {
+  list: () => api.get<{ songs: Song[] }>('/songs'),
 }
 
 export const commentsApi = {
@@ -167,11 +202,12 @@ export const notificationsApi = {
 
 export const storiesApi = {
   list: () => api.get<{ stories: StoryGroup[] }>('/stories'),
-  create: (form: { media: File; caption: string; effects: string }) => {
+  create: (form: { media: File; caption: string; effects: string; songId: number | null }) => {
     const data = new FormData()
     data.append('media', form.media)
     data.append('caption', form.caption)
     data.append('effects', form.effects)
+    if (form.songId !== null) data.append('song_id', String(form.songId))
     return api.postForm<{ story: Story }>('/stories', data)
   },
   destroy: (storyId: number) => api.delete<null>(`/stories/${storyId}`),

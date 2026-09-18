@@ -15,6 +15,7 @@ export interface Post {
   body: string
   author: User
   media: PostMedia[]
+  hashtags: string[]
   likes_count: number
   comments_count: number
   liked_by_me: boolean

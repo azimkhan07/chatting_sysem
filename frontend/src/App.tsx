@@ -6,7 +6,9 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import ThemeWash from '@/components/ThemeWash'
 import { queryClient } from '@/lib/queryClient'
 import { path } from '@/lib/paths'
+import Explore from '@/pages/Explore'
 import ForgotPassword from '@/pages/ForgotPassword'
+import HashtagPage from '@/pages/HashtagPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import Notifications from '@/pages/Notifications'
@@ -39,16 +41,8 @@ export default function App() {
                   />
                 }
               />
-              <Route
-                path={path('explore')}
-                element={
-                  <PlaceholderPage
-                    title="Explore"
-                    caption="Discovery, trending topics and new people."
-                    rows={12}
-                  />
-                }
-              />
+              <Route path={path('explore')} element={<Explore />} />
+              <Route path="/hashtags/:tag" element={<HashtagPage />} />
               <Route
                 path={path('notifications')}
                 element={<Notifications />}

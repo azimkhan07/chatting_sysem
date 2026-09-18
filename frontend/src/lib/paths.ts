@@ -24,3 +24,7 @@ export function path(key: RouteKey): string {
 export function userProfile(userIdOrUsername: string | number): string {
   return `/u/${encodeURIComponent(String(userIdOrUsername))}`
 }
+
+export function hashtagPage(tag: string): string {
+  return `/hashtags/${encodeURIComponent(tag)}`
+}

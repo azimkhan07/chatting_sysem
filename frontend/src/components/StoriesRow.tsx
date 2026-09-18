@@ -4,15 +4,21 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { Spinner } from '@/components/AuthLayout'
-import { storiesApi, usersApi } from '@/lib/api'
-import { userProfile } from '@/lib/paths'
+import { songsApi, storiesApi, usersApi } from '@/lib/api'
+import { hashtagPage, userProfile } from '@/lib/paths'
 import { filterCss, STORY_FILTERS } from '@/lib/storyFilters'
 import { useAuthStore } from '@/stores/authStore'
+import type { Song } from '@/types/song'
 import type { Story, StoryGroup } from '@/types/story'
 import type { User } from '@/types/user'
 
 const SEEN_KEY = 'amtechat:seen-stories'
 const RING = 'bg-gradient-to-tr from-amber-400 via-fuchsia-500 to-brand-400 p-[2.5px]'
+const EMOJI = [
+  '😀', '😂', '😍', '😎', '🥳', '😜', '🤩', '😇',
+  '❤️', '🔥', '✨', '💯', '👍', '👏', '🎉', '🎶',
+  '🌅', '🌙', '🌈', '⚡', '🚀', '💪', '🙌', '💫',
+]
 
 function readSeen(): Set<number> {
   try {
@@ -122,7 +128,7 @@ export default function StoriesRow() {
                 type="button"
                 onClick={() => setCreating(true)}
                 aria-label="Add a story"
-                className="absolute -bottom-1 left-1/2 grid h-[18px] w-[18px] -translate-x-1/2 place-items-center rounded-full bg-[#fff] text-[11px] font-bold leading-none text-brand-600 shadow-md ring-2 ring-[#0d1324] transition hover:scale-110 active:scale-95"
+                className="absolute -bottom-1 right-0 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#fff] text-[11px] font-bold leading-none text-brand-600 shadow-md ring-2 ring-[#0d1324] transition hover:scale-110 active:scale-95"
               >
                 +
               </button>
@@ -267,6 +273,10 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
   const [file, setFile] = useState<File | null>(null)
   const [caption, setCaption] = useState('')
   const [effects, setEffects] = useState('none')
+  const [songId, setSongId] = useState<number | null>(null)
+  const [songs, setSongs] = useState<Song[]>([])
+  const [showSongs, setShowSongs] = useState(false)
+  const [showEmoji, setShowEmoji] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mentionTerm, setMentionTerm] = useState<string | null>(null)
@@ -276,6 +286,10 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
 
   useEffect(() => {
     inputRef.current?.click()
+    void songsApi
+      .list()
+      .then((data) => setSongs(data.songs))
+      .catch(() => setSongs([]))
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current)
     }
@@ -327,7 +341,12 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
     setSaving(true)
     setError(null)
     try {
-      await storiesApi.create({ media: file, caption: caption.trim(), effects })
+      await storiesApi.create({
+        media: file,
+        caption: caption.trim(),
+        effects,
+        songId,
+      })
       onCreated()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not post your story.')
@@ -366,7 +385,7 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
           }}
         />
 
-        <div className="mt-4 aspect-[3/4] max-h-72 w-full overflow-hidden rounded-2xl bg-black">
+        <div className="relative mt-4 aspect-[3/4] max-h-72 w-full overflow-hidden rounded-2xl bg-black">
           {previewUrl ? (
             isVideo ? (
               <video
@@ -393,6 +412,14 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
               </p>
             </div>
           )}
+          {songId ? (
+            <div className="pointer-events-none absolute right-0 bottom-0 left-0 flex items-center gap-1.5 bg-gradient-to-t from-black/80 to-transparent px-3 pt-5 pb-2">
+              <MusicNoteIcon className="h-3.5 w-3.5 shrink-0 text-brand-300" />
+              <span className="truncate text-[11px] font-semibold text-[#fff]">
+                <Marquee text={`${songName(songs, songId)}`} />
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {file && !isVideo ? (
@@ -469,6 +496,82 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
           ) : null}
         </div>
 
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setShowSongs((value) => !value)
+              setShowEmoji(false)
+            }}
+            className={`btn-quiet px-3 py-1.5 text-xs ${songId ? 'ring-2 ring-brand-400' : ''}`}
+            aria-expanded={showSongs}
+          >
+            🎵 {songId ? songName(songs, songId) : 'Add music'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowEmoji((value) => !value)
+              setShowSongs(false)
+            }}
+            className="btn-quiet px-3 py-1.5 text-xs"
+            aria-expanded={showEmoji}
+          >
+            😀 Sticker
+          </button>
+        </div>
+
+        {showSongs ? (
+          <div className="mt-2 max-h-32 space-y-1 overflow-y-auto rounded-xl bg-white/5 p-1.5">
+            {songs.length === 0 ? (
+              <p className="px-2 py-3 text-center text-xs text-slate-500">
+                Music library is empty right now.
+              </p>
+            ) : (
+              songs.map((song) => {
+                const active = songId === song.id
+                return (
+                  <button
+                    key={song.id}
+                    type="button"
+                    onClick={() => setSongId(active ? null : song.id)}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition ${
+                      active ? 'bg-brand-500/25 ring-1 ring-brand-400/60' : 'hover:bg-white/10'
+                    }`}
+                  >
+                    <MusicNoteIcon className="h-4 w-4 shrink-0 text-brand-300" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-semibold text-slate-200">
+                        {song.name}
+                      </span>
+                      <span className="block truncate text-[11px] text-slate-500">
+                        {song.artist}
+                      </span>
+                    </span>
+                    {active ? <span className="ml-auto text-xs text-brand-300">✓</span> : null}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        ) : null}
+
+        {showEmoji ? (
+          <div className="mt-2 grid grid-cols-8 gap-1 rounded-xl bg-white/5 p-2">
+            {EMOJI.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => setCaption((value) => `${value}${value && !value.endsWith(' ') ? ' ' : ''}${emoji} `)}
+                className="grid h-8 w-8 place-items-center rounded-lg text-lg transition hover:bg-white/10 active:scale-90"
+                aria-label={`Add ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {error ? <p className="mt-2 text-sm text-rose-300">{error}</p> : null}
 
         <button
@@ -517,6 +620,7 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
   })
   const [paused, setPaused] = useState(false)
   const [muted, setMuted] = useState(true)
+  const [songPlaying, setSongPlaying] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -723,6 +827,26 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
           </p>
         ) : null}
 
+        {current.story.song ? (
+          <button
+            type="button"
+            onClick={() => setSongPlaying((value) => !value)}
+            className="absolute bottom-24 left-4 z-20 transition active:scale-95"
+            aria-label={songPlaying ? 'Pause story music' : 'Play story music'}
+          >
+            <MusicSticker song={current.story.song} muted={!songPlaying} />
+          </button>
+        ) : null}
+
+        {current.story.song && songPlaying ? (
+          <audio
+            key={current.story.id}
+            src={current.story.song.url}
+            autoPlay
+            onEnded={() => setSongPlaying(false)}
+          />
+        ) : null}
+
         {pause && current.story.type === 'image' ? (
           <span className="absolute inset-x-0 bottom-16 z-20 mx-auto w-fit rounded-full bg-[rgba(0,0,0,0.5)] px-3 py-1 text-xs text-[#fff] backdrop-blur">
             Paused
@@ -830,13 +954,76 @@ function renderCaption(caption: string, navigate: (path: string) => void) {
     }
     if (token.startsWith('#')) {
       return (
-        <span key={index} className="font-semibold text-amber-300">
+        <button
+          key={index}
+          type="button"
+          onClick={() => navigate(hashtagPage(token.slice(1)))}
+          className="font-semibold text-amber-300 hover:underline"
+        >
           {token}
-        </span>
+        </button>
       )
     }
     return <span key={index}>{token}</span>
   })
+}
+
+function MusicNoteIcon({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M9 18.5V6.2a1 1 0 0 1 .78-.98l8-1.8a1 1 0 0 1 1.22.98v11.1M9 18.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm12-1.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function MusicSticker({ song, muted }: { song: Song; muted: boolean }) {
+  return (
+    <div className="flex items-center gap-2 rounded-full bg-[rgba(0,0,0,0.55)] py-1 pr-3 pl-2 backdrop-blur">
+      <NoteWaveIcon className="h-5 w-5 shrink-0 text-brand-300" />
+      <div className="w-36 overflow-hidden">
+        <Marquee text={`♪ ${song.name} — ${song.artist}`} />
+      </div>
+      <span className="shrink-0 text-[10px] text-[rgba(255,255,255,0.8)]">
+        {muted ? '🔇' : '🔊'}
+      </span>
+    </div>
+  )
+}
+
+function NoteWaveIcon({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M9 4.5v11.55a3 3 0 1 0 1.5 2.6V7.2l8-2v9.85a3 3 0 1 0 1.5 2.6V4l-10.5 2.5Z" />
+    </svg>
+  )
+}
+
+function Marquee({ text }: { text: string }) {
+  const [move, setMove] = useState(false)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMove(true), 800)
+    return () => window.clearTimeout(timer)
+  }, [])
+  return (
+    <span className="block overflow-hidden text-nowrap text-[11px] font-semibold text-[#fff]">
+      <span
+        className={`inline-block ${move ? 'marquee-anim' : ''}`}
+        style={{ paddingRight: '2rem' }}
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function songName(songs: Song[], songId: number): string {
+  return songs.find((song) => song.id === songId)?.name ?? 'Unknown'
 }
 
 function relativeTime(value: string): string {

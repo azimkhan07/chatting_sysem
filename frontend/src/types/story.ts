@@ -1,3 +1,4 @@
+import type { Song } from '@/types/song'
 import type { User } from '@/types/user'
 
 export type StoryMediaType = 'image' | 'video'
@@ -8,6 +9,7 @@ export interface Story {
   url: string
   caption: string | null
   effects: string | null
+  song: Song | null
   created_at: string
   expires_at: string
 }

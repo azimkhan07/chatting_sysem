@@ -143,6 +143,19 @@ body {
   }
 }
 
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-anim {
+  animation: marquee-scroll 7s linear infinite alternate;
+}
+
 @layer components {
   .mesh-bg {
     @apply pointer-events-none absolute inset-0 overflow-hidden;
