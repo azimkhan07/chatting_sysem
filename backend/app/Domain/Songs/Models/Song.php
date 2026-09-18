@@ -16,5 +16,6 @@ final class Song extends Model
         'artist',
         'url',
         'duration',
+        'genre',
     ];
 }

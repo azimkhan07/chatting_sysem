@@ -19,6 +19,7 @@ final class SongResource extends JsonResource
             'artist' => $this->artist,
             'url' => $this->url,
             'duration' => $this->duration,
+            'genre' => $this->genre,
         ];
     }
 }

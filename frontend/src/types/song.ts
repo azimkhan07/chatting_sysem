@@ -4,4 +4,5 @@ export interface Song {
   artist: string
   url: string
   duration: number | null
+  genre: string | null
 }

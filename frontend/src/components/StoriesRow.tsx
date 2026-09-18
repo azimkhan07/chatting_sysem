@@ -276,6 +276,7 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
   const [songId, setSongId] = useState<number | null>(null)
   const [songs, setSongs] = useState<Song[]>([])
   const [showSongs, setShowSongs] = useState(false)
+  const [genreFilter, setGenreFilter] = useState('All')
   const [showEmoji, setShowEmoji] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -513,6 +514,7 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
             onClick={() => {
               setShowEmoji((value) => !value)
               setShowSongs(false)
+              setGenreFilter('All')
             }}
             className="btn-quiet px-3 py-1.5 text-xs"
             aria-expanded={showEmoji}
@@ -522,37 +524,61 @@ function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) {
         </div>
 
         {showSongs ? (
-          <div className="mt-2 max-h-32 space-y-1 overflow-y-auto rounded-xl bg-white/5 p-1.5">
-            {songs.length === 0 ? (
-              <p className="px-2 py-3 text-center text-xs text-slate-500">
-                Music library is empty right now.
-              </p>
-            ) : (
-              songs.map((song) => {
-                const active = songId === song.id
-                return (
-                  <button
-                    key={song.id}
-                    type="button"
-                    onClick={() => setSongId(active ? null : song.id)}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition ${
-                      active ? 'bg-brand-500/25 ring-1 ring-brand-400/60' : 'hover:bg-white/10'
-                    }`}
-                  >
-                    <MusicNoteIcon className="h-4 w-4 shrink-0 text-brand-300" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-semibold text-slate-200">
-                        {song.name}
-                      </span>
-                      <span className="block truncate text-[11px] text-slate-500">
-                        {song.artist}
-                      </span>
-                    </span>
-                    {active ? <span className="ml-auto text-xs text-brand-300">✓</span> : null}
-                  </button>
-                )
-              })
-            )}
+          <div className="mt-2 rounded-xl bg-white/5 p-1.5">
+            <div className="mb-1.5 flex gap-1.5 overflow-x-auto border-b border-white/10 pb-1.5">
+              {['All', ...Array.from(new Set(songs.map((song) => song.genre).filter(Boolean) as string[]))].map(
+                (genre) => {
+                  const active = genreFilter === genre
+                  return (
+                    <button
+                      key={genre}
+                      type="button"
+                      onClick={() => setGenreFilter(active ? 'All' : genre)}
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+                        active ? 'bg-brand-500/80 text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                      }`}
+                    >
+                      {genre}
+                    </button>
+                  )
+                },
+              )}
+            </div>
+            <div className="max-h-32 space-y-1 overflow-y-auto">
+              {songs.length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs text-slate-500">
+                  Music library is empty right now.
+                </p>
+              ) : (
+                songs
+                  .filter((song) => genreFilter === 'All' || song.genre === genreFilter)
+                  .map((song) => {
+                    const active = songId === song.id
+                    return (
+                      <button
+                        key={song.id}
+                        type="button"
+                        onClick={() => setSongId(active ? null : song.id)}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition ${
+                          active ? 'bg-brand-500/25 ring-1 ring-brand-400/60' : 'hover:bg-white/10'
+                        }`}
+                      >
+                        <MusicNoteIcon className="h-4 w-4 shrink-0 text-brand-300" />
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-semibold text-slate-200">
+                            {song.name}
+                          </span>
+                          <span className="block truncate text-[11px] text-slate-500">
+                            {song.artist}
+                            {song.genre ? ` · ${song.genre}` : ''}
+                          </span>
+                        </span>
+                        {active ? <span className="ml-auto text-xs text-brand-300">✓</span> : null}
+                      </button>
+                    )
+                  })
+              )}
+            </div>
           </div>
         ) : null}
 
