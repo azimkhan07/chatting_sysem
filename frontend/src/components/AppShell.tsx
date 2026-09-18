@@ -55,7 +55,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
                 {item.icon}
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 {item.badge ? (
-                  <span className="rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  <span className="rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#fff]">
                     {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 ) : null}
@@ -65,7 +65,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
 
           <div className="mt-auto">
             <div className="flex items-center gap-2.5 rounded-xl border border-white/5 bg-white/[0.03] p-2.5">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xs font-bold text-white">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xs font-bold text-[#fff]">
                 {(user?.display_name ?? '?').charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
@@ -135,7 +135,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
             <span className="relative">
               {item.icon}
               {item.badge ? (
-                <span className="absolute -right-2 -top-1.5 grid h-3.5 w-3.5 place-items-center rounded-full bg-brand-500 text-[8px] font-bold text-white">
+                <span className="absolute -right-2 -top-1.5 grid h-3.5 w-3.5 place-items-center rounded-full bg-brand-500 text-[8px] font-bold text-[#fff]">
                   {item.badge > 9 ? '9+' : item.badge}
                 </span>
               ) : null}

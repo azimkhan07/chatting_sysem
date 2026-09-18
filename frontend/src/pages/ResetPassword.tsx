@@ -42,7 +42,7 @@ export default function ResetPassword() {
           </p>
           <Link
             to="/forgot-password"
-            className="inline-block rounded-xl bg-gradient-to-r from-brand-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+            className="inline-block rounded-xl bg-gradient-to-r from-brand-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-[#fff] transition hover:brightness-110"
           >
             Request a new link
           </Link>
@@ -71,7 +71,7 @@ export default function ResetPassword() {
             </p>
             <Link
               to="/login"
-              className="inline-block rounded-xl bg-gradient-to-r from-brand-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+              className="inline-block rounded-xl bg-gradient-to-r from-brand-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-[#fff] transition hover:brightness-110"
             >
               Go to sign in
             </Link>

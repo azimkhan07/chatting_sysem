@@ -150,7 +150,7 @@ export default function Home() {
         className="glass-card p-4"
       >
         <div className="flex gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-sm font-bold text-white">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-sm font-bold text-[#fff]">
             {(sessionUser?.display_name ?? '?').charAt(0).toUpperCase()}
           </span>
           <textarea
@@ -189,7 +189,7 @@ export default function Home() {
                   type="button"
                   onClick={() => removeMedia(index)}
                   aria-label="Remove attachment"
-                  className="absolute top-1 right-1 grid h-5 w-5 place-items-center rounded-full bg-black/70 text-xs text-white backdrop-blur transition hover:bg-rose-500"
+                  className="absolute top-1 right-1 grid h-5 w-5 place-items-center rounded-full bg-black/70 text-xs text-[#fff] backdrop-blur transition hover:bg-rose-500"
                 >
                   ×
                 </button>
@@ -444,7 +444,7 @@ function PostCard({ post }: { post: Post }) {
               </ul>
 
               <form onSubmit={handleCommentSubmit} className="flex items-center gap-2">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[10px] font-bold text-white">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[10px] font-bold text-[#fff]">
                   {(sessionUser?.display_name ?? '?').charAt(0).toUpperCase()}
                 </span>
                 <input

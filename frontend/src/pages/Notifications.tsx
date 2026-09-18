@@ -137,7 +137,7 @@ function NotificationRow({ notification, onOpen }: NotificationRowProps) {
 
 function Avatar({ user }: { user: User }) {
   return (
-    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-sm font-bold text-white">
+    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-sm font-bold text-[#fff]">
       {(user.display_name || user.username).charAt(0).toUpperCase()}
     </span>
   )

@@ -65,11 +65,11 @@ export default function Profile() {
       <header className="glass-card p-4 sm:p-5">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            <span className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xl font-bold text-white ring-2 ring-white/10 sm:h-20 sm:w-20 sm:text-2xl">
+            <span className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xl font-bold text-[#fff] ring-2 ring-white/10 sm:h-20 sm:w-20 sm:text-2xl">
               {initials}
             </span>
             {user?.is_verified ? (
-              <span className="absolute -right-1 -bottom-1 grid h-6 w-6 place-items-center rounded-full bg-sky-500 text-xs font-bold text-white ring-2 ring-midnight-950">
+              <span className="absolute -right-1 -bottom-1 grid h-6 w-6 place-items-center rounded-full bg-sky-500 text-xs font-bold text-[#fff] ring-2 ring-midnight-950">
                 ✓
               </span>
             ) : null}
@@ -180,7 +180,7 @@ export function ProfileTile({ post }: { post: Post }) {
       )}
       {post.body ? (
         <span className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/70 to-transparent p-1.5 group-hover:block">
-          <p className="truncate text-[10px] text-white">{post.body}</p>
+          <p className="truncate text-[10px] text-[#fff]">{post.body}</p>
         </span>
       ) : null}
     </div>

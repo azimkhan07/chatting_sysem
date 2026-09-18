@@ -20,8 +20,83 @@
   --color-midnight-950: #070812;
 }
 
+/*
+ * Theme tokens.
+ *
+ * Pages are built on menu-driven colours (white, slate, midnight), so a
+ * theme is expressed by remapping those tokens per `data-theme`.
+ * Light is the default; dark restores the native palette above.
+ */
 :root {
+  color-scheme: light;
+
+  --canvas: #f2f4fb;
+
+  --color-midnight-950: #f2f4fb;
+  --color-white: #1c2333;
+
+  --color-slate-100: #232b3c;
+  --color-slate-200: #2d3648;
+  --color-slate-300: #404a5c;
+  --color-slate-400: #5d6676;
+  --color-slate-500: #7a8394;
+  --color-slate-600: #98a0af;
+  --color-slate-700: #dfe3ec;
+  --color-slate-800: #eef1f7;
+  --color-slate-900: #ffffff;
+  --color-slate-950: #f6f8fc;
+
+  --color-brand-200: #6d28d9;
+  --color-brand-300: #6d28d9;
+
+  --color-rose-300: #e11d48;
+  --color-sky-300: #0369a1;
+
+  --grad-a: #6d28d9;
+  --grad-b: #a21caf;
+}
+
+[data-theme='dark'] {
   color-scheme: dark;
+
+  --canvas: #070812;
+
+  --color-midnight-950: #070812;
+  --color-white: #ffffff;
+
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+
+  --color-rose-300: #fda4af;
+  --color-sky-300: #7dd3fc;
+
+  --grad-a: #c4b5fd;
+  --grad-b: #f0abfc;
+}
+
+/* Smooth cross-fade while a theme swap is in flight. */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    fill 0.3s ease,
+    stroke 0.3s ease !important;
 }
 
 html {
@@ -113,12 +188,13 @@ body {
   }
 
   .btn-primary {
-    @apply flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition;
+    @apply flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition;
     background-image: linear-gradient(
       90deg,
       var(--color-brand-500),
       var(--color-brand-700)
     );
+    color: #fff;
     @apply hover:brightness-110 active:scale-[0.99] focus-visible:ring-4 focus-visible:ring-brand-500/30 focus-visible:outline-none;
     @apply disabled:cursor-not-allowed disabled:opacity-70;
   }
@@ -135,12 +211,7 @@ body {
 
   .text-gradient {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(
-      90deg,
-      var(--color-brand-300),
-      var(--color-fuchsia-300),
-      var(--color-brand-400)
-    );
+    background-image: linear-gradient(90deg, var(--grad-a), var(--grad-b));
   }
 
   .badge {

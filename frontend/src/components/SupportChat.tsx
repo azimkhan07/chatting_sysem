@@ -83,17 +83,17 @@ export default function SupportChat() {
             <header className="flex items-center justify-between bg-gradient-to-r from-brand-600 to-fuchsia-600 px-4 py-3">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-8 w-8 place-items-center rounded-full bg-white/15">
-                  <SparkleIcon className="h-4 w-4 text-white" />
+                  <SparkleIcon className="h-4 w-4 text-[#fff]" />
                 </span>
                 <div>
-                  <p className="text-sm font-bold text-white">amteCHAT support</p>
-                  <p className="text-[11px] text-white/70">Usually answers instantly</p>
+                  <p className="text-sm font-bold text-[#fff]">amteCHAT support</p>
+                  <p className="text-[11px] text-[rgba(255,255,255,0.7)]">Usually answers instantly</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-lg p-1 text-white/80 transition hover:bg-white/10"
+                className="rounded-lg p-1 text-[rgba(255,255,255,0.8)] transition hover:bg-white/20"
                 aria-label="Close chat"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -121,7 +121,7 @@ export default function SupportChat() {
                       'rounded-2xl px-3.5 py-2 text-sm',
                       message.from === 'bot'
                         ? 'bg-white/5 text-slate-200'
-                        : 'bg-gradient-to-r from-brand-500 to-brand-700 text-white',
+                        : 'bg-gradient-to-r from-brand-500 to-brand-700 text-[#fff]',
                     ].join(' ')}
                   >
                     {message.text}
@@ -146,7 +146,7 @@ export default function SupportChat() {
               />
               <button
                 type="submit"
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-brand-500 to-brand-700 text-white transition hover:brightness-110 active:scale-95"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-brand-500 to-brand-700 text-[#fff] transition hover:brightness-110 active:scale-95"
                 aria-label="Send"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -169,7 +169,7 @@ export default function SupportChat() {
         onClick={() => setOpen((current) => !current)}
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
-        className="fixed bottom-20 right-4 z-30 grid h-13 w-13 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-fuchsia-600 text-white shadow-xl shadow-brand-600/40 md:bottom-5 md:right-5"
+        className="fixed bottom-20 right-4 z-30 grid h-13 w-13 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-fuchsia-600 text-[#fff] shadow-xl shadow-brand-600/40 md:bottom-5 md:right-5"
         aria-label="Open support chat"
       >
         <SparkleIcon className="h-6 w-6" />

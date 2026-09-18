@@ -111,7 +111,7 @@ function ChatBubble({
       className="bubble flex items-end gap-2.5 rounded-2xl border border-white/10 bg-slate-900/70 p-3.5 backdrop-blur"
       style={style}
     >
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[11px] font-bold text-white">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[11px] font-bold text-[#fff]">
         {initials}
       </span>
       <div className="space-y-1.5">

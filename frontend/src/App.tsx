@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import AppLayout from '@/components/AppLayout'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import ThemeWash from '@/components/ThemeWash'
 import { queryClient } from '@/lib/queryClient'
 import { path } from '@/lib/paths'
 import ForgotPassword from '@/pages/ForgotPassword'
@@ -13,11 +14,13 @@ import PlaceholderPage from '@/pages/PlaceholderPage'
 import Profile from '@/pages/Profile'
 import Register from '@/pages/Register'
 import ResetPassword from '@/pages/ResetPassword'
+import Settings from '@/pages/Settings'
 import UserProfile from '@/pages/UserProfile'
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeWash />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -57,13 +60,7 @@ export default function App() {
               />
               <Route
                 path={path('settings')}
-                element={
-                  <PlaceholderPage
-                    title="Settings"
-                    caption="Account, privacy and the blue tick — coming soon."
-                    rows={4}
-                  />
-                }
+                element={<Settings />}
               />
             </Route>
           </Route>
