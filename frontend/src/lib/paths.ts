@@ -28,3 +28,7 @@ export function userProfile(userIdOrUsername: string | number): string {
 export function hashtagPage(tag: string): string {
   return `/hashtags/${encodeURIComponent(tag)}`
 }
+
+export function chatConversation(conversationId: number | string): string {
+  return `${ROUTES.chat}/${encodeURIComponent(String(conversationId))}`
+}

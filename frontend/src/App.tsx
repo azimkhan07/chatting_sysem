@@ -6,13 +6,13 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import ThemeWash from '@/components/ThemeWash'
 import { queryClient } from '@/lib/queryClient'
 import { path } from '@/lib/paths'
+import ChatPage from '@/pages/ChatPage'
 import Explore from '@/pages/Explore'
 import ForgotPassword from '@/pages/ForgotPassword'
 import HashtagPage from '@/pages/HashtagPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import Notifications from '@/pages/Notifications'
-import PlaceholderPage from '@/pages/PlaceholderPage'
 import Profile from '@/pages/Profile'
 import Register from '@/pages/Register'
 import ResetPassword from '@/pages/ResetPassword'
@@ -32,14 +32,10 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path={path('home')} element={<Home />} />
+              <Route path={path('chat')} element={<ChatPage />} />
               <Route
-                path={path('chat')}
-                element={
-                  <PlaceholderPage
-                    title="Chats"
-                    caption="Your conversations will live here — DMs and groups."
-                  />
-                }
+                path={`${path('chat')}/:conversationId`}
+                element={<ChatPage />}
               />
               <Route path={path('explore')} element={<Explore />} />
               <Route path="/hashtags/:tag" element={<HashtagPage />} />

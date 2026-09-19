@@ -1,3 +1,9 @@
+import type {
+  ChatMessagesPage,
+  ChatUnreadTotal,
+  Conversation,
+  ConversationMessage,
+} from '@/types/chat'
 import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
 import type { Song } from '@/types/song'
@@ -83,6 +89,11 @@ export const api = {
     request<T>(path, {
       method: 'POST',
       body: data,
+    }),
+  patch: <T>(path: string, data: unknown) =>
+    request<T>(path, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }
@@ -211,4 +222,48 @@ export const storiesApi = {
     return api.postForm<{ story: Story }>('/stories', data)
   },
   destroy: (storyId: number) => api.delete<null>(`/stories/${storyId}`),
+}
+
+export const chatApi = {
+  conversations: () => api.get<{ conversations: Conversation[] }>('/chat/conversations'),
+  show: (conversationId: number) =>
+    api.get<{ conversation: Conversation }>(`/chat/conversations/${conversationId}`),
+  startDm: (userId: number) =>
+    api.post<{ conversation: Conversation }>('/chat/conversations', {
+      type: 'dm',
+      user_id: userId,
+    }),
+  createGroup: (name: string, memberIds: number[]) =>
+    api.post<{ conversation: Conversation }>('/chat/conversations', {
+      type: 'group',
+      name,
+      member_ids: memberIds,
+    }),
+  setMuted: (conversationId: number, muted: boolean) =>
+    api.patch<{ conversation: Conversation }>(`/chat/conversations/${conversationId}`, {
+      muted,
+    }),
+  messages: (conversationId: number, cursor?: string) =>
+    api.get<ChatMessagesPage>(
+      `/chat/conversations/${conversationId}/messages?limit=30${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  send: (conversationId: number, body: string, clientId: string) =>
+    api.post<{ message: ConversationMessage }>(
+      `/chat/conversations/${conversationId}/messages`,
+      { type: 'text', body, client_id: clientId },
+    ),
+  markRead: (conversationId: number, upToMessageId: number) =>
+    api.post<{ read_up_to: number; unread: number }>(
+      `/chat/conversations/${conversationId}/read`,
+      { up_to_message_id: upToMessageId },
+    ),
+  typing: (conversationId: number) =>
+    api.post<null>(`/chat/conversations/${conversationId}/typing`, {}),
+  addMember: (conversationId: number, userId: number) =>
+    api.post<{ conversation: Conversation }>(`/chat/conversations/${conversationId}/members`, {
+      user_id: userId,
+    }),
+  removeMember: (conversationId: number, userId: number) =>
+    api.delete<null>(`/chat/conversations/${conversationId}/members/${userId}`),
+  unreadTotal: () => api.get<ChatUnreadTotal>('/chat/unread-total'),
 }

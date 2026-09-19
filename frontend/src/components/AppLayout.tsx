@@ -11,7 +11,7 @@ import {
   SettingsIcon,
   UserIcon,
 } from '@/components/icons'
-import { api, ApiError, notificationsApi } from '@/lib/api'
+import { api, ApiError, chatApi, notificationsApi } from '@/lib/api'
 import { path } from '@/lib/paths'
 import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types/user'
@@ -31,9 +31,23 @@ export default function AppLayout() {
 
   const unread = unreadQuery.data?.unread ?? 0
 
+  const chatUnreadQuery = useQuery({
+    queryKey: ['chat', 'unread'],
+    queryFn: chatApi.unreadTotal,
+    enabled: token !== null,
+    refetchInterval: 15_000,
+  })
+
+  const chatUnread = chatUnreadQuery.data?.unread ?? 0
+
   const NAV = [
     { to: path('home'), label: 'Home', icon: <HomeIcon /> },
-    { to: path('chat'), label: 'Chats', icon: <ChatIcon /> },
+    {
+      to: path('chat'),
+      label: 'Chats',
+      icon: <ChatIcon />,
+      badge: chatUnread || undefined,
+    },
     { to: path('explore'), label: 'Explore', icon: <CompassIcon /> },
     { to: path('notifications'), label: 'Activity', icon: <BellIcon />, badge: unread || undefined },
     { to: path('profile'), label: 'Profile', icon: <UserIcon /> },
