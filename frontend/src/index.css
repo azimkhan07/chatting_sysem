@@ -235,3 +235,56 @@ body {
     animation: bubble-float 6s ease-in-out infinite;
   }
 }
+
+/* -- Story viewer: progress bars --------------------------------------- */
+@keyframes story-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+.story-progress {
+  height: 100%;
+  border-radius: 9999px;
+  background: #fff;
+  transform-origin: left;
+  animation-name: story-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.story-progress-paused .story-progress,
+.story-progress.paused {
+  animation-play-state: paused;
+}
+
+/* -- Story composer: sticker chips ------------------------------------- */
+.sticker-chip {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1/1;
+  border-radius: 0.9rem;
+  font-size: 1.5rem;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.sticker-chip:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+.sticker-chip:active {
+  transform: scale(0.92);
+}
+
+/* -- Text styling options ---------------------------------------------- */
+.story-text-option {
+  display: grid;
+  place-items: center;
+  height: 2rem;
+  min-width: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: all 0.12s ease;
+}
+.story-text-option-on {
+  outline: 2px solid rgba(244, 114, 182, 0.9);
+  outline-offset: 1px;
+}

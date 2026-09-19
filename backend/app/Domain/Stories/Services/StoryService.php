@@ -17,18 +17,41 @@ final class StoryService
         private readonly StoryMediaProcessor $mediaProcessor,
     ) {}
 
-    public function create(User $user, UploadedFile $file, ?string $caption, ?string $effects = null, ?int $songId = null): Story
-    {
-        $media = $this->mediaProcessor->process($user->id, $file);
+    public function create(
+        User $user,
+        ?UploadedFile $file,
+        ?string $mediaUrl = null,
+        ?string $caption = null,
+        ?string $effects = null,
+        ?int $songId = null,
+        ?array $textStyle = null,
+    ): Story {
+        if ($file !== null) {
+            $media = $this->mediaProcessor->process($user->id, $file);
+            $attributes = [
+                'media_path' => $media['file_path'],
+                'media_url' => null,
+                'type' => $media['type']->value,
+                'mime' => $media['mime'],
+                'width' => $media['width'],
+                'height' => $media['height'],
+            ];
+        } else {
+            $attributes = [
+                'media_path' => null,
+                'media_url' => $mediaUrl,
+                'type' => 'image',
+                'mime' => null,
+                'width' => null,
+                'height' => null,
+            ];
+        }
 
         return $this->storyRepository->create($user->id, [
-            'media_path' => $media['file_path'],
-            'type' => $media['type']->value,
-            'mime' => $media['mime'],
-            'width' => $media['width'],
-            'height' => $media['height'],
+            ...$attributes,
             'caption' => $caption,
             'effects' => $effects,
+            'text_style' => $textStyle,
             'song_id' => $songId,
         ]);
     }

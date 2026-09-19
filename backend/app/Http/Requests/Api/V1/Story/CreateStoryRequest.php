@@ -23,10 +23,17 @@ final class CreateStoryRequest extends FormRequest
         $accepted = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov'];
 
         return [
-            'media' => ['required', 'file', File::types($accepted)->max(100 * 1024)],
+            'media' => ['required_without:media_url', 'file', File::types($accepted)->max(100 * 1024)],
+            'media_url' => ['required_without:media', 'nullable', 'url', 'max:2048'],
             'caption' => ['sometimes', 'nullable', 'string', 'max:500'],
             'effects' => ['sometimes', 'nullable', 'string', 'max:32'],
             'song_id' => ['sometimes', 'nullable', 'integer', new Exists('songs', 'id')],
+            'text_style' => ['sometimes', 'nullable', 'array'],
+            'text_style.font' => ['sometimes', 'string', 'in:sm,md,lg,xl,2xl'],
+            'text_style.color' => ['sometimes', 'string', 'in:white,black,yellow,red,green,blue,pink,orange,purple'],
+            'text_style.align' => ['sometimes', 'string', 'in:left,center,right'],
+            'text_style.bg' => ['sometimes', 'string', 'in:none,solid,gradient'],
+            'text_style.pos' => ['sometimes', 'string', 'in:top,middle,bottom'],
         ];
     }
 }

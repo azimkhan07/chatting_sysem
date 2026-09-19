@@ -6,8 +6,8 @@ import type {
 } from '@/types/chat'
 import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
-import type { Song } from '@/types/song'
-import type { Story, StoryGroup } from '@/types/story'
+import type { SearchSong, Song } from '@/types/song'
+import type { GifResult, Story, StoryGroup, TextStyle } from '@/types/story'
 import type { FollowResult, PublicUser, User, UserPage } from '@/types/user'
 
 const API_BASE = '/api/v1'
@@ -154,6 +154,14 @@ export const hashtagsApi = {
 
 export const songsApi = {
   list: () => api.get<{ songs: Song[] }>('/songs'),
+  search: (query: string) =>
+    api.get<{ songs: SearchSong[] }>(
+      `/songs/search?q=${encodeURIComponent(query)}`,
+    ),
+  import: (song: { name: string; artist: string; url: string; genre?: string | null }) =>
+    api.post<{ song: Song }>('/songs/import', song),
+  gifs: (query: string) =>
+    api.get<{ gifs: GifResult[] }>(`/songs/gifs?q=${encodeURIComponent(query)}`),
 }
 
 export const commentsApi = {
@@ -213,14 +221,35 @@ export const notificationsApi = {
 
 export const storiesApi = {
   list: () => api.get<{ stories: StoryGroup[] }>('/stories'),
-  create: (form: { media: File; caption: string; effects: string; songId: number | null }) => {
+  create: (form: {
+    media: File
+    caption: string
+    effects: string
+    songId: number | null
+    textStyle?: TextStyle
+  }) => {
     const data = new FormData()
     data.append('media', form.media)
     data.append('caption', form.caption)
     data.append('effects', form.effects)
     if (form.songId !== null) data.append('song_id', String(form.songId))
+    if (form.textStyle) data.append('text_style', JSON.stringify(form.textStyle))
     return api.postForm<{ story: Story }>('/stories', data)
   },
+  createFromUrl: (form: {
+    url: string
+    caption: string
+    effects: string
+    songId: number | null
+    textStyle?: TextStyle
+  }) =>
+    api.post<{ story: Story }>('/stories', {
+      media_url: form.url,
+      caption: form.caption,
+      effects: form.effects,
+      song_id: form.songId,
+      text_style: form.textStyle,
+    }),
   destroy: (storyId: number) => api.delete<null>(`/stories/${storyId}`),
 }
 

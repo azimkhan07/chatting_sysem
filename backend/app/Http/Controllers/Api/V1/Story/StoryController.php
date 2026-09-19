@@ -35,9 +35,11 @@ final class StoryController extends Controller
         $story = $this->storyService->create(
             $request->user(),
             $request->file('media'),
+            $request->validated('media_url'),
             $request->validated('caption'),
             $request->validated('effects'),
             $songId !== null ? (int) $songId : null,
+            $request->validated('text_style'),
         );
         $story->load('song');
 

@@ -17,12 +17,14 @@ final class Story extends Model
     protected $fillable = [
         'user_id',
         'media_path',
+        'media_url',
         'type',
         'mime',
         'width',
         'height',
         'caption',
         'effects',
+        'text_style',
         'song_id',
         'expires_at',
     ];
@@ -34,6 +36,7 @@ final class Story extends Model
     {
         return [
             'expires_at' => 'datetime',
+            'text_style' => 'array',
         ];
     }
 

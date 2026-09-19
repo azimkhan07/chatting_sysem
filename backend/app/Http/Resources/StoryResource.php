@@ -16,9 +16,10 @@ final class StoryResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $this->type,
-            'url' => asset('storage/'.$this->media_path),
+            'url' => $this->media_path !== null ? asset('storage/'.$this->media_path) : $this->media_url,
             'caption' => $this->caption,
             'effects' => $this->effects,
+            'text_style' => $this->text_style,
             'song' => $this->relationLoaded('song') && $this->song !== null
                 ? (new SongResource($this->song))->resolve()
                 : null,

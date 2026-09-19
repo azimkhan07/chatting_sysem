@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'giphy' => [
+        'key' => env('GIPHY_API_KEY'),
+    ],
+
 ];

@@ -53,6 +53,9 @@ Route::prefix('v1')->group(function (): void {
 
     Route::prefix('songs')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
         Route::get('/', [SongController::class, 'index']);
+        Route::get('search', [SongController::class, 'searchMusic']);
+        Route::post('import', [SongController::class, 'importMusic']);
+        Route::get('gifs', [SongController::class, 'searchGifs']);
     });
 
     Route::prefix('chat')->middleware(['auth:sanctum', 'throttle:chat'])->group(function (): void {
