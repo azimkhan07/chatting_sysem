@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
+use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
+use App\Http\Controllers\Api\V1\Billing\SubscriptionController;
 use App\Http\Controllers\Api\V1\Chat\ChatMemberController;
 use App\Http\Controllers\Api\V1\Chat\ChatMessageController;
 use App\Http\Controllers\Api\V1\Chat\ChatUnreadController;
@@ -51,6 +53,12 @@ Route::prefix('v1')->group(function (): void {
         Route::get('{name}', [HashtagController::class, 'show']);
     });
 
+    // Audio playback proxy: public (media elements can't send auth headers),
+    // rate-limited separately so it can stream without draining `throttle:api`.
+    Route::prefix('songs')->middleware('throttle:audio')->group(function (): void {
+        Route::match(['get', 'head'], '{song}/stream', [SongController::class, 'stream'])->whereNumber('song');
+    });
+
     Route::prefix('songs')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
         Route::get('/', [SongController::class, 'index']);
         Route::get('search', [SongController::class, 'searchMusic']);
@@ -95,5 +103,20 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/', [StoryController::class, 'index']);
         Route::post('/', [StoryController::class, 'store']);
         Route::delete('{story}', [StoryController::class, 'destroy']);
+    });
+
+    Route::prefix('subscriptions')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+        Route::get('tiers', [SubscriptionController::class, 'tiers']);
+        Route::post('verify', [SubscriptionController::class, 'verify']);
+        Route::post('checkout', [SubscriptionController::class, 'checkout']);
+        Route::get('{subscription}', [SubscriptionController::class, 'show'])->whereNumber('subscription');
+        Route::post('{subscription}/pay', [SubscriptionController::class, 'pay'])->whereNumber('subscription');
+        Route::delete('{subscription}', [SubscriptionController::class, 'destroy'])->whereNumber('subscription');
+    });
+
+    Route::prefix('admin/subscriptions')->middleware(['auth:sanctum', 'admin', 'throttle:api'])->group(function (): void {
+        Route::get('/', [SubscriptionAdminController::class, 'index']);
+        Route::post('{subscription}/approve', [SubscriptionAdminController::class, 'approve'])->whereNumber('subscription');
+        Route::post('{subscription}/reject', [SubscriptionAdminController::class, 'reject'])->whereNumber('subscription');
     });
 });

@@ -120,6 +120,29 @@ body {
   display: none;
 }
 
+/* Instagram-style story ring (unseen = colorful cone gradient, seen = gray). */
+.story-ring {
+  background: conic-gradient(
+    from 210deg at 50% 50%,
+    #ffb75e 0deg,
+    #f953c6 130deg,
+    #b91d73 210deg,
+    #eea2ad 300deg,
+    #ffb75e 360deg
+  );
+  border-radius: 9999px;
+}
+
+.story-ring-seen {
+  background: rgba(148, 163, 184, 0.75);
+  border-radius: 9999px;
+}
+
+.story-ring-slate {
+  background: rgba(51, 65, 85, 0.85);
+  border-radius: 9999px;
+}
+
 @keyframes orb-drift {
   0%,
   100% {

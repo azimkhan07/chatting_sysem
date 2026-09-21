@@ -181,6 +181,27 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
     }
   }
 
+  async function previewRealSong(result: SearchSong) {
+    if (previewSong?.name === result.name && previewSong?.artist === result.artist) {
+      setPreviewSong(null)
+      return
+    }
+    if (!result.url) return
+    try {
+      // Persist first so preview plays through the backend stream proxy
+      // instead of a raw iTunes URL that the browser may refuse.
+      const imported = await songsApi.import({
+        name: result.name,
+        artist: result.artist,
+        url: result.url,
+        genre: result.genre,
+      })
+      setPreviewSong(imported.song)
+    } catch {
+      setError('Could not preview that song. Try another.')
+    }
+  }
+
   async function submit() {
     if (!hasMedia || saving) return
     setSaving(true)
@@ -249,13 +270,14 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
   const pickedName = pickedSong ? `${pickedSong.name} — ${pickedSong.artist}` : ''
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, y: 12, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
-        className="w-full max-w-md rounded-3xl glass-card p-5"
-      >
+    <div className="no-scrollbar fixed inset-0 z-50 overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
+      <div className="flex min-h-full items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 12, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          className="w-full max-w-md rounded-3xl glass-card p-5"
+        >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-white">New story</h2>
           <button
@@ -534,6 +556,7 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
                   ) : (
                     realResults.map((result, index) => {
                       const selected = pickedSong?.name === result.name && pickedSong?.artist === result.artist
+                      const previewing = previewSong?.name === result.name && previewSong?.artist === result.artist
                       return (
                         <div
                           key={`${result.name}-${index}`}
@@ -543,11 +566,13 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
                         >
                           <button
                             type="button"
-                            onClick={() => setPreviewSong((song) => (song === result ? null : result))}
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/10 text-xs text-brand-300"
-                            aria-label="Preview"
+                            onClick={() => void previewRealSong(result)}
+                            className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs transition ${
+                              previewing ? 'bg-brand-500/60 text-white' : 'bg-white/10 text-brand-300'
+                            }`}
+                            aria-label={previewing ? 'Stop preview' : 'Preview'}
                           >
-                            {previewSong === result ? '❚❚' : '▶'}
+                            {previewing ? '❚❚' : '▶'}
                           </button>
                           <button
                             type="button"
@@ -575,7 +600,14 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
                       <button
                         key={genre}
                         type="button"
-                        onClick={() => setGenreFilter(active ? 'All' : genre)}
+                        onClick={() => {
+                          const next = active ? 'All' : genre
+                          setGenreFilter(next)
+                          if (next !== 'All') {
+                            setMusicTab('search')
+                            setRealQuery(next === 'Bollywood' ? 'bollywood songs' : next === 'Hollywood' ? 'hollywood songs' : `${next.toLowerCase()} songs`)
+                          }
+                        }}
                         className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
                           active ? 'bg-brand-500/80 text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20'
                         }`}
@@ -680,7 +712,7 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
                   ))}
               </div>
             ) : (
-              <div className="mt-2 grid max-h-48 grid-cols-6 gap-1 overflow-y-auto">
+              <div className="mt-2 grid max-h-72 grid-cols-8 gap-1 overflow-y-auto">
                 {emojiOptions()
                   .filter((item) => item.tags.some((tag) => tag.includes(addSearch.trim().toLowerCase())) || addSearch.trim() === '')
                   .map(({ emoji }) => (
@@ -688,7 +720,7 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
                       key={emoji}
                       type="button"
                       onClick={() => appendEmoji(emoji)}
-                      className="grid h-9 w-9 place-items-center rounded-lg text-lg transition hover:bg-white/10 active:scale-90"
+                      className="grid h-10 w-10 place-items-center rounded-lg text-xl leading-none transition hover:bg-white/10 active:scale-90"
                       aria-label={`Add ${emoji}`}
                     >
                       {emoji}
@@ -710,19 +742,31 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
       </motion.div>
 
       {previewSong ? <PreviewAudio song={previewSong} onEnded={() => setPreviewSong(null)} /> : null}
+      </div>
     </div>
   )
 }
 
+function songUrl(song: SearchSong | Song): string | null {
+  if ('stream_url' in song && song.stream_url) return song.stream_url
+  return song.url ?? null
+}
+
 function PreviewAudio({ song, onEnded }: { song: SearchSong | Song; onEnded: () => void }) {
   const ref = useRef<HTMLAudioElement>(null)
+  const url = songUrl(song)
   useEffect(() => {
     const audio = ref.current
-    if (!audio || !song.url) return
+    if (!audio || !url) {
+      onEnded()
+      return
+    }
+    audio.preload = 'auto'
     audio.volume = 1
+    audio.muted = false
     void audio.play().catch(() => onEnded())
-  }, [song.url, onEnded])
-  return <audio ref={ref} src={song.url ?? undefined} onEnded={onEnded} />
+  }, [url, onEnded])
+  return <audio ref={ref} src={url ?? undefined} preload="auto" onError={() => onEnded()} onEnded={onEnded} />
 }
 
 function justifyFor(align: TextStyle['align']): string {
@@ -778,10 +822,10 @@ const EMOJI_TAGS: [string, string[]][] = [
   ['😤', ['angry', 'frustrated']], ['😡', ['mad', 'angry']], ['🤯', ['mind blown', 'wow']], ['😷', ['sick', 'mask']],
   ['🥰', ['love', 'cute']], ['😋', ['yummy', 'food']], ['🤗', ['hug', 'happy']], ['🙃', ['upside down', 'silly']],
   ['😏', ['smirk', 'flirt']], ['😒', ['unimpressed', 'eyeroll']], ['🙄', ['eyeroll', 'annoyed']], ['😬', ['awkward']],
-  ['😳', ['embarrassed', 'blush']], ['🥺', ['pleading', 'sad', 'cute']], ['🥹', ['tears', 'emotional']],
+  ['😳', ['embarrassed', 'blush']], ['🥺', ['pleading', 'sad', 'cute']], ['😌', ['calm', 'relieved', 'peaceful']],
   ['❤️', ['love', 'heart', 'red']], ['🧡', ['heart', 'orange']], ['💛', ['heart', 'yellow']], ['💚', ['heart', 'green']],
   ['💙', ['heart', 'blue']], ['💜', ['heart', 'purple']], ['🖤', ['heart', 'black']], ['🤍', ['heart', 'white']],
-  ['💔', ['broken heart', 'sad']], ['💖', ['sparkling heart', 'love']], ['💕', ['two hearts', 'love']],
+  ['💔', ['broken heart', 'sad']], ['💖', ['sparkling heart', 'love']], ['💕', ['two hearts', 'love']], ['💞', ['love', 'hearts']],
   ['💯', ['hundred', 'perfect']], ['💪', ['strong', 'gym', 'muscle']], ['👍', ['thumbs up', 'like', 'good']],
   ['👎', ['thumbs down', 'dislike', 'bad']], ['👏', ['clap', 'applause']], ['🙌', ['cheer', 'celebrate']],
   ['🙏', ['pray', 'please', 'thanks']], ['👋', ['hello', 'bye', 'wave']], ['🤝', ['handshake', 'deal']],
@@ -800,8 +844,8 @@ const EMOJI_TAGS: [string, string[]][] = [
   ['🌺', ['hibiscus', 'flower']], ['💐', ['bouquet', 'flowers']], ['🐶', ['dog', 'pet']], ['🐱', ['cat', 'pet']],
   ['🐼', ['panda', 'cute']], ['🦋', ['butterfly', 'pretty']], ['🐝', ['bee', 'busy']], ['🦁', ['lion', 'roar']],
   ['🐯', ['tiger', 'animal']], ['🐸', ['frog', 'animal']], ['🐻', ['bear', 'animal']], ['🦊', ['fox', 'animal']],
-  ['💃', ['dance', 'party']], ['🕺', ['dance', 'party']], ['🪩', ['disco', 'party']],
-  ['🥂', ['cheers', 'toast']], ['🍾', ['champagne', 'celebrate']], ['🫶', ['love', 'hands']],
+  ['💃', ['dance', 'party']], ['🕺', ['dance', 'party']], ['💿', ['cd', 'disc', 'music']],
+  ['🥂', ['cheers', 'toast']], ['🍾', ['champagne', 'celebrate']],
 ]
 
 function emojiOptions(): { emoji: string; tags: string[] }[] {

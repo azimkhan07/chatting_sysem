@@ -73,6 +73,15 @@ export function SparkleIcon(props: IconProps) {
   )
 }
 
+export function ShieldCheckIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M12 3l7 3v5c0 4.4-2.9 7.6-7 9-4.1-1.4-7-4.6-7-9V6z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
+}
+
 export function UserIcon(props: IconProps) {
   return (
     <svg {...base} {...props} aria-hidden="true">

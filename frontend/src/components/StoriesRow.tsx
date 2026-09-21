@@ -15,7 +15,10 @@ import type { Story, StoryGroup } from '@/types/story'
 import type { User } from '@/types/user'
 
 const SEEN_KEY = 'amtechat:seen-stories'
-const RING = 'bg-gradient-to-tr from-amber-400 via-fuchsia-500 to-brand-400 p-[2.5px]'
+
+function playableSongUrl(song: Song): string {
+  return song.stream_url ?? song.url
+}
 
 function readSeen(): Set<number> {
   try {
@@ -93,8 +96,8 @@ export default function StoriesRow() {
 
   return (
     <>
-      <div className="no-scrollbar -mx-1 flex items-start gap-3 overflow-x-auto px-1 py-1">
-        <div className="flex w-16 shrink-0 flex-col items-center gap-1.5">
+      <div className="no-scrollbar -mx-1 flex items-start gap-2 overflow-x-auto px-1 py-1">
+        <div className="flex w-[4.25rem] shrink-0 flex-col items-center gap-1.5">
           <span className="relative">
             <button
               type="button"
@@ -109,14 +112,12 @@ export default function StoriesRow() {
               title={mine ? 'View your story' : 'Add a story'}
             >
               {mine ? (
-                <span className={`block rounded-full ${RING}`}>
-                  <span className="block h-[60px] w-[60px] overflow-hidden rounded-full bg-midnight-950 ring-2 ring-midnight-950">
-                    <StoryMediaThumb story={mine.stories[mine.stories.length - 1]} />
-                  </span>
-                </span>
+                <StoryAvatar user={mine.user} ring="unseen" size={58} />
               ) : (
-                <span className="grid h-[60px] w-[60px] place-items-center rounded-full bg-slate-800/80 text-2xl font-light text-brand-300">
-                  +
+                <span className="story-ring-slate block p-[2.5px]">
+                  <span className="grid h-[54px] w-[54px] place-items-center rounded-full bg-slate-800/80 text-2xl font-light text-brand-300">
+                    +
+                  </span>
                 </span>
               )}
             </button>
@@ -125,13 +126,13 @@ export default function StoriesRow() {
                 type="button"
                 onClick={() => setCreating(true)}
                 aria-label="Add a story"
-                className="absolute -bottom-1 right-0 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#fff] text-[11px] font-bold leading-none text-brand-600 shadow-md ring-2 ring-[#0d1324] transition hover:scale-110 active:scale-95"
+                className="absolute -bottom-1 right-0 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#fff] text-[11px] font-bold leading-none text-brand-600 shadow-md ring-2 ring-midnight-950 transition hover:scale-110 active:scale-95"
               >
                 +
               </button>
             ) : null}
           </span>
-          <span className="text-[11px] text-slate-400">Your story</span>
+          <span className="max-w-[4.5rem] truncate text-[11px] text-slate-400">Your story</span>
         </div>
 
         {others.map((group) => {
@@ -143,19 +144,9 @@ export default function StoriesRow() {
               onClick={() => setViewingUserId(group.user.id)}
               onPointerEnter={(event) => showPreview(group, event)}
               onPointerLeave={hidePreview}
-              className="flex w-16 shrink-0 flex-col items-center gap-1.5"
+              className="flex w-[4.25rem] shrink-0 flex-col items-center gap-1.5"
             >
-              <span
-                className={`block rounded-full ${
-                  unseen ? RING : 'bg-slate-700/80 p-[2.5px]'
-                }`}
-              >
-                <span className="grid h-[58px] w-[58px] place-items-center rounded-full bg-midnight-950 text-lg font-bold text-brand-200 ring-2 ring-midnight-950">
-                  {(group.user.display_name || group.user.username)
-                    .charAt(0)
-                    .toUpperCase()}
-                </span>
-              </span>
+              <StoryAvatar user={group.user} ring={unseen ? 'unseen' : 'seen'} size={56} />
               <span className="max-w-[4.5rem] truncate text-[11px] text-slate-400">
                 {group.user.username}
               </span>
@@ -190,21 +181,22 @@ export default function StoriesRow() {
   )
 }
 
-function StoryMediaThumb({ story }: { story: Story }) {
-  if (story.type === 'image') {
-    return (
-      <img
-        src={story.url}
-        alt=""
-        draggable={false}
-        style={{ filter: filterCss(story.effects) }}
-        className="h-full w-full object-cover"
-      />
-    )
-  }
+function StoryAvatar({ user, ring, size = 56 }: { user: User; ring: 'unseen' | 'seen'; size?: number }) {
+  const label = (user.display_name || user.username).charAt(0).toUpperCase()
   return (
-    <span className="grid h-full w-full place-items-center bg-gradient-to-br from-brand-500/30 to-fuchsia-500/30 text-lg font-bold text-brand-200">
-      ▶
+    <span className={`block ${ring === 'unseen' ? 'story-ring' : 'story-ring-seen'} p-[2.5px]`}>
+      <span
+        className="block overflow-hidden rounded-full bg-midnight-950 ring-2 ring-midnight-950"
+        style={{ width: size, height: size }}
+      >
+        {user.avatar_url ? (
+          <img src={user.avatar_url} alt="" loading="lazy" className="h-full w-full object-cover" />
+        ) : (
+          <span className="grid h-full w-full place-items-center text-lg font-bold text-brand-200">
+            {label}
+          </span>
+        )}
+      </span>
     </span>
   )
 }
@@ -246,8 +238,12 @@ function HoverPreview({ hover }: { hover: { group: StoryGroup; x: number; y: num
         )}
       </div>
       <div className="flex items-center gap-2 p-2">
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[9px] font-bold text-[#fff]">
-          {(hover.group.user.display_name || hover.group.user.username).charAt(0).toUpperCase()}
+        <span className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[9px] font-bold text-[#fff]">
+          {hover.group.user.avatar_url ? (
+            <img src={hover.group.user.avatar_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            (hover.group.user.display_name || hover.group.user.username).charAt(0).toUpperCase()
+          )}
         </span>
         <div className="min-w-0">
           <p className="truncate text-[11px] font-semibold text-[#fff]">
@@ -333,14 +329,20 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
   useEffect(() => {
     setVideoProgress(0)
     const audio = audioRef.current
-    if (!audio || !current?.story.song) return
+    if (!audio || !current?.story.song) {
+      setSongPlaying(false)
+      return
+    }
+    audio.volume = 1
+    audio.muted = false
+    audio.preload = 'auto'
     if (songPlaying) {
       audio.currentTime = 0
       void audio.play().catch(() => setSongPlaying(false))
     } else {
       audio.pause()
     }
-  }, [current?.story.id, current?.story.song?.url, songPlaying])
+  }, [current?.story.id, current?.story.song?.url, current?.story.song?.stream_url, songPlaying])
 
   function goNext() {
     setIndex((position) => {
@@ -412,8 +414,12 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
             ))}
           </div>
           <div className="mt-3 flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xs font-bold text-[#fff]">
-              {(current.owner.display_name || current.owner.username).charAt(0).toUpperCase()}
+            <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xs font-bold text-[#fff]">
+              {current.owner.avatar_url ? (
+                <img src={current.owner.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                (current.owner.display_name || current.owner.username).charAt(0).toUpperCase()
+              )}
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-[#fff]">
@@ -559,7 +565,13 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
         ) : null}
 
         {current.story.song ? (
-          <audio ref={audioRef} src={current.story.song.url} onEnded={() => setSongPlaying(false)} />
+          <audio
+            ref={audioRef}
+            src={playableSongUrl(current.story.song)}
+            preload="auto"
+            onError={() => setSongPlaying(false)}
+            onEnded={() => setSongPlaying(false)}
+          />
         ) : null}
 
         {pause && current.story.type === 'image' ? (

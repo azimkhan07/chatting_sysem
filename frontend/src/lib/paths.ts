@@ -13,6 +13,7 @@ export const ROUTES = {
   notifications: '/n5r7s',
   settings: '/s2v6q',
   profile: '/p8f1r',
+  verified: '/v9x2m',
 } as const
 
 export type RouteKey = keyof typeof ROUTES

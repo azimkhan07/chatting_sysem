@@ -18,6 +18,7 @@ import Register from '@/pages/Register'
 import ResetPassword from '@/pages/ResetPassword'
 import Settings from '@/pages/Settings'
 import UserProfile from '@/pages/UserProfile'
+import Verify from '@/pages/Verify'
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
                 path={path('settings')}
                 element={<Settings />}
               />
+              <Route path={path('verified')} element={<Verify />} />
             </Route>
           </Route>
           <Route path="/admin" element={<AdminSkeleton />} />

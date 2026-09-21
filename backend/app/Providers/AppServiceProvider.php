@@ -10,6 +10,8 @@ use App\Domain\Auth\Contracts\PasswordResetService as PasswordResetServiceContra
 use App\Domain\Auth\Models\User;
 use App\Domain\Auth\Repositories\EloquentAuthRepository;
 use App\Domain\Auth\Services\LaravelPasswordResetService;
+use App\Domain\Billing\Contracts\SubscriptionRepository;
+use App\Domain\Billing\Repositories\EloquentSubscriptionRepository;
 use App\Domain\Chat\Contracts\ChatRepository;
 use App\Domain\Chat\Contracts\ChatService as ChatServiceContract;
 use App\Domain\Chat\Repositories\EloquentChatRepository;
@@ -52,6 +54,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(StoryService::class, StoryService::class);
         $this->app->bind(ChatRepository::class, EloquentChatRepository::class);
         $this->app->bind(ChatServiceContract::class, ChatService::class);
+        $this->app->bind(SubscriptionRepository::class, EloquentSubscriptionRepository::class);
         $this->app->bind(PasswordResetServiceContract::class, LaravelPasswordResetService::class);
     }
 
@@ -64,6 +67,7 @@ final class AppServiceProvider extends ServiceProvider
         RateLimiter::for('chat', fn (Request $request): Limit => Limit::perMinute(300)->by(
             $request->user()?->id ?? $request->ip(),
         ));
+        RateLimiter::for('audio', fn (Request $request): Limit => Limit::perMinutes(1, 120)->by($request->ip()));
 
         Route::bind('user', function (string $value): User {
             return User::whereKey($value)

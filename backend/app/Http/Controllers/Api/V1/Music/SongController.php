@@ -9,9 +9,12 @@ use App\Domain\Songs\Models\Song;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SongResource;
 use App\Support\ApiResponse;
+use GuzzleHttp\Client;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 final class SongController extends Controller
 {
@@ -25,37 +28,173 @@ final class SongController extends Controller
     }
 
     /**
-     * Search the iTunes store for real songs (30-second preview clips) so the
-     * story music picker offers actual Bollywood/Hollywood tracks, not just the
-     * seeded royalty-free library. No API key required.
+     * Search for real songs (30-second preview clips) so the story music
+     * picker offers actual Bollywood/Hollywood tracks, not just the seeded
+     * royalty-free library. No API key required.
+     *
+     * Falls back gracefully: iTunes India store first, then the US store,
+     * then a fuzzy match over the local library - so a search always yields
+     * something instead of a dead "No songs found" panel.
      */
     public function searchMusic(Request $request): JsonResponse
     {
         $query = (string) $request->validate(['q' => ['required', 'string', 'max:100']])['q'];
 
-        $response = Http::timeout(10)
-            ->get('https://itunes.apple.com/search', [
-                'term' => $query,
-                'media' => 'music',
-                'limit' => 25,
-                'country' => 'IN',
-            ]);
+        $items = $this->itunesSearch($query, 'IN');
 
-        $items = $response->successful()
-            ? collect($response->json('results') ?? [])
-                ->map(fn (array $result): array => [
-                    'name' => (string) ($result['trackName'] ?? ''),
-                    'artist' => (string) ($result['artistName'] ?? ''),
-                    'url' => ($preview = $result['previewUrl'] ?? null) !== null ? (string) $preview : null,
-                    'duration' => 30,
-                    'genre' => (string) ($result['primaryGenreName'] ?? 'Music'),
-                ])
-                ->filter(fn (array $item): bool => $item['name'] !== '' && $item['url'] !== null)
-                ->values()
-                ->all()
-            : [];
+        if ($items === []) {
+            $items = $this->itunesSearch($query, 'US');
+        }
+
+        if ($items === []) {
+            $items = $this->localLibrarySearch($query);
+        }
 
         return ApiResponse::success(data: ['songs' => $items]);
+    }
+
+    /**
+     * Query the iTunes Search API for track preview clips.
+     *
+     * @return list<array{name: string, artist: string, url: string|null, duration: int, genre: string}>
+     */
+    private function itunesSearch(string $query, string $country): array
+    {
+        try {
+            $response = Http::timeout(10)
+                ->get('https://itunes.apple.com/search', [
+                    'term' => $query,
+                    'media' => 'music',
+                    'limit' => 30,
+                    'country' => $country,
+                ]);
+        } catch (Throwable) {
+            return [];
+        }
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        return collect($response->json('results') ?? [])
+            ->map(fn (array $result): array => [
+                'name' => (string) ($result['trackName'] ?? ''),
+                'artist' => (string) ($result['artistName'] ?? ''),
+                'url' => ($preview = $result['previewUrl'] ?? null) !== null ? (string) $preview : null,
+                'duration' => 30,
+                'genre' => (string) ($result['primaryGenreName'] ?? 'Music'),
+            ])
+            ->filter(fn (array $item): bool => $item['name'] !== '' && $item['url'] !== null)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Fuzzy match against the seeded library so offline/slow iTunes days still
+     * return usable songs for the picker.
+     *
+     * @return list<array{name: string, artist: string, url: string, duration: int|null, genre: string|null}>
+     */
+    private function localLibrarySearch(string $query): array
+    {
+        $needle = strtolower(trim($query));
+
+        if ($needle === '') {
+            return [];
+        }
+
+        $tokens = array_values(array_filter(
+            preg_split('/[\s,_\-&+()\[\]!.]+/', $needle) ?? [],
+            static fn (string $token): bool => strlen($token) > 1,
+        ));
+
+        $haystackFor = static fn (Song $song): string => strtolower(trim(
+            $song->name.' '.$song->artist.' '.($song->genre ?? ''),
+        ));
+
+        return $this->songs->all()
+            ->filter(static function (Song $song) use ($needle, $tokens, $haystackFor): bool {
+                $haystack = $haystackFor($song);
+
+                if (str_contains($haystack, $needle)) {
+                    return true;
+                }
+
+                foreach ($tokens as $token) {
+                    if (str_contains($haystack, $token)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->take(15)
+            ->map(fn (Song $song): array => [
+                'name' => $song->name,
+                'artist' => $song->artist,
+                'url' => $song->url,
+                'duration' => $song->duration,
+                'genre' => $song->genre,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Proxy a song's audio through the API so story music always plays: this
+     * avoids expired/hotlink-blocked preview URLs, mixed-content, and dead
+     * third-party hosts by streaming the bytes from the backend itself.
+     *
+     * This route is public (media elements cannot send Authorization headers)
+     * and is rate-limited via the `audio` limiter.
+     */
+    public function stream(Song $song): StreamedResponse
+    {
+        $client = new Client(['timeout' => 0, 'connect_timeout' => 15]);
+
+        try {
+            $upstream = $client->get($song->url, [
+                'stream' => true,
+                'http_errors' => false,
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Accept' => 'audio/webm,audio/ogg,audio/wav,audio/*;q=0.9,*/*;q=0.8',
+                ],
+            ]);
+        } catch (Throwable) {
+            abort(502, 'The audio source is temporarily unavailable.');
+        }
+
+        $status = $upstream->getStatusCode();
+
+        if ($status === 404 || $status === 410 || $status === 403) {
+            abort(422, 'The audio source is unavailable.');
+        }
+
+        if ($status >= 400) {
+            abort(502, 'The audio source returned an error.');
+        }
+
+        $contentType = (string) $upstream->getHeaderLine('Content-Type');
+
+        return response()->stream(function () use ($upstream): void {
+            $body = $upstream->getBody();
+
+            while (! $body->eof()) {
+                if (connection_aborted()) {
+                    break;
+                }
+
+                echo $body->read(512 * 1024);
+                flush();
+            }
+
+            $body->close();
+        }, 200, [
+            'Content-Type' => $contentType !== '' ? $contentType : 'audio/mpeg',
+            'Cache-Control' => 'public, max-age=86400',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /**

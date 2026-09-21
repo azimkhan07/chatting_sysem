@@ -253,6 +253,49 @@ export const storiesApi = {
   destroy: (storyId: number) => api.delete<null>(`/stories/${storyId}`),
 }
 
+export interface SubscriptionTier {
+  key: string
+  name: string
+  price_paisa: number
+  price_month: string
+  perks: string[]
+}
+
+export interface SubscriptionData {
+  id: number
+  user_id: number
+  plan: string
+  plan_name: string
+  amount_paisa: number
+  status: string
+  status_code: string
+  auto_renew: boolean
+  is_verified: boolean
+  expires_at: string | null
+}
+
+export const subscriptionsApi = {
+  tiers: () => api.get<{ tiers: SubscriptionTier[] }>('/subscriptions/tiers'),
+  verify: (plan: string) =>
+    api.post<{ subscription: SubscriptionData }>('/subscriptions/verify', { plan }),
+  checkout: (plan: string) =>
+    api.post<{
+      subscription: SubscriptionData
+      gateway: string
+      client_token: string
+      amount_paisa: number
+    }>('/subscriptions/checkout', { plan }),
+  pay: (subscriptionId: number, gateway: string, token: string) =>
+    api.post<{ subscription: SubscriptionData }>(
+      `/subscriptions/${subscriptionId}/pay`,
+      { gateway, token },
+    ),
+  show: (subscriptionId: number) =>
+    api.get<{ subscription: SubscriptionData }>(`/subscriptions/${subscriptionId}`),
+  cancel: (subscriptionId: number) =>
+    api.delete<{ subscription: SubscriptionData }>(`/subscriptions/${subscriptionId}`),
+}
+
 export const chatApi = {
   conversations: () => api.get<{ conversations: Conversation[] }>('/chat/conversations'),
   show: (conversationId: number) =>

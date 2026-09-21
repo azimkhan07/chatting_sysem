@@ -18,6 +18,8 @@ final class SongResource extends JsonResource
             'name' => $this->name,
             'artist' => $this->artist,
             'url' => $this->url,
+            // Same-origin proxy stream so story music actually plays.
+            'stream_url' => '/api/v1/songs/'.$this->id.'/stream',
             'duration' => $this->duration,
             'genre' => $this->genre,
         ];
