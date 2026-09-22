@@ -103,8 +103,10 @@ final class SongController extends Controller
             return [];
         }
 
+        $parts = preg_split('/[\s,_\-&+()\[\]!.]+/', $needle) ?: [];
+
         $tokens = array_values(array_filter(
-            preg_split('/[\s,_\-&+()\[\]!.]+/', $needle) ?? [],
+            $parts,
             static fn (string $token): bool => strlen($token) > 1,
         ));
 
@@ -252,13 +254,13 @@ final class SongController extends Controller
         }
 
         return collect($response->json('data') ?? [])
-            ->map(fn (array $gif): ?array => [
+            ->map(fn (array $gif): array => [
                 'id' => (string) ($gif['id'] ?? ''),
                 'url' => $gif['images']['original']['url'] ?? null,
                 'preview_url' => $gif['images']['fixed_width']['url'] ?? null,
                 'title' => (string) ($gif['title'] ?? ''),
             ])
-            ->filter(fn (?array $item): bool => $item !== null && $item['url'] !== null)
+            ->filter(fn (array $item): bool => $item['url'] !== null)
             ->values()
             ->all();
     }

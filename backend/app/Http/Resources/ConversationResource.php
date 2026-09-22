@@ -23,11 +23,13 @@ final class ConversationResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $this->type->value,
-            'display_name' => $isDm ? ($peer?->user?->display_name ?? 'Chat') : $this->name,
-            'avatar_url' => $isDm && $peer?->user?->avatar_path !== null
+            'display_name' => $isDm && $peer !== null && $peer->user !== null
+                ? $peer->user->display_name
+                : ($isDm ? 'Chat' : $this->name),
+            'avatar_url' => $isDm && $peer !== null && $peer->user !== null && $peer->user->avatar_path !== null
                 ? asset('storage/'.$peer->user->avatar_path)
                 : null,
-            'peer_verified' => $isDm ? (bool) ($peer?->user?->is_verified ?? false) : null,
+            'peer_verified' => $isDm && $peer !== null && $peer->user !== null ? (bool) $peer->user->is_verified : null,
             'members_count' => $members->count(),
             'members' => $members->map(fn ($member): array => [
                 'user' => $member->relationLoaded('user') && $member->user !== null ? [
@@ -42,7 +44,7 @@ final class ConversationResource extends JsonResource
                 ? (new MessageResource($this->lastMessage))->resolve($request)
                 : null,
             'unread_count' => (int) ($this->unread_count ?? 0),
-            'muted' => (bool) ($myMember?->muted ?? false),
+            'muted' => (bool) ($myMember !== null ? $myMember->muted : false),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }

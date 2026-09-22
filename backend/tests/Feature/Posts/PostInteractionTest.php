@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Posts;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -102,7 +103,9 @@ final class PostInteractionTest extends TestCase
     {
         $user = User::factory()->create();
         $post = Post::factory()->create();
+        /** @var Comment $first */
         $first = $post->comments()->create(['user_id' => $user->id, 'body' => 'first']);
+        /** @var Comment $second */
         $second = $post->comments()->create(['user_id' => $user->id, 'body' => 'second']);
 
         $this->withToken($this->tokenFor($user))

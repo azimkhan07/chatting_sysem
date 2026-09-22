@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Chat\Contracts;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Chat\Data\SendMessageData;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMessage;
 use Illuminate\Database\Eloquent\Collection;
@@ -30,6 +31,8 @@ interface ChatService
      * @return CursorPaginator<int, ConversationMessage>
      */
     public function messagesFor(User $user, int $conversationId, int $limit, ?string $cursor): CursorPaginator;
+
+    public function sendMessage(User $user, int $conversationId, SendMessageData $data): ConversationMessage;
 
     /**
      * @return array{read_up_to: int, unread: int}

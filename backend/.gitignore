@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Local SQLite dev/test databases
+amtechat
+*.sqlite

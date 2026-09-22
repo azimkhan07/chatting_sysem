@@ -13,7 +13,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property-read int $id
+ * @property-read int $user_id
+ * @property-read string $body
+ * @property-read Carbon $created_at
+ * @property-read Carbon $updated_at
+ * @property-read Carbon|null $deleted_at
+ */
 final class Post extends Model
 {
     /** @use HasFactory<PostFactory> */

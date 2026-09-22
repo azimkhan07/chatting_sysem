@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
-use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
 use App\Http\Controllers\Api\V1\Billing\SubscriptionController;
 use App\Http\Controllers\Api\V1\Chat\ChatMemberController;
 use App\Http\Controllers\Api\V1\Chat\ChatMessageController;

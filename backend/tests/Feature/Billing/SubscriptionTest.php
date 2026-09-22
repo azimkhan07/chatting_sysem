@@ -7,10 +7,8 @@ namespace Tests\Feature\Billing;
 use App\Domain\Auth\Models\User;
 use App\Domain\Billing\Enums\Plan;
 use App\Domain\Billing\Enums\SubscriptionStatus;
-use App\Domain\Billing\Models\Subscription;
 use App\Domain\Billing\Services\SubscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Testing\Fluent\AssertableJson;
 use Tests\TestCase;
 
 final class SubscriptionTest extends TestCase

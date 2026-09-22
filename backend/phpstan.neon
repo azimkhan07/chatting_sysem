@@ -1,0 +1,11 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - routes
+        - tests
+    level: 5
+    tmpDir: storage/logs/phpstan
+    treatPhpDocTypesAsCertain: false

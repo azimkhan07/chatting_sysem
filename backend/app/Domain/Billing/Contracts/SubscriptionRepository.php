@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Billing\Contracts;
 
 use App\Domain\Billing\Enums\Plan;
+use App\Domain\Billing\Enums\SubscriptionStatus;
 use App\Domain\Billing\Models\Subscription;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
@@ -34,7 +35,7 @@ interface SubscriptionRepository
     public function processDue(): array;
 
     /**
-     * @return LengthAwarePaginator<Subscription>
+     * @return LengthAwarePaginator<int, Subscription>
      */
-    public function list(int $perPage, int $page): LengthAwarePaginator;
+    public function all(int $perPage, ?SubscriptionStatus $status): LengthAwarePaginator;
 }

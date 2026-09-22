@@ -64,9 +64,12 @@ final class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinutes(1, 60)->by($request->ip()));
         RateLimiter::for('password', fn (Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
         RateLimiter::for('notifications', fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
-        RateLimiter::for('chat', fn (Request $request): Limit => Limit::perMinute(300)->by(
-            $request->user()?->id ?? $request->ip(),
-        ));
+        RateLimiter::for('chat', function (Request $request): Limit {
+            $user = $request->user();
+            $subject = $user !== null ? (string) $user->id : $request->ip();
+
+            return Limit::perMinute(300)->by($subject);
+        });
         RateLimiter::for('audio', fn (Request $request): Limit => Limit::perMinutes(1, 120)->by($request->ip()));
 
         Route::bind('user', function (string $value): User {

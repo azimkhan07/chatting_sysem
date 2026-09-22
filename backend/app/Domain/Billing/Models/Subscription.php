@@ -9,7 +9,24 @@ use App\Domain\Billing\Enums\Plan;
 use App\Domain\Billing\Enums\SubscriptionStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property-read int $id
+ * @property-read int $user_id
+ * @property-read User|null $user
+ * @property-read Plan $plan
+ * @property-read int $amount_paisa
+ * @property-read SubscriptionStatus $status
+ * @property-read Carbon|null $verified_at
+ * @property-read int|null $approved_by
+ * @property-read Carbon|null $starts_at
+ * @property-read Carbon|null $expires_at
+ * @property-read bool $auto_renew
+ * @property-read string|null $payment_token
+ * @property-read Carbon $created_at
+ * @property-read Carbon $updated_at
+ */
 final class Subscription extends Model
 {
     protected $table = 'subscriptions';

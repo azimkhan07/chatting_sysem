@@ -60,7 +60,8 @@ final class EloquentPostRepository implements PostRepository
 
     public function hashtagFeedFor(Hashtag $hashtag, int $viewerId, int $limit, ?string $cursor): CursorPaginator
     {
-        return $hashtag->posts()
+        return Post::query()
+            ->whereHas('hashtags', fn (Builder $query): Builder => $query->whereKey($hashtag->id))
             ->with(['user', 'media', 'hashtags'])
             ->withCount(['likes', 'comments'])
             ->withExists([
@@ -91,10 +92,13 @@ final class EloquentPostRepository implements PostRepository
 
     public function addComment(Post $post, int $userId, string $body): Comment
     {
-        return $post->comments()->create([
+        /** @var Comment $comment */
+        $comment = $post->comments()->create([
             'user_id' => $userId,
             'body' => $body,
         ]);
+
+        return $comment;
     }
 
     public function commentsFor(Post $post, int $limit, ?string $cursor): CursorPaginator

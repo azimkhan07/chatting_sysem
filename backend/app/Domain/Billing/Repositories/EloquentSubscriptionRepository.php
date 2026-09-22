@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Billing\Repositories;
 
-use App\Domain\Auth\Models\User;
 use App\Domain\Billing\Contracts\SubscriptionRepository;
 use App\Domain\Billing\Enums\Plan;
 use App\Domain\Billing\Enums\SubscriptionStatus;
@@ -148,11 +147,15 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
         return $subscription->fresh();
     }
 
-    public function list(int $perPage, int $page): LengthAwarePaginator
+    /**
+     * @return LengthAwarePaginator<int, Subscription>
+     */
+    public function all(int $perPage, ?SubscriptionStatus $status): LengthAwarePaginator
     {
         return Subscription::query()
             ->with('user')
+            ->when($status !== null, fn ($query) => $query->where('status', $status->value))
             ->orderByDesc('id')
-            ->paginate($perPage, ['*'], 'page', $page);
+            ->paginate($perPage);
     }
 }

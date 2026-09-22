@@ -41,7 +41,7 @@ final class SubscriptionResource extends JsonResource
             'status_code' => $this->status->value,
             'payment_token' => $this->when($this->isPaid(), $this->payment_token),
             'auto_renew' => (bool) $this->auto_renew,
-            'is_verified' => $this->user?->is_verified ?? false,
+            'is_verified' => $this->user !== null ? $this->user->is_verified : false,
             'verified_at' => $this->verified_at?->toIso8601String(),
             'starts_at' => $this->starts_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),

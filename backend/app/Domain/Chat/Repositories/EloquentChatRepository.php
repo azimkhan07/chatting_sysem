@@ -27,10 +27,13 @@ final class EloquentChatRepository implements ChatRepository
 
     public function addMember(Conversation $conversation, int $userId, array $attributes = ['role' => MemberRole::Member]): ConversationMember
     {
-        return $conversation->members()->updateOrCreate(
+        /** @var ConversationMember $member */
+        $member = $conversation->members()->updateOrCreate(
             ['user_id' => $userId],
             ['role' => $attributes['role'], 'muted' => $attributes['muted'] ?? false],
         );
+
+        return $member;
     }
 
     public function findDmBetween(int $firstUserId, int $secondUserId): ?Conversation
@@ -87,15 +90,20 @@ final class EloquentChatRepository implements ChatRepository
 
     public function messagesFor(Conversation $conversation, int $limit, ?string $cursor): CursorPaginator
     {
-        return $conversation->messages()
+        $paginator = $conversation->messages()
             ->with(['user', 'conversation.members'])
             ->orderByDesc('id')
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
+
+        /** @var CursorPaginator<int, ConversationMessage> $paginator */
+
+        return $paginator;
     }
 
     public function createMessage(Conversation $conversation, int $userId, array $attributes): ConversationMessage
     {
         if ($attributes['client_id'] !== null) {
+            /** @var ConversationMessage|null $existing */
             $existing = $conversation->messages()
                 ->where('client_id', $attributes['client_id'])
                 ->with(['user', 'conversation.members'])
@@ -107,6 +115,7 @@ final class EloquentChatRepository implements ChatRepository
             }
         }
 
+        /** @var ConversationMessage $message */
         $message = $conversation->messages()->create([
             'user_id' => $userId,
             'type' => $attributes['type'],

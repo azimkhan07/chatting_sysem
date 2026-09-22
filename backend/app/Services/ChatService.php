@@ -121,9 +121,12 @@ final class ChatService implements ChatServiceContract
 
         $member = $this->chatRepository->updateReadWatermark($member, $upToMessageId);
 
+        /** @var Conversation $conversation */
+        $conversation = $member->conversation()->firstOrFail();
+
         return [
             'read_up_to' => (int) $member->last_read_message_id,
-            'unread' => $this->chatRepository->unreadFor($user->id, $member->conversation()->firstOrFail()),
+            'unread' => $this->chatRepository->unreadFor($user->id, $conversation),
         ];
     }
 

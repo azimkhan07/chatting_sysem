@@ -38,7 +38,7 @@ final class PostMediaProcessor
 
         $rows = [];
 
-        foreach (array_values($files) as $sortOrder => $file) {
+        foreach ($files as $sortOrder => $file) {
             $rows[] = $this->process($userId, $file, $sortOrder);
         }
 

@@ -14,6 +14,7 @@ use App\Http\Resources\UserResource;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\CursorPaginator;
 
 final class UserController extends Controller
 {
@@ -90,8 +91,8 @@ final class UserController extends Controller
             $request->query('cursor'),
         );
 
-        $items = $paginator
-            ->getCollection()
+        /** @var CursorPaginator<int, Follow> $paginator */
+        $items = collect($paginator->items())
             ->map(fn (Follow $follow) => (new UserResource($follow->follower))->resolve());
 
         return ApiResponse::success(
@@ -108,8 +109,8 @@ final class UserController extends Controller
             $request->query('cursor'),
         );
 
-        $items = $paginator
-            ->getCollection()
+        /** @var CursorPaginator<int, Follow> $paginator */
+        $items = collect($paginator->items())
             ->map(fn (Follow $follow) => (new UserResource($follow->following))->resolve());
 
         return ApiResponse::success(

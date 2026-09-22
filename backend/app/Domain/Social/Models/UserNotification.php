@@ -8,7 +8,18 @@ use App\Domain\Auth\Models\User;
 use App\Domain\Social\Enums\NotificationType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property-read int $id
+ * @property-read int $user_id
+ * @property-read int $actor_id
+ * @property-read NotificationType $type
+ * @property-read array $data
+ * @property-read Carbon|null $read_at
+ * @property-read Carbon $created_at
+ * @property-read Carbon $updated_at
+ */
 final class UserNotification extends Model
 {
     /**

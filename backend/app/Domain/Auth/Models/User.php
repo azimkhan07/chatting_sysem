@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Auth\Models;
 
-use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Admin\Models\Role;
+use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Posts\Models\Post;
 use App\Domain\Social\Models\Follow;
 use Database\Factories\UserFactory;
@@ -15,8 +15,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @property string $username
+ * @property-read int $id
+ * @property-read string $email
+ * @property-read string|null $mobile
+ * @property-read string $display_name
+ * @property-read string $password
+ * @property-read string|null $avatar_path
+ * @property-read bool $is_verified
+ * @property-read UserStatus $status
+ * @property-read Carbon|null $last_seen_at
+ * @property-read Carbon $created_at
+ * @property-read Carbon $updated_at
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
