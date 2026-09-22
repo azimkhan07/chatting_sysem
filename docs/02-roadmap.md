@@ -11,10 +11,10 @@ Phased delivery. Each milestone ends with a **working demo in production staging
 
 - [x] Monorepo: `backend/` (Laravel) + `frontend/` (React) + `services/` + `docker/` + `docs/`
 - [x] Root git repo + `.gitignore`
-- [ ] GitHub remote → push → **CI/CD green on first push** (lint + test + build)
-- [ ] Local dev UX: `composer install`, `npm install`, both servers on one command
-- [ ] GitHub Actions: PHPUnit + Pint + PHPStan + `tsc` + `vite build`
-- [ ] Docker Compose for local: `mysql` (or postgres), `redis`
+- [x] GitHub remote → push → **CI/CD green on first push** (lint + test + build)
+- [x] Local dev UX: `composer install`, `npm install`, both servers on one command
+- [x] GitHub Actions: PHPUnit + Pint + PHPStan + `tsc` + `vite build`
+- [x] Docker Compose for local: `mysql` (or postgres), `redis`
 
 **Exit criteria:** Fresh clone → CI green in <10 min locally, Jenkins-free.
 

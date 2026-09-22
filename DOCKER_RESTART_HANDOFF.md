@@ -31,9 +31,9 @@ docker --version
 
 ## 3. 3 CMD — konse folder me terminal kholoni hai
 
-> **Folder:** `D:\Amtech\amteCHAT` (root — jahan `docker-compose.yml` hai)
+> **Folder:** `D:\Amtech\amteCHAT` (root — wahan root `docker-compose.yml` hai)
 >
-> ⚠️ **Terminal wahi kholo jahan docker-compose.yml hai** — `docker` folder me nahi jana (wahan files chala ke build context toot jayega).
+> ✅ Root `docker-compose.yml` ab ek **forwarder** hai → canonical config `docker/compose.yaml` include karta hai. Isliye root se `docker compose ...` chalana bilkul sahi kaam karta hai (`docker/README.md` dekh lo).
 
 **CMD 1 — validate compose (pehle, bina run kiye check):**
 ```powershell
@@ -94,8 +94,11 @@ docker compose exec backend php artisan route:list --path=/api/v1 --columns=uri,
 
 ## 6. Git — release lock (yahan se AGLA step)
 
-- **`docker-compose.yml` root par rehne do** — `docker/` folder me MOVE mat karna (build-context `context: .` root-relative hai, move karne se `backend/Dockerfile` nahi milega → build fail)
-- Backend `Dockerfile` bhi `backend/` me hi (root-relative path ke liye)
+- Compose stack ka **single source of truth**: `docker/compose.yaml` (paths `../backend` — docs/11 layout).
+- Root `docker-compose.yml` = **forwarder** (`include: docker/compose.yaml`) — isliye root se `docker compose up` pehle jaisa hi chalta hai, koi command nahi badla.
+- Redis ab config file use karta hai: `docker/redis/redis.conf` (mounted). Compose rebuild/up ke baad redis recreate hoga — data volume `redis-data` intact.
+- Prod overlay: `docker/compose.prod.yaml` (+ `docker/nginx/api.conf`) — CI deploy workflows use karte hain.
+- Backend `Dockerfile` `backend/` me hi hai (root-relative context `../` valid hai).
 - Sab committed + pushed already (back-end FPM image + compose + predis in lock). Koi move/rename nahi.
 
 ---

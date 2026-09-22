@@ -1,5 +1,7 @@
 # amteCHAT
 
+[![CI](https://github.com/azimkhan07/chatting_sysem/actions/workflows/ci.yml/badge.svg)](https://github.com/azimkhan07/chatting_sysem/actions/workflows/ci.yml)
+
 A next-generation social platform — chat, feed, and connections — built as a scalable
 monorepo. Working name: **amteCHAT** (final brand name to be decided at launch).
 
@@ -20,21 +22,23 @@ monorepo. Working name: **amteCHAT** (final brand name to be decided at launch).
 | ---------------- | --------------------------------------- |
 | Backend API      | Laravel 12 (PHP 8.2+)                   |
 | Frontend (Web)   | React 19 + TypeScript (Vite)            |
-| Database (local) | SQLite (dev) → PostgreSQL/MySQL (prod)  |
+| Database (local) | MySQL 8 (Docker) / SQLite (CI)          |
 | Realtime / Chat  | TBD (Laravel Reverb / WebSockets)       |
 | Mobile apps      | TBD (React Native)                      |
-| Microservices    | Planned (phase 2)                       |
-| DevOps           | Planned — Docker, CI/CD, monitoring     |
+| Infra            | Redis 7, queue workers, scheduler (Docker Compose) |
+| Microservices    | Planned — reserved in `services/` (Phase 3) |
+| DevOps           | GitHub Actions: CI + staged deploy pipeline (docs/11) |
 
 ## Repository Layout
 
 ```text
 amteCHAT/
-├─ backend/            # Laravel API (the core domain)
+├─ backend/            # Laravel API (the core domain — modular monolith, ADR-001)
 ├─ frontend/           # React + TypeScript web client
-├─ services/           # Future microservices (empty for now)
-├─ docker/             # Future Docker / infra (empty for now)
+├─ services/           # Future microservices (strategy in services/README.md)
+├─ docker/             # Compose stack, redis/nginx configs (docker/README.md)
 ├─ docs/               # Architecture & product docs
+├─ docker-compose.yml  # Root forwarder → docker/compose.yaml
 └─ README.md
 ```
 
@@ -60,9 +64,20 @@ Start at [`docs/00-index.md`](docs/00-index.md) — it links everything:
 
 ## Getting Started (Local)
 
-Requirements: PHP 8.2+, Composer 2, Node 18+, npm.
+### 0. Docker stack (recommended — one command)
 
-### 1. Backend (Laravel)
+Requirements: Docker Desktop (WSL 2 engine), no local PHP/Node needed.
+
+```powershell
+docker compose up -d --build          # backend API + queue + scheduler + redis + mysql
+docker compose exec backend php artisan migrate --seed --class=DemoSeeder
+```
+
+- API → `http://localhost:8000`
+- DB → `127.0.0.1:3307` (user `amtechat`, pass `secret`), Redis → `6379`
+- Full layout + prod overlay: `docker/README.md`
+
+### 1. Backend (Laravel) — without Docker
 
 ```powershell
 cd backend
@@ -84,6 +99,15 @@ npm run dev
 ```
 
 Web app will be at `http://localhost:5173`.
+
+## CI / CD
+
+- **CI** `.github/workflows/ci.yml` — Pint, PHPStan, PHPUnit, oxlint, `tsc`, vite build (path-filtered).
+- **Staging** `.github/workflows/deploy-staging.yml` — image build + deploy on `main` (variable-gated).
+- **Prod** `.github/workflows/deploy-prod.yml` — `vX.Y.Z` tags only, zero-downtime (variable-gated).
+- **Nightly** `.github/workflows/nightly.yml` — dependency audits + test run.
+
+Details in [`docs/11-devops-cicd.md`](docs/11-devops-cicd.md).
 
 ## Roadmap
 

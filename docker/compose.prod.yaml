@@ -1,0 +1,43 @@
+# amteCHAT — prod-ish compose overlay (docs/11 docker/compose.prod.yaml)
+#
+# Use together with the dev base:
+#   docker compose -f docker/compose.yaml -f docker/compose.prod.yaml up -d
+#
+# What changes vs dev:
+#   - backend runs php-fpm (no bind-mount, no `artisan serve`, no hot reload)
+#   - migrations run once, before serving
+#   - queue scales to `QUEUE_REPLICAS` workers
+#   - friendly named images ready for registry push (see CI deploy workflows)
+#
+# NOTE: this is the structural template for staging/prod. It intentionally
+# stays image-based so infra (Postgres, TLS, autoscaling) can be swapped in
+# without touching app code.
+
+services:
+  backend:
+    build:
+      context: ../
+      dockerfile: backend/Dockerfile
+    image: ghcr.io/azimkhan07/chatting_sysem/backend:latest
+    entrypoint: []
+    command: >
+      sh -c "php artisan migrate --force &&
+             php artisan storage:link &&
+             php-fpm"
+    ports:
+      - "127.0.0.1:8000:9000"
+
+  queue:
+    image: ghcr.io/azimkhan07/chatting_sysem/backend:latest
+    pull_policy: always
+    deploy:
+      replicas: ${QUEUE_REPLICAS:-2}
+
+  scheduler:
+    image: ghcr.io/azimkhan07/chatting_sysem/backend:latest
+    pull_policy: always
+
+  redis:
+    expose:
+      - "6379"
+    ports: []

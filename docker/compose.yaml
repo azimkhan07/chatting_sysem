@@ -1,0 +1,121 @@
+name: amtechat
+
+# Canonical local dev stack (docs/11: docker/compose.yaml).
+# Paths are relative to THIS file (parent dir = repo root).
+# Root `docker-compose.yml` is a thin forwarder that includes this file,
+# so both `docker compose -f docker/compose.yaml up` and `docker compose up` work.
+
+services:
+  backend:
+    build:
+      context: ../
+      dockerfile: backend/Dockerfile
+    image: amtechat/backend
+    working_dir: /srv
+    # Bind-mount the real repo so predis/php changes after `composer require`
+    # show up immediately; no image rebuild needed.
+    volumes:
+      - ../backend:/srv
+    env_file: ../backend/.env
+    environment:
+      - DB_HOST=mysql
+      - DB_DATABASE=amtechat
+      - DB_USERNAME=amtechat
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_STORE=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+  queue:
+    image: amtechat/backend
+    pull_policy: never
+    working_dir: /srv
+    volumes:
+      - ../backend:/srv
+    env_file: ../backend/.env
+    environment:
+      - DB_HOST=mysql
+      - DB_DATABASE=amtechat
+      - DB_USERNAME=amtechat
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_STORE=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: php artisan queue:work redis --sleep=3 --tries=3
+
+  scheduler:
+    image: amtechat/backend
+    pull_policy: never
+    working_dir: /srv
+    volumes:
+      - ../backend:/srv
+    env_file: ../backend/.env
+    environment:
+      - DB_HOST=mysql
+      - DB_DATABASE=amtechat
+      - DB_USERNAME=amtechat
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_STORE=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: php artisan schedule:work
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+
+  mysql:
+    image: mysql:8.4
+    command: --mysql_native_password=ON
+    environment:
+      - MYSQL_DATABASE=amtechat
+      - MYSQL_USER=amtechat
+      - MYSQL_PASSWORD=secret
+      - MYSQL_ROOT_PASSWORD=rootsecret
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootsecret"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  redis-data:
+  mysql-data:

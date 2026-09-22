@@ -1,0 +1,75 @@
+name: Deploy Production
+
+# Deploys `vX.Y.Z` tags to production (docs/11: tags only, zero-downtime).
+# Gated behind a repository variable until prod infra is provisioned
+# (Settings → Variables → ENABLE_DEPLOY_PROD=true).
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-images:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_DEPLOY_PROD == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/backend:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy (zero-downtime)
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: vars.ENABLE_DEPLOY_PROD == 'true'
+    environment:
+      name: production
+      url: https://prod.${{ secrets.PROD_HOST }}
+    steps:
+      - name: Deploy backend (migrate → swap)
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          echo "$PROD_SSH_KEY" > key.pem && chmod 600 key.pem
+          ssh -i key.pem -o StrictHostKeyChecking=no "deploy@$PROD_HOST" \
+            "docker compose -f amtechat/docker/compose.prod.yaml pull backend && \
+             docker compose -f amtechat/docker/compose.prod.yaml run --rm backend php artisan migrate --force && \
+             docker compose -f amtechat/docker/compose.prod.yaml up -d --no-deps --force-recreate backend queue scheduler"
+
+      - name: Health gate
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+        run: |
+          curl -fsS --retry 5 --retry-connrefused --retry-delay 5 "https://$PROD_HOST/health" || exit 1
