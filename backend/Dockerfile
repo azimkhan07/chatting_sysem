@@ -19,10 +19,11 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /srv
 
 COPY backend/composer.json backend/composer.lock ./
-RUN composer install --no-dev --no-interaction --no-progress --prefer-dist \
-    || composer install --no-interaction --no-progress --prefer-dist
+RUN composer install --no-dev --no-scripts --no-interaction --no-progress --prefer-dist \
+    || composer install --no-scripts --no-interaction --no-progress --prefer-dist
 
 COPY backend .
+RUN php artisan package:discover || true
 
 EXPOSE 9000
 
