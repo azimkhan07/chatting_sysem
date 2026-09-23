@@ -48,7 +48,8 @@ Ordered by dependency, each item shipped with its own tests + docs update:
    - Request verification → pay ₹1/₹5 (UPI/Mock gateway v1) → admin review → badge.
    - Auto-renew + expiry. Cancellation removes tick.
 8. **Notifications**
-   - Real-time + persisted; unread badge (server-computed), per-module.
+   - [x] Real-time + persisted; unread badge (server-computed), per-module.
+   - Real-time via Reverb: `NotificationCreated` broadcast on `private-user.{id}` (realtime-notifications), persisted feed + unread-count + mark-all-read endpoints.
 9. **Signature Feature**
    - Selected direction, built, tested, shipped (see `01-vision-and-features.md`).
 

@@ -7,18 +7,23 @@ namespace App\Domain\Social\Repositories;
 use App\Domain\Social\Contracts\NotificationRepository;
 use App\Domain\Social\Enums\NotificationType;
 use App\Domain\Social\Models\UserNotification;
+use App\Events\NotificationCreated;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 
 final class EloquentNotificationRepository implements NotificationRepository
 {
-    public function create(int $recipientId, int $actorId, NotificationType $type, array $data = []): void
+    public function create(int $recipientId, int $actorId, NotificationType $type, array $data = []): UserNotification
     {
-        UserNotification::query()->create([
+        $notification = UserNotification::query()->create([
             'user_id' => $recipientId,
             'actor_id' => $actorId,
             'type' => $type->value,
             'data' => $data,
         ]);
+
+        NotificationCreated::dispatch($recipientId, $notification);
+
+        return $notification;
     }
 
     public function listFor(int $userId, int $limit, ?string $cursor): CursorPaginator

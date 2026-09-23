@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Broadcasting\ConversationChannel;
+use App\Broadcasting\UserChannel;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -20,3 +21,4 @@ Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
 Broadcast::channel('dm.{conversation}', ConversationChannel::class);
 Broadcast::channel('group.{conversation}', ConversationChannel::class);
+Broadcast::channel('user.{id}', UserChannel::class);

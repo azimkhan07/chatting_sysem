@@ -18,6 +18,10 @@ never hang any user. Realtime only accelerates delivery; Postgres is the source 
 | `private-group.{conv_id}`   | group members       | messages, typing, member join/leave (system msg) |
 | `presence-{group_id}`       | group members       | online roster per group |
 
+> **Implemented:** `NotificationCreated` (ShouldBroadcastNow) publishes on the
+> `private-user.{user_id}` channel after every persisted notification (follow, like,
+> comment, verified). Channel auth is enforced server-side by `App\Broadcasting\UserChannel`.
+
 ## Message lifecycle
 
 ```

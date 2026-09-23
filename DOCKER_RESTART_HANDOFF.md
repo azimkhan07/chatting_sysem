@@ -46,7 +46,7 @@ docker compose config --quiet
 ```powershell
 docker compose up -d --build
 ```
-> Pehli baar 3-8 min (images build hogi). End me likhega: `Creating redis`, `Creating backend`, `Creating queue`, `Creating scheduler`, `Creating mysql` → `Started`.
+> Pehli baar 3-8 min (images build hogi). End me likhega: `Creating redis`, `Creating backend`, `Creating queue`, `Creating scheduler`, `Creating reverb`, `Creating mysql` → `Started`.
 
 **CMD 3 — healthcheck (sab green hona zaroori):**
 ```powershell
@@ -55,11 +55,17 @@ docker compose ps
 > Dekhna chahiye:
 > - `mysql` → `healthy`
 > - `redis` → `healthy`
-> - `backend` → `Up`
+> - `backend` → `Up` (REST API :8000)
 > - `queue` → `Up`
 > - `scheduler` → `Up`
+> - `reverb` → `Up` (WebSockets :8080)
 >
 > ⏳ Agar `mysql`/`redis` **Starting** me 10s se zyada atke → 15 sec wait karke `docker compose ps` dobara. MySQL pehli baar initial setup karta hai.
+>
+> 🔌 **Realtime notifications (Phase 1 #8):** backend broadcasts `NotificationCreated`
+> on `private-user.{id}` via Reverb (:8080). Frontend conect from localhost:5173 →
+> ws localhost:8080 with key `amtechat-local-key` (see `frontend/.env.example`). Channel
+> auth = `App\Broadcasting\UserChannel`. Reverb down → API polling fallback (30s) survives.
 
 ---
 

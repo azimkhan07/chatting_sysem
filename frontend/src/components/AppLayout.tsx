@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 
@@ -12,12 +12,14 @@ import {
   UserIcon,
 } from '@/components/icons'
 import { api, ApiError, chatApi, notificationsApi } from '@/lib/api'
+import { echoInstance } from '@/lib/echo'
 import { path } from '@/lib/paths'
 import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types/user'
 
 export default function AppLayout() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const token = useAuthStore((state) => state.token)
   const logout = useAuthStore((state) => state.logout)
   const setUser = useAuthStore((state) => state.setUser)
@@ -66,6 +68,23 @@ export default function AppLayout() {
       setUser(meQuery.data.user)
     }
   }, [meQuery.data, setUser])
+
+  useEffect(() => {
+    const me = meQuery.data?.user
+    if (!me) return
+    const echo = echoInstance()
+    if (!echo) return
+
+    const channel = echo.private(`user.${me.id}`)
+    channel.listen('.notification.created', () => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] })
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    })
+
+    return () => {
+      channel.stopListening('.notification.created')
+    }
+  }, [meQuery.data?.user?.id, queryClient])
 
   useEffect(() => {
     if (meQuery.error instanceof ApiError && meQuery.error.status === 401) {
