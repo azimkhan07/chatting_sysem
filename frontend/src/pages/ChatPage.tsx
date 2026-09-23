@@ -48,7 +48,7 @@ export default function ChatPage() {
   const [composer, setComposer] = useState<'dm' | 'group' | null>(null)
 
   return (
-    <div className="flex min-h-0 flex-1 bg-midnight-950">
+    <div className="flex h-full min-h-0 flex-1 bg-midnight-950">
       <InboxPane
         activeId={activeId}
         className={activeId === null ? 'flex' : 'hidden md:flex'}
@@ -69,7 +69,7 @@ export default function ChatPage() {
           <button
             type="button"
             onClick={() => setComposer('dm')}
-            className="btn-primary mt-2"
+            className="btn-primary mt-2 w-auto px-6"
           >
             New message
           </button>
