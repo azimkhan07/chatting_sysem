@@ -39,7 +39,7 @@ export default function ChatPage() {
   const [composer, setComposer] = useState<'dm' | 'group' | null>(null)
 
   return (
-    <div className="flex h-[calc(100svh-11rem)] min-h-0 overflow-hidden rounded-3xl border border-white/5 bg-white/[0.02] md:h-[calc(100svh-3.5rem)]">
+    <div className="flex min-h-0 flex-1 bg-midnight-950">
       <InboxPane
         activeId={activeId}
         className={activeId === null ? 'flex' : 'hidden md:flex'}

@@ -23,6 +23,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
   const location = useLocation()
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
+  const isChat = location.pathname === '/chat' || location.pathname.startsWith('/chat/')
 
   return (
     <div className="relative flex h-svh flex-col bg-midnight-950">
@@ -88,27 +89,39 @@ export default function AppShell({ nav, children }: AppShellProps) {
           </div>
         </aside>
 
-        <main className="no-scrollbar min-w-0 flex-1 overflow-y-auto">
-          <header className="flex h-14 items-center justify-between px-4 md:hidden">
-            <BrandMark compact />
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-rose-300"
-              title="Sign out"
-            >
-              <LogoutIcon className="h-4 w-4" />
-            </button>
-          </header>
+        <main
+          className={
+            isChat
+              ? 'flex min-w-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0'
+              : 'no-scrollbar min-w-0 flex-1 overflow-y-auto'
+          }
+        >
+          {!isChat ? (
+            <header className="flex h-14 items-center justify-between px-4 md:hidden">
+              <BrandMark compact />
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-rose-300"
+                title="Sign out"
+              >
+                <LogoutIcon className="h-4 w-4" />
+              </button>
+            </header>
+          ) : null}
 
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: isChat ? 0 : 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              exit={{ opacity: 0, y: isChat ? 0 : -8 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:px-8 md:pb-8"
+              className={
+                isChat
+                  ? 'flex min-h-0 flex-1 flex-col'
+                  : 'mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:px-8 md:pb-8'
+              }
             >
               {children}
             </motion.div>
