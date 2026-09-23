@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -12,10 +12,12 @@ import type { Post } from '@/types/post'
 import type { User } from '@/types/user'
 
 type Tab = 'people' | 'hashtags'
+type GridMode = 'all' | 'trending'
 
 export default function Explore() {
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<Tab>('people')
+  const [gridMode, setGridMode] = useState<GridMode>('all')
   const [people, setPeople] = useState<User[]>([])
   const [hashtags, setHashtags] = useState<HashtagSummary[]>([])
   const [searching, setSearching] = useState(false)
@@ -30,6 +32,12 @@ export default function Explore() {
     queryFn: ({ pageParam }) => postsApi.explore(pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+  })
+
+  const trending = useQuery({
+    queryKey: ['posts', 'trending'],
+    queryFn: () => postsApi.trending(),
+    staleTime: 60_000,
   })
 
   const {
@@ -83,6 +91,7 @@ export default function Explore() {
   }, [])
 
   const posts = gridPages?.pages.flatMap((page) => page.posts) ?? []
+  const trendingPosts = trending.data?.posts ?? []
 
   return (
     <div className="space-y-4">
@@ -136,43 +145,103 @@ export default function Explore() {
       </header>
 
       <section>
-        <h2 className="px-1 text-sm font-bold text-slate-300">All media</h2>
-
-        {isPending ? (
-          <div className="grid place-items-center py-12">
-            <Spinner className="h-6 w-6" />
-          </div>
-        ) : null}
-
-        {!isPending && posts.length === 0 ? (
-          <div className="grid place-items-center rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-14 text-center">
-            <p className="text-base font-semibold text-slate-200">Nothing to explore yet</p>
-            <p className="mt-1 text-sm text-slate-400">
-              Photos and reels from across amteCHAT will appear here.
-            </p>
-          </div>
-        ) : null}
-
-        {posts.length > 0 ? (
-          <div className="grid grid-cols-3 gap-1.5">
-            {posts.map((post) => (
+        <div className="flex items-center justify-between gap-2 px-1 pb-2">
+          <h2 className="text-sm font-bold text-slate-300">
+            {gridMode === 'trending' ? 'Trending now' : 'All media'}
+          </h2>
+          <div className="flex items-center gap-1">
+            {(['all', 'trending'] as const).map((item) => (
               <button
-                key={post.id}
+                key={item}
                 type="button"
-                onClick={() => setSelected(post)}
-                className="group relative aspect-square overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10"
-                aria-label="Open media"
+                onClick={() => setGridMode(item)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize transition ${
+                  gridMode === item
+                    ? 'bg-brand-500/25 text-brand-200 ring-1 ring-brand-400/50'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
               >
-                <ExploreTile post={post} />
-                <span className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/70 to-transparent p-1.5 text-left group-hover:block">
-                  <p className="truncate text-[10px] text-[#fff]">{post.body || 'amteCHAT'}</p>
-                </span>
+                {item === 'all' ? 'All' : 'Trending'}
               </button>
             ))}
           </div>
-        ) : null}
+        </div>
 
-        <div ref={loadMoreRef} aria-hidden="true" />
+        {gridMode === 'all' ? (
+          <>
+            {isPending ? (
+              <div className="grid place-items-center py-12">
+                <Spinner className="h-6 w-6" />
+              </div>
+            ) : null}
+
+            {!isPending && posts.length === 0 ? (
+              <div className="grid place-items-center rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-14 text-center">
+                <p className="text-base font-semibold text-slate-200">Nothing to explore yet</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  Photos and reels from across amteCHAT will appear here.
+                </p>
+              </div>
+            ) : null}
+
+            {posts.length > 0 ? (
+              <div className="grid grid-cols-3 gap-1.5">
+                {posts.map((post) => (
+                  <button
+                    key={post.id}
+                    type="button"
+                    onClick={() => setSelected(post)}
+                    className="group relative aspect-square overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10"
+                    aria-label="Open media"
+                  >
+                    <ExploreTile post={post} />
+                    <span className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/70 to-transparent p-1.5 text-left group-hover:block">
+                      <p className="truncate text-[10px] text-[#fff]">{post.body || 'amteCHAT'}</p>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div ref={loadMoreRef} aria-hidden="true" />
+          </>
+        ) : (
+          <>
+            {trending.isPending ? (
+              <div className="grid place-items-center py-12">
+                <Spinner className="h-6 w-6" />
+              </div>
+            ) : null}
+
+            {!trending.isPending && trendingPosts.length === 0 ? (
+              <div className="grid place-items-center rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-14 text-center">
+                <p className="text-base font-semibold text-slate-200">No trending posts yet</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  Highly engaged posts from the last week will rank here.
+                </p>
+              </div>
+            ) : null}
+
+            {trendingPosts.length > 0 ? (
+              <div className="grid grid-cols-3 gap-1.5">
+                {trendingPosts.map((post) => (
+                  <button
+                    key={post.id}
+                    type="button"
+                    onClick={() => setSelected(post)}
+                    className="group relative aspect-square overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10"
+                    aria-label="Open media"
+                  >
+                    <ExploreTile post={post} />
+                    <span className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/70 to-transparent p-1.5 text-left group-hover:block">
+                      <p className="truncate text-[10px] text-[#fff]">{post.body || 'amteCHAT'}</p>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
 
       <AnimatePresence>
@@ -184,7 +253,10 @@ export default function Explore() {
             className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/85 p-4 backdrop-blur-sm"
           >
             <div className="w-full max-w-md">
-              <PostCard post={selected} cacheKey={['posts', 'explore']} />
+              <PostCard
+                post={selected}
+                cacheKey={gridMode === 'trending' ? ['posts', 'trending'] : ['posts', 'explore']}
+              />
             </div>
             <button
               type="button"

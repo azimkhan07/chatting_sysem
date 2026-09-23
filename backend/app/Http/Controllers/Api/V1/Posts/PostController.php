@@ -63,6 +63,25 @@ final class PostController extends Controller
         );
     }
 
+    public function trending(Request $request): JsonResponse
+    {
+        $posts = $this->postService->trendingFor(
+            $request->user(),
+            limit: min($request->integer('limit', 30), 50),
+        );
+
+        return ApiResponse::success(
+            data: [
+                'posts' => PostResource::collection($posts),
+                'next_cursor' => null,
+            ],
+            meta: [
+                'has_more' => false,
+                'limit' => min($request->integer('limit', 30), 50),
+            ],
+        );
+    }
+
     public function store(CreatePostRequest $request): JsonResponse
     {
         $post = $this->postService->create(

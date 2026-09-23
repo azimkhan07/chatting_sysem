@@ -64,4 +64,11 @@ final class PostInteractionController extends Controller
             status: 201,
         );
     }
+
+    public function share(Post $post, Request $request): JsonResponse
+    {
+        $count = $this->postService->share($request->user(), $post);
+
+        return ApiResponse::success(['shared' => true, 'shares_count' => $count]);
+    }
 }

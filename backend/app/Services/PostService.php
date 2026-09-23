@@ -11,11 +11,15 @@ use App\Domain\Posts\Actions\CreatePostAction;
 use App\Domain\Posts\Actions\LikePostAction;
 use App\Domain\Posts\Actions\ListFeedAction;
 use App\Domain\Posts\Actions\ListPostCommentsAction;
+use App\Domain\Posts\Actions\SharePostAction;
 use App\Domain\Posts\Actions\UnlikePostAction;
+use App\Domain\Posts\Contracts\PostRepository;
 use App\Domain\Posts\Contracts\PostService as PostServiceContract;
 use App\Domain\Posts\Data\CreatePostData;
 use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
+use App\Domain\Posts\Services\TrendingRanking;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\CursorPaginator;
 
 final class PostService implements PostServiceContract
@@ -27,6 +31,9 @@ final class PostService implements PostServiceContract
         private readonly UnlikePostAction $unlikePostAction,
         private readonly CommentOnPostAction $commentOnPostAction,
         private readonly ListPostCommentsAction $listPostCommentsAction,
+        private readonly SharePostAction $sharePostAction,
+        private readonly PostRepository $repository,
+        private readonly TrendingRanking $trending,
     ) {}
 
     public function create(User $author, CreatePostData $data): Post
@@ -77,5 +84,21 @@ final class PostService implements PostServiceContract
     public function commentsFor(Post $post, int $limit = 20, ?string $cursor = null): CursorPaginator
     {
         return $this->listPostCommentsAction->handle($post, $limit, $cursor);
+    }
+
+    public function share(User $user, Post $post): int
+    {
+        return $this->sharePostAction->handle($post, (int) $user->id);
+    }
+
+    public function trendingFor(User $user, int $limit = 30): Collection
+    {
+        $ids = $this->trending->topIds($limit);
+
+        if ($ids !== []) {
+            return $this->repository->byIdsInOrder($ids, (int) $user->id);
+        }
+
+        return $this->repository->trendingFor((int) $user->id, $limit);
     }
 }

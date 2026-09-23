@@ -111,7 +111,8 @@ final class SubscriptionService
     }
 
     /**
-     * Cancels auto-renew. The badge stays until the paid period runs out.
+     * Cancels auto-renew and removes the blue badge immediately when this was
+     * the last active subscription; a sibling active subscription keeps its badge.
      */
     public function cancel(User $user, Subscription $subscription): Subscription
     {

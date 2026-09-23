@@ -75,4 +75,11 @@ final class ChatMessageController extends Controller
 
         return ApiResponse::success(data: []);
     }
+
+    public function destroy(Request $request, int $conversation, int $message): JsonResponse
+    {
+        $this->chatService->deleteMessage($request->user(), $conversation, $message);
+
+        return ApiResponse::success(data: []);
+    }
 }

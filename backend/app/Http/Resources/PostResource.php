@@ -23,6 +23,7 @@ final class PostResource extends JsonResource
                 : [],
             'likes_count' => (int) ($this->likes_count ?? 0),
             'comments_count' => (int) ($this->comments_count ?? 0),
+            'shares_count' => (int) ($this->shares_count ?? 0),
             'liked_by_me' => (bool) ($this->liked_by_me ?? false),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

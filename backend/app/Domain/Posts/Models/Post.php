@@ -19,6 +19,9 @@ use Illuminate\Support\Carbon;
  * @property-read int $id
  * @property-read int $user_id
  * @property-read string $body
+ * @property-read int $likes_count
+ * @property-read int $comments_count
+ * @property-read int $shares_count
  * @property-read Carbon $created_at
  * @property-read Carbon $updated_at
  * @property-read Carbon|null $deleted_at
@@ -67,5 +70,10 @@ final class Post extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
+    }
+
+    public function shares(): HasMany
+    {
+        return $this->hasMany(PostShare::class, 'post_id');
     }
 }

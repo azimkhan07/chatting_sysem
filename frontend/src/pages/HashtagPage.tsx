@@ -50,7 +50,7 @@ export default function HashtagPage() {
   const notFound = feed.isError
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <header className="glass-card p-4">
         {notFound ? (
           <>

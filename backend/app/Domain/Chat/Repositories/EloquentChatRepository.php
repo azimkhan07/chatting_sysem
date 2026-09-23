@@ -7,18 +7,23 @@ namespace App\Domain\Chat\Repositories;
 use App\Domain\Chat\Contracts\ChatRepository;
 use App\Domain\Chat\Enums\ConversationType;
 use App\Domain\Chat\Enums\MemberRole;
+use App\Domain\Chat\Enums\MessageReactionType;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMember;
 use App\Domain\Chat\Models\ConversationMessage;
 use App\Domain\Chat\Models\GroupInvite;
+use App\Domain\Chat\Models\MessageReaction;
+use App\Domain\Chat\Services\ChatInboxCache;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Query\JoinClause;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class EloquentChatRepository implements ChatRepository
 {
+    public function __construct(private readonly ChatInboxCache $inboxCache) {}
+
     public function createConversation(array $attributes): Conversation
     {
         $conversation = Conversation::query()->create($attributes);
@@ -70,30 +75,46 @@ final class EloquentChatRepository implements ChatRepository
 
     public function conversationsFor(int $userId): Collection
     {
-        $unreadSub = ConversationMessage::query()
-            ->selectRaw('count(*)')
-            ->whereColumn('conversation_messages.conversation_id', 'conversations.id')
-            ->whereRaw('conversation_messages.id > conversation_members_last_read.last_read_message_id');
-
-        return Conversation::query()
+        $conversations = Conversation::query()
             ->select('conversations.*')
-            ->selectSub($unreadSub, 'unread_count')
-            ->join('conversation_members as conversation_members_last_read', function (JoinClause $join) use ($userId): void {
-                $join->on('conversation_members_last_read.conversation_id', '=', 'conversations.id')
-                    ->where('conversation_members_last_read.user_id', '=', $userId);
-            })
+            ->whereHas('members', fn (Builder $query): Builder => $query->where('user_id', $userId))
             ->with([
                 'lastMessage.user',
                 'members' => fn ($query) => $query->with('user'),
             ])
             ->orderByDesc('conversations.updated_at')
             ->get();
+
+        $cached = $this->inboxCache->unreadMap($userId);
+        $uncachedIds = $cached === null
+            ? $conversations->pluck('id')->map(fn ($id): int => (int) $id)->values()->all()
+            : $conversations->pluck('id')
+                ->filter(fn ($id): bool => ! array_key_exists((int) $id, $cached))
+                ->map(fn ($id): int => (int) $id)
+                ->values()
+                ->all();
+
+        $sqlCounts = $uncachedIds === []
+            ? []
+            : $this->unreadCountsFor($userId, $uncachedIds);
+
+        $counts = [];
+        foreach ($conversations as $conversation) {
+            $id = (int) $conversation->id;
+            $unread = $cached[$id] ?? $sqlCounts[$id] ?? 0;
+            $conversation->setAttribute('unread_count', $unread);
+            $counts[$id] = $unread;
+        }
+
+        $this->inboxCache->warmUnread($userId, $counts);
+
+        return $conversations;
     }
 
     public function messagesFor(Conversation $conversation, int $limit, ?string $cursor): CursorPaginator
     {
         $paginator = $conversation->messages()
-            ->with(['user', 'conversation.members'])
+            ->with(['user', 'conversation.members', 'reactions'])
             ->orderByDesc('id')
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
 
@@ -131,6 +152,8 @@ final class EloquentChatRepository implements ChatRepository
         $message->load(['user', 'conversation.members']);
         $conversation->touch();
 
+        $this->inboxCache->noteNewMessage($conversation, $message);
+
         return $message;
     }
 
@@ -146,6 +169,7 @@ final class EloquentChatRepository implements ChatRepository
     {
         if ($upToMessageId > (int) $member->last_read_message_id) {
             $member->update(['last_read_message_id' => $upToMessageId]);
+            $this->inboxCache->markRead((int) $member->user_id, (int) $member->conversation_id);
         }
 
         return $member->refresh();
@@ -153,18 +177,32 @@ final class EloquentChatRepository implements ChatRepository
 
     public function unreadFor(int $userId, Conversation $conversation): int
     {
+        $cached = $this->inboxCache->unreadMap($userId);
+        if ($cached !== null && array_key_exists((int) $conversation->id, $cached)) {
+            return $cached[(int) $conversation->id];
+        }
+
         $member = $this->memberFor($userId, $conversation->id);
         if ($member === null) {
             return 0;
         }
 
-        return (int) $conversation->messages()
+        $unread = (int) $conversation->messages()
             ->where('id', '>', (int) $member->last_read_message_id)
             ->count();
+
+        $this->inboxCache->warmUnread($userId, [(int) $conversation->id => $unread]);
+
+        return $unread;
     }
 
     public function unreadTotal(int $userId): int
     {
+        $cached = $this->inboxCache->unreadTotal($userId);
+        if ($cached !== null) {
+            return $cached;
+        }
+
         return (int) DB::table('conversation_messages')
             ->join('conversation_members', 'conversation_members.conversation_id', '=', 'conversation_messages.conversation_id')
             ->where('conversation_members.user_id', $userId)
@@ -216,6 +254,89 @@ final class EloquentChatRepository implements ChatRepository
                 $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
             })
             ->first();
+    }
+
+    public function messageFor(Conversation $conversation, int $messageId): ?ConversationMessage
+    {
+        return ConversationMessage::query()
+            ->where('conversation_id', $conversation->id)
+            ->whereKey($messageId)
+            ->first();
+    }
+
+    public function reactionFor(ConversationMessage $message, int $userId): ?MessageReaction
+    {
+        return MessageReaction::query()
+            ->where('message_id', $message->id)
+            ->where('user_id', $userId)
+            ->first();
+    }
+
+    public function setReaction(ConversationMessage $message, int $userId, MessageReactionType $reaction): MessageReaction
+    {
+        /** @var MessageReaction $existing */
+        $existing = MessageReaction::query()->updateOrCreate(
+            ['message_id' => $message->id, 'user_id' => $userId],
+            ['reaction' => $reaction->value],
+        );
+
+        return $existing;
+    }
+
+    public function deleteReaction(MessageReaction $reaction): void
+    {
+        $reaction->delete();
+    }
+
+    public function reactionCounts(ConversationMessage $message): array
+    {
+        $rows = MessageReaction::query()->where('message_id', $message->id)->get(['reaction']);
+
+        $totals = $rows->pluck('reaction')
+            ->map(fn (MessageReactionType $reaction): string => $reaction->value)
+            ->countBy()
+            ->all();
+
+        $defaults = [];
+        foreach (MessageReactionType::cases() as $case) {
+            $defaults[$case->value] = 0;
+        }
+
+        return array_merge($defaults, $totals);
+    }
+
+    public function deleteMessage(ConversationMessage $message): void
+    {
+        $conversationId = (int) $message->conversation_id;
+        $message->delete();
+
+        $this->inboxCache->forgetLast($conversationId);
+    }
+
+    /**
+     * Single-pass unread counts for a set of conversations belonging to the
+     * user — avoids one correlated subquery per conversation.
+     *
+     * @param  list<int>  $conversationIds
+     * @return array<int, int>
+     */
+    private function unreadCountsFor(int $userId, array $conversationIds): array
+    {
+        $rows = DB::table('conversation_members as members')
+            ->leftJoin('conversation_messages as messages', 'messages.conversation_id', '=', 'members.conversation_id')
+            ->where('members.user_id', $userId)
+            ->whereIn('members.conversation_id', $conversationIds)
+            ->whereColumn('messages.id', '>', 'members.last_read_message_id')
+            ->select('members.conversation_id', DB::raw('count(messages.id) as unread_count'))
+            ->groupBy('members.conversation_id')
+            ->get();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row->conversation_id] = (int) $row->unread_count;
+        }
+
+        return $counts;
     }
 
     private function advanceWatermark(Conversation $conversation, int $userId, int $upToMessageId): void

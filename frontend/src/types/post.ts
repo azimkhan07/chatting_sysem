@@ -18,6 +18,7 @@ export interface Post {
   hashtags: string[]
   likes_count: number
   comments_count: number
+  shares_count: number
   liked_by_me: boolean
   created_at: string
 }

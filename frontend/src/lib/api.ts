@@ -3,6 +3,8 @@ import type {
   ChatUnreadTotal,
   Conversation,
   ConversationMessage,
+  MessageReactionName,
+  MessageReactionResult,
 } from '@/types/chat'
 import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
@@ -110,6 +112,11 @@ export interface LikeResult {
   likes_count: number
 }
 
+export interface ShareResult {
+  shared: boolean
+  shares_count: number
+}
+
 export interface HashtagSummary {
   name: string
   posts_count: number
@@ -138,6 +145,7 @@ export const postsApi = {
     api.get<FeedPage>(
       `/posts/explore?limit=24${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
     ),
+  trending: () => api.get<FeedPage>('/posts/trending?limit=30'),
   create: (form: { body: string; media: File[] }) => {
     const data = new FormData()
     data.append('body', form.body)
@@ -146,6 +154,7 @@ export const postsApi = {
   },
   like: (postId: number) => api.post<LikeResult>(`/posts/${postId}/like`, {}),
   unlike: (postId: number) => api.delete<LikeResult>(`/posts/${postId}/like`),
+  share: (postId: number) => api.post<ShareResult>(`/posts/${postId}/share`, {}),
 }
 
 export const hashtagsApi = {
@@ -359,6 +368,17 @@ export const chatApi = {
     }),
   removeMember: (conversationId: number, userId: number) =>
     api.delete<null>(`/chat/conversations/${conversationId}/members/${userId}`),
+  react: (conversationId: number, messageId: number, reaction: MessageReactionName) =>
+    api.post<MessageReactionResult>(
+      `/chat/conversations/${conversationId}/messages/${messageId}/reactions`,
+      { reaction },
+    ),
+  unreact: (conversationId: number, messageId: number) =>
+    api.delete<MessageReactionResult>(
+      `/chat/conversations/${conversationId}/messages/${messageId}/reactions`,
+    ),
+  deleteMessage: (conversationId: number, messageId: number) =>
+    api.delete<null>(`/chat/conversations/${conversationId}/messages/${messageId}`),
   unreadTotal: () => api.get<ChatUnreadTotal>('/chat/unread-total'),
 }
 

@@ -51,3 +51,37 @@ Major decisions get recorded here so we never forget *why*.
 | ADR-004 | Reverb + WebSockets for chat | Native Laravel, first-party, Laravel-ecosystem-aligned | 2026-09-17 |
 | ADR-005 | Opaque route tokens for user pages | Shrinks attack surface by hiding page topology; real gates stay on the API (see 16) | 2026-09-18 |
 | ADR-006 | Admin is a separate `/admin` surface | Independent auth perimeter + roles; never ships inside the user SPA shell | 2026-09-18 |
+| ADR-007 | Chat message reactions + delete ship as part of Phase 1 chat | Natural messaging primitives users expect; one small table, pure DB aggregates, Reverb events | 2026-09-23 |
+| ADR-008 | Engagement metrics (like/comment/share) drive a Redis-ranked trending feed | One sorted set + scheduled rebuild; DB-ranked fallback keeps trending available without Redis | 2026-09-23 |
+| ADR-009 | Chat inbox aggregates live in Redis hashes with DB fallback | 100+ groups inbox + unread badge never scan the full message table; source of truth stays Postgres | 2026-09-23 |
+
+## Progress tracker
+
+Latest status of the active build. Updated whenever a task finishes. All checks below
+are green on the machine that built them: `phpunit` (152), `pint`, `phpstan` (level 5),
+`tsc -b`, `vite build`, `oxlint` (warnings only, none blocking).
+
+### Completed
+
+| Task | Notes | Verified |
+| ---- | ----- | -------- |
+| Chat: message reactions (toggle/switch/remove) | `conversation_message_reactions` table, 6 emoji enum, `ChatReactionController`, aggregate counts in `MessageResource`, realtime `MessageReactionChanged` | phpunit + phpstan + build ✅ |
+| Chat: delete message for everyone | Sender or group owner/admin; realtime `MessageDeleted`; optimistic UI removal | phpunit + phpstan + build ✅ |
+| Chat: full-page layout (sidebar + full-body thread) | Inbox rail fixed width, thread fills remaining body on desktop; mobile = bottom tab bar + full-screen thread + back nav | build ✅ |
+| Chat: mobile responsiveness pass | Back button, hidden inbox rail when a thread is open, bottom nav padding accounted for composer | build ✅ |
+| Shared reactions module | `ReactionName`, `REACTIONS`, `REACTION_EMOJI`, `emptyReactions` in `frontend/src/lib/reactions.ts` reused by thread + chat | build ✅ |
+| Full-page mid-section layout | AppShell content column fills the page width right after the sidebar; readable caps added to feed/form-heavy pages (Notifications, HashtagPage) | build ✅ |
+| Chat: 100+ groups inbox aggregation | `ChatInboxCache` (Redis): per-user unread hash + last-message snapshots, single-pass grouped SQL fill, warmed on read; `unreadTotal` is cache-first | phpunit + phpstan + build ✅ |
+| Posts: share count + share button | `post_shares` table (unique post+user, idempotent), `POST posts/{post}/share`, `shares_count` in `PostResource`, PostCard share with optimistic count + copy/native-share | phpunit/6 tests + phpstan + build ✅ |
+| Posts: Explore trending grid | Redis sorted set `posts:trending` (like=1, comment=2, share=4), bump on actions, `posts:refresh-trending` every 5 min, DB-ranked fallback, `GET posts/trending`, Explore tab | phpunit + phpstan + build ✅ |
+| Blue tick: cancel revokes badge | Cancelling the last active subscription immediately clears `is_verified`; survives when an active sibling exists; auto-renew/expiry tests | phpunit/6 tests + phpstan ✅ |
+
+### Pending / next
+
+| Item | Notes |
+| ---- | ----- |
+| Group invite flows hardening (member add via invite already live API-side) | Join UX polish |
+| Full suite re-run against real MySQL + Reverb in Docker | CI covers it via GitHub Actions |
+| Subscription switch plan (downgrade/upgrade) before expiry | Guarded by `verify()` today; needs an in-place switch flow |
+
+See [02 — Roadmap](02-roadmap.md) for the phased plan; ticked items are shipped plus tests.

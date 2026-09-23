@@ -28,16 +28,25 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
   const media = post.media
 
   const patchPost = (postId: number, mutator: (current: Post) => Post) => {
-    queryClient.setQueryData<{ pages: { posts: Post[] }[] }>(cacheKey, (current) => {
-      if (!current) return current
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          posts: page.posts.map((p) => (p.id === postId ? mutator(p) : p)),
-        })),
-      }
-    })
+    queryClient.setQueryData(
+      cacheKey,
+      (current: { pages?: { posts: Post[] }[]; posts?: Post[] } | undefined) => {
+        if (!current) return undefined
+        if (Array.isArray(current.pages)) {
+          return {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              posts: page.posts.map((p) => (p.id === postId ? mutator(p) : p)),
+            })),
+          }
+        }
+        if (Array.isArray(current.posts)) {
+          return { ...current, posts: current.posts.map((p) => (p.id === postId ? mutator(p) : p)) }
+        }
+        return current
+      },
+    )
   }
 
   const toggleLike = useMutation({
@@ -75,11 +84,24 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
     },
   })
 
+  const share = useMutation({
+    mutationFn: () => postsApi.share(post.id),
+    onMutate: () => {
+      const previous = queryClient.getQueryData(cacheKey)
+      patchPost(post.id, (p) => ({ ...p, shares_count: p.shares_count + 1 }))
+      return previous
+    },
+    onError: (_error, _vars, rollback) => {
+      if (rollback !== undefined) queryClient.setQueryData(cacheKey, rollback)
+    },
+  })
+
   async function handleShare() {
     const url = window.location.href
     try {
       if (navigator.share) {
         await navigator.share({ title: 'amteCHAT post', text: post.body, url })
+        share.mutate()
         return
       }
     } catch {
@@ -88,6 +110,7 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
     await navigator.clipboard.writeText(url)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1500)
+    share.mutate()
   }
 
   function handleCommentSubmit(event: React.FormEvent) {
@@ -153,15 +176,17 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
               icon={<MessageIcon className="h-[18px] w-[18px]" />}
               count={post.comments_count}
             />
-            <button
-              type="button"
+            <ActionButton
+              active={copied}
+              activeClass="text-brand-300"
               onClick={() => void handleShare()}
-              className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-slate-400 transition hover:text-slate-200"
-              aria-label="Share post"
-            >
-              <ShareIcon className="h-[18px] w-[18px]" />
-              {copied ? 'Copied!' : null}
-            </button>
+              label="Share post"
+              icon={<ShareIcon className="h-[18px] w-[18px]" />}
+              count={copied ? 0 : post.shares_count}
+            />
+            {copied ? (
+              <span className="text-xs font-semibold text-brand-300">Link copied</span>
+            ) : null}
           </div>
 
           {commentsOpen ? (

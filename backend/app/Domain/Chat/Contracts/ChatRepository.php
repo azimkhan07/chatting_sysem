@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\Chat\Contracts;
 
 use App\Domain\Chat\Enums\MemberRole;
+use App\Domain\Chat\Enums\MessageReactionType;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMember;
 use App\Domain\Chat\Models\ConversationMessage;
 use App\Domain\Chat\Models\GroupInvite;
+use App\Domain\Chat\Models\MessageReaction;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\CursorPaginator;
 
@@ -70,4 +72,19 @@ interface ChatRepository
     public function revokeInvite(GroupInvite $invite): void;
 
     public function inviteByCode(string $code): ?GroupInvite;
+
+    public function messageFor(Conversation $conversation, int $messageId): ?ConversationMessage;
+
+    public function reactionFor(ConversationMessage $message, int $userId): ?MessageReaction;
+
+    public function setReaction(ConversationMessage $message, int $userId, MessageReactionType $reaction): MessageReaction;
+
+    public function deleteReaction(MessageReaction $reaction): void;
+
+    /**
+     * @return array<string, int>
+     */
+    public function reactionCounts(ConversationMessage $message): array;
+
+    public function deleteMessage(ConversationMessage $message): void;
 }

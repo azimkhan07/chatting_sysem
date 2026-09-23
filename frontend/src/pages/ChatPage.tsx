@@ -3,6 +3,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
 } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -21,12 +22,18 @@ import {
   XIcon,
 } from '@/components/icons'
 import { chatApi, usersApi } from '@/lib/api'
+import { echoInstance } from '@/lib/echo'
 import { chatConversation, path } from '@/lib/paths'
+import { emptyReactions, REACTIONS, REACTION_EMOJI, type ReactionName } from '@/lib/reactions'
 import { useAuthStore } from '@/stores/authStore'
 import type {
+  ChatMessagesPage,
   Conversation,
   ConversationMessage,
   MessageKind,
+  RealtimeDeletedPayload,
+  RealtimeMessagePayload,
+  RealtimeReactionPayload,
 } from '@/types/chat'
 import type { User } from '@/types/user'
 
@@ -279,6 +286,105 @@ function ThreadPane({
       (member) =>
         member.user.id === me?.id && (member.role === 'owner' || member.role === 'admin'),
     ) ?? false
+
+  const messagesQueryKey = ['chat', 'messages', conversationId] as const
+
+  function applyReaction(messageId: number, totals: Record<ReactionName, number>, mine: ReactionName | null) {
+    queryClient.setQueryData<InfiniteData<ChatMessagesPage, string | undefined>>(
+      messagesQueryKey,
+      (current) => mutateMessageInPages(current, messageId, (message) => ({
+        ...message,
+        reactions: totals,
+        my_reaction: mine,
+      })),
+    )
+  }
+
+  function removeMessageById(messageId: number) {
+    queryClient.setQueryData<InfiniteData<ChatMessagesPage, string | undefined>>(
+      messagesQueryKey,
+      (current) => {
+        if (current === undefined) return current
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            messages: page.messages.filter((message) => message.id !== messageId),
+          })),
+          pageParams: current.pageParams,
+        }
+      },
+    )
+  }
+
+  const reactMutation = useMutation({
+    mutationFn: (variables: { messageId: number; reaction: ReactionName }) =>
+      chatApi.react(conversationId, variables.messageId, variables.reaction),
+    onSuccess: (result) => {
+      applyReaction(result.message_id, result.reactions, result.reaction)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (messageId: number) => chatApi.deleteMessage(conversationId, messageId),
+    onSuccess: (_, messageId) => {
+      removeMessageById(messageId)
+      void queryClient.invalidateQueries({ queryKey: ['chat'] })
+    },
+  })
+
+  useEffect(() => {
+    const echo = echoInstance()
+    if (!echo || conversation === null) return
+
+    const prefix = conversation.type === 'dm' ? 'dm' : 'group'
+    const channel = echo.private(`${prefix}.${conversationId}`)
+
+    channel.listen('.message.sent', (payload: RealtimeMessagePayload) => {
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, string | undefined>>(
+        messagesQueryKey,
+        (current) => {
+          if (current === undefined) return current
+          const duplicate = current.pages.some((page) =>
+            page.messages.some((message) => message.id === payload.message.id),
+          )
+          if (duplicate) return current
+          const firstPage = current.pages[0]
+          const pages = current.pages.slice()
+          pages[0] = {
+            ...firstPage,
+            messages: [payload.message, ...(firstPage?.messages ?? [])],
+          }
+          return { ...current, pages, pageParams: current.pageParams }
+        },
+      )
+    })
+
+    channel.listen('.message.reaction.changed', (payload: RealtimeReactionPayload) => {
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, string | undefined>>(
+        messagesQueryKey,
+        (current) =>
+          mutateMessageInPages(current, payload.message_id, (message) => ({
+            ...message,
+            reactions: payload.totals,
+            my_reaction:
+              payload.user_id === me?.id ? (payload.reaction ?? null) : message.my_reaction,
+          })),
+      )
+    })
+
+    channel.listen('.message.deleted', (payload: RealtimeDeletedPayload) => {
+      removeMessageById(payload.message_id)
+      void queryClient.invalidateQueries({ queryKey: ['chat'] })
+    })
+
+    return () => {
+      channel.stopListening('.message.sent')
+      channel.stopListening('.message.reaction.changed')
+      channel.stopListening('.message.deleted')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, conversation?.type, me?.id, queryClient])
   const mutationVariablesRef = useRef<string | null>(null)
 
   const loadOlderMessages = useCallback(() => {
@@ -306,6 +412,8 @@ function ThreadPane({
           body: variables.body,
           media_url: null,
           read: false,
+          reactions: emptyReactions(),
+          my_reaction: null,
           created_at: new Date().toISOString(),
           client_id: variables.clientId,
         },
@@ -497,6 +605,20 @@ function ThreadPane({
                     message={message}
                     mine={(message.sender?.id ?? 0) === me?.id}
                     showSender={conversation.type === 'group' && (message.sender?.id ?? 0) !== me?.id}
+                    actionable={message.id > 0}
+                    canDelete={
+                      message.id > 0 &&
+                      ((message.sender?.id ?? 0) === me?.id ||
+                        (conversation.type === 'group' && isModerator))
+                    }
+                    onReact={(reaction) =>
+                      reactMutation.mutate({ messageId: message.id, reaction })
+                    }
+                    onDelete={() => {
+                      if (window.confirm('Delete this message for everyone?')) {
+                        deleteMutation.mutate(message.id)
+                      }
+                    }}
                   />
                 </div>
               )
@@ -599,17 +721,26 @@ function MessageBubble({
   message,
   mine,
   showSender,
+  actionable,
+  canDelete,
+  onReact,
+  onDelete,
 }: {
   message: ConversationMessage
   mine: boolean
   showSender: boolean
+  actionable: boolean
+  canDelete: boolean
+  onReact: (reaction: ReactionName) => void
+  onDelete: () => void
 }) {
   const kind: MessageKind = message.type ?? 'text'
   const isMedia = kind === 'image' || kind === 'video'
+  const [picker, setPicker] = useState(false)
 
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[80%] ${mine ? 'items-end' : 'items-start'}`}>
+      <div className={`flex max-w-[80%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
         {showSender ? (
           <p className="mb-1 ml-1 text-[11px] font-medium text-slate-500">
             {message.sender?.display_name ?? message.sender?.username ?? 'Member'}
@@ -648,6 +779,75 @@ function MessageBubble({
             ) : null}
           </div>
         </div>
+        {actionable ? (
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {REACTIONS.filter((reaction) => (message.reactions?.[reaction] ?? 0) > 0).map(
+              (reaction) => {
+                const count = message.reactions?.[reaction] ?? 0
+                const mineReacted = message.my_reaction === reaction
+                return (
+                  <button
+                    key={reaction}
+                    type="button"
+                    onClick={() => onReact(reaction)}
+                    title={`${reaction}${mineReacted ? ' (added)' : ''}`}
+                    aria-label={`React ${reaction}`}
+                    className={[
+                      'flex items-center gap-1 rounded-full border border-white/10 px-1.5 py-0.5 text-xs transition',
+                      mineReacted
+                        ? 'bg-brand-500/20 ring-1 ring-brand-400/50'
+                        : 'bg-white/[0.03] hover:bg-white/10',
+                    ].join(' ')}
+                  >
+                    {REACTION_EMOJI[reaction]}
+                    <span className="text-[10px] font-semibold text-slate-300">{count}</span>
+                  </button>
+                )
+              },
+            )}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPicker((current) => !current)}
+                aria-label={picker ? 'Close reactions' : 'Add reaction'}
+                title="Add reaction"
+                className="grid h-6 w-6 place-items-center rounded-full bg-white/5 text-xs transition hover:bg-white/10"
+              >
+                😀
+              </button>
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  aria-label="Delete message"
+                  title="Delete for everyone"
+                  className="grid h-6 w-6 place-items-center rounded-full bg-white/5 text-[10px] transition hover:bg-rose-500/20 hover:text-rose-300"
+                >
+                  🗑
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {picker ? (
+          <div className="mt-1 flex gap-1 rounded-full border border-white/10 bg-midnight-900 p-1">
+            {REACTIONS.map((reaction) => (
+              <button
+                key={reaction}
+                type="button"
+                onClick={() => {
+                  onReact(reaction)
+                  setPicker(false)
+                }}
+                aria-label={reaction}
+                title={reaction}
+                className="grid h-7 w-7 place-items-center rounded-full text-sm transition hover:scale-110 hover:bg-white/10"
+              >
+                {REACTION_EMOJI[reaction]}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -838,6 +1038,24 @@ function buildChronological(
   return [...pages]
     .reverse()
     .flatMap((page) => [...page.messages].reverse())
+}
+
+function mutateMessageInPages(
+  current: InfiniteData<ChatMessagesPage, string | undefined> | undefined,
+  messageId: number,
+  change: (message: ConversationMessage) => ConversationMessage,
+): InfiniteData<ChatMessagesPage, string | undefined> | undefined {
+  if (current === undefined) return current
+  return {
+    ...current,
+    pages: current.pages.map((page) => ({
+      ...page,
+      messages: page.messages.map((message) =>
+        message.id === messageId ? change(message) : message,
+      ),
+    })),
+    pageParams: current.pageParams,
+  }
 }
 
 function displayName(conversation: Conversation): string {

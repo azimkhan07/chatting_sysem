@@ -19,6 +19,15 @@ final class PostInteractionTest extends TestCase
         return $user->createToken('test')->plainTextToken;
     }
 
+    /**
+     * The test container reuses guard instances across consecutive requests,
+     * caching the resolved user. Reset them when switching users mid-test.
+     */
+    private function forgetGuards(): void
+    {
+        auth()->forgetGuards();
+    }
+
     public function test_user_can_like_a_post(): void
     {
         $user = User::factory()->create();
@@ -61,7 +70,7 @@ final class PostInteractionTest extends TestCase
         $this->assertDatabaseCount('likes', 0);
     }
 
-    public function test_feed_reports_like_and_comment_counts(): void
+    public function test_feed_reports_like_comment_and_share_counts(): void
     {
         $viewer = User::factory()->create();
         $owner = User::factory()->create();
@@ -69,13 +78,84 @@ final class PostInteractionTest extends TestCase
         $post->likes()->create(['user_id' => $viewer->id]);
         $post->likes()->create(['user_id' => $owner->id]);
         $post->comments()->create(['user_id' => $owner->id, 'body' => 'nice post']);
+        $post->shares()->create(['user_id' => $viewer->id]);
 
         $this->withToken($this->tokenFor($viewer))
             ->getJson('/api/v1/posts')
             ->assertOk()
             ->assertJsonPath('data.posts.0.likes_count', 2)
             ->assertJsonPath('data.posts.0.comments_count', 1)
+            ->assertJsonPath('data.posts.0.shares_count', 1)
             ->assertJsonPath('data.posts.0.liked_by_me', true);
+    }
+
+    public function test_user_can_share_a_post(): void
+    {
+        $user = User::factory()->create();
+        $post = Post::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson("/api/v1/posts/{$post->id}/share")
+            ->assertOk()
+            ->assertJsonPath('data.shared', true)
+            ->assertJsonPath('data.shares_count', 1);
+
+        $this->assertDatabaseHas('post_shares', ['user_id' => $user->id, 'post_id' => $post->id]);
+    }
+
+    public function test_sharing_is_idempotent_per_user(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $post = Post::factory()->create();
+
+        $this->withToken($this->tokenFor($user))->postJson("/api/v1/posts/{$post->id}/share");
+        $this->forgetGuards();
+        $this->withToken($this->tokenFor($other))->postJson("/api/v1/posts/{$post->id}/share");
+        $this->forgetGuards();
+        $this->withToken($this->tokenFor($user))
+            ->postJson("/api/v1/posts/{$post->id}/share")
+            ->assertOk()
+            ->assertJsonPath('data.shares_count', 2);
+
+        $this->assertDatabaseCount('post_shares', 2);
+        $this->assertDatabaseHas('post_shares', ['user_id' => $user->id, 'post_id' => $post->id]);
+    }
+
+    public function test_trending_ranks_posts_by_engagement(): void
+    {
+        $viewer = User::factory()->create();
+        $owner = User::factory()->create();
+
+        $low = Post::factory()->for($owner)->create();
+        $low->likes()->create(['user_id' => $viewer->id]);
+
+        $high = Post::factory()->for($owner)->create();
+        $high->shares()->create(['user_id' => $viewer->id]);
+
+        $this->withToken($this->tokenFor($viewer))
+            ->getJson('/api/v1/posts/trending')
+            ->assertOk()
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonCount(2, 'data.posts')
+            ->assertJsonPath('data.posts.0.id', $high->id)
+            ->assertJsonPath('data.posts.1.id', $low->id)
+            ->assertJsonPath('data.posts.0.shares_count', 1);
+    }
+
+    public function test_trending_excludes_stale_posts(): void
+    {
+        $viewer = User::factory()->create();
+        $owner = User::factory()->create();
+
+        Post::factory()->for($owner)->create(['created_at' => now()->subDays(10)]);
+        $fresh = Post::factory()->for($owner)->create();
+
+        $this->withToken($this->tokenFor($viewer))
+            ->getJson('/api/v1/posts/trending')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.posts')
+            ->assertJsonPath('data.posts.0.id', $fresh->id);
     }
 
     public function test_like_requires_authentication(): void

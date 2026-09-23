@@ -91,6 +91,15 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
             'status' => SubscriptionStatus::Cancelled,
         ]);
 
+        $stillVerified = Subscription::query()
+            ->where('user_id', $subscription->user_id)
+            ->where('status', SubscriptionStatus::Active->value)
+            ->exists();
+
+        if (! $stillVerified) {
+            $subscription->user()->update(['is_verified' => false]);
+        }
+
         return $subscription->fresh();
     }
 

@@ -56,7 +56,7 @@ export default function Notifications() {
   }, [loadMoreVisible, hasNextPage, isFetchingNextPage, fetchNextPage])
 
   return (
-    <div className="space-y-3">
+    <div className="mx-auto w-full max-w-3xl space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold tracking-tight text-white">Activity</h1>
         {unreadQuery.data?.unread ? (

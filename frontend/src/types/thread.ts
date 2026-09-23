@@ -1,6 +1,8 @@
-export const THREAD_REACTIONS = ['like', 'love', 'haha', 'wow', 'sad', 'angry'] as const
+import { REACTIONS, type ReactionName } from '@/lib/reactions'
 
-export type ThreadReactionName = (typeof THREAD_REACTIONS)[number]
+export const THREAD_REACTIONS = REACTIONS
+
+export type ThreadReactionName = ReactionName
 
 export interface ThreadEntryUser {
   id: number

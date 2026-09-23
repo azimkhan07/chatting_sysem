@@ -8,7 +8,7 @@ use App\Domain\Posts\Contracts\PostRepository;
 use App\Domain\Posts\Models\Post;
 use App\Domain\Posts\Services\TrendingRanking;
 
-final class UnlikePostAction
+final class SharePostAction
 {
     public function __construct(
         private readonly PostRepository $repository,
@@ -17,12 +17,10 @@ final class UnlikePostAction
 
     public function handle(Post $post, int $userId): int
     {
-        $removed = $this->repository->unlike($post, $userId);
+        $count = $this->repository->share($post, $userId);
 
-        if ($removed) {
-            $this->trending->bump((int) $post->id, -TrendingRanking::WEIGHT_LIKE);
-        }
+        $this->trending->bump((int) $post->id, TrendingRanking::WEIGHT_SHARE);
 
-        return $this->repository->likeCount($post);
+        return $count;
     }
 }

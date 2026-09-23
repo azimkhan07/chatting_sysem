@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature\Billing;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Billing\Contracts\SubscriptionRepository;
 use App\Domain\Billing\Enums\Plan;
 use App\Domain\Billing\Enums\SubscriptionStatus;
+use App\Domain\Billing\Models\Subscription;
 use App\Domain\Billing\Services\SubscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -68,8 +70,97 @@ final class SubscriptionTest extends TestCase
             ->assertJsonStructure(['data' => ['client_token']]);
     }
 
+    public function test_approve_grants_the_blue_badge_and_activation_window(): void
+    {
+        $user = User::factory()->create();
+        $subscription = $this->service()->verify((int) $user->id, Plan::Basic);
+        $adminId = (int) User::factory()->create()->id;
+
+        $this->repository()->approve($subscription, $adminId);
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $subscription->id,
+            'status' => SubscriptionStatus::Active->value,
+            'approved_by' => $adminId,
+        ]);
+        $this->assertSame(true, $user->refresh()->is_verified);
+        $this->assertNotNull($subscription->refresh()->expires_at);
+    }
+
+    public function test_cancelling_the_last_active_subscription_removes_the_badge(): void
+    {
+        $user = User::factory()->create();
+        $subscription = $this->activate($user, Plan::Basic);
+        $this->assertSame(true, $user->refresh()->is_verified);
+
+        $this->service()->cancel($user, $subscription);
+
+        $this->assertSame(SubscriptionStatus::Cancelled, $subscription->refresh()->status);
+        $this->assertSame(false, $user->refresh()->is_verified);
+        $this->assertSame(false, $subscription->refresh()->auto_renew);
+    }
+
+    public function test_cancelling_keeps_badge_when_another_subscription_stays_active(): void
+    {
+        $user = User::factory()->create();
+        $first = $this->activate($user, Plan::Basic);
+        $adminId = (int) User::factory()->create()->id;
+        $second = $this->repository()->approve(
+            $this->repository()->create((int) $user->id, Plan::Pro),
+            $adminId,
+        );
+
+        $this->service()->cancel($user, $first);
+
+        $this->assertSame(SubscriptionStatus::Active, $second->refresh()->status);
+        $this->assertSame(true, $user->refresh()->is_verified);
+    }
+
+    public function test_process_due_auto_renews_active_auto_renew_subscription(): void
+    {
+        $user = User::factory()->create();
+        $subscription = $this->activate($user, Plan::Basic);
+        $subscription->forceFill(['expires_at' => now()->subMinute()])->save();
+
+        $result = $this->service()->processDue();
+
+        $this->assertSame(['renewed' => 1, 'expired' => 0], $result);
+        $this->assertSame(SubscriptionStatus::Active, $subscription->refresh()->status);
+        $this->assertTrue($subscription->expires_at->isAfter(now()));
+        $this->assertSame(true, $user->refresh()->is_verified);
+    }
+
+    public function test_process_due_expires_non_renewing_subscription_and_revokes_badge(): void
+    {
+        $user = User::factory()->create();
+        $subscription = $this->activate($user, Plan::Basic);
+        $subscription->forceFill([
+            'auto_renew' => false,
+            'expires_at' => now()->subMinute(),
+        ])->save();
+
+        $result = $this->service()->processDue();
+
+        $this->assertSame(['renewed' => 0, 'expired' => 1], $result);
+        $this->assertSame(SubscriptionStatus::Expired, $subscription->refresh()->status);
+        $this->assertSame(false, $user->refresh()->is_verified);
+    }
+
+    private function activate(User $user, Plan $plan): Subscription
+    {
+        $subscription = $this->service()->verify((int) $user->id, $plan);
+        $adminId = (int) User::factory()->create()->id;
+
+        return $this->repository()->approve($subscription, $adminId);
+    }
+
     private function service(): SubscriptionService
     {
         return app(SubscriptionService::class);
+    }
+
+    private function repository(): SubscriptionRepository
+    {
+        return app(SubscriptionRepository::class);
     }
 }

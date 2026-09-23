@@ -10,6 +10,7 @@ use App\Domain\Chat\Contracts\ChatService as ChatServiceContract;
 use App\Domain\Chat\Data\SendMessageData;
 use App\Domain\Chat\Enums\ConversationType;
 use App\Domain\Chat\Enums\MemberRole;
+use App\Domain\Chat\Enums\MessageReactionType;
 use App\Domain\Chat\Exceptions\ConversationNotFoundException;
 use App\Domain\Chat\Exceptions\ConversationPermissionException;
 use App\Domain\Chat\Exceptions\InvalidConversationException;
@@ -18,6 +19,8 @@ use App\Domain\Chat\Models\ConversationMember;
 use App\Domain\Chat\Models\ConversationMessage;
 use App\Domain\Chat\Models\GroupInvite;
 use App\Events\MemberJoined;
+use App\Events\MessageDeleted;
+use App\Events\MessageReactionChanged;
 use App\Events\MessageSent;
 use App\Events\UserTyping;
 use Illuminate\Database\Eloquent\Collection;
@@ -246,6 +249,97 @@ final class ChatService implements ChatServiceContract
         }
 
         return $conversation;
+    }
+
+    public function toggleMessageReaction(User $user, int $conversationId, int $messageId, MessageReactionType $reaction): array
+    {
+        $conversation = $this->resolveForUser($user, $conversationId);
+        /** @var ConversationMessage $message */
+        $message = $this->requireMessage($conversation, $messageId);
+
+        $existing = $this->chatRepository->reactionFor($message, $user->id);
+        if ($existing !== null && $existing->reaction === $reaction) {
+            $this->chatRepository->deleteReaction($existing);
+        } else {
+            $this->chatRepository->setReaction($message, $user->id, $reaction);
+        }
+
+        return $this->reactionOutcome($conversation, $message, $user->id);
+    }
+
+    public function removeMessageReaction(User $user, int $conversationId, int $messageId): array
+    {
+        $conversation = $this->resolveForUser($user, $conversationId);
+        /** @var ConversationMessage $message */
+        $message = $this->requireMessage($conversation, $messageId);
+
+        $existing = $this->chatRepository->reactionFor($message, $user->id);
+        if ($existing !== null) {
+            $this->chatRepository->deleteReaction($existing);
+        }
+
+        $outcome = $this->reactionOutcome($conversation, $message, $user->id);
+
+        return [
+            'message_id' => $outcome['message_id'],
+            'reaction' => null,
+            'reactions' => $outcome['reactions'],
+        ];
+    }
+
+    public function deleteMessage(User $user, int $conversationId, int $messageId): void
+    {
+        $conversation = $this->resolveForUser($user, $conversationId);
+        /** @var ConversationMessage $message */
+        $message = $this->requireMessage($conversation, $messageId);
+
+        $member = $this->requireMember($conversation, $user->id);
+        $ownsMessage = $message->user_id === $user->id;
+        $moderator = $conversation->type === ConversationType::Group
+            && ($member->role === MemberRole::Owner || $member->role === MemberRole::Admin);
+
+        if (! $ownsMessage && ! $moderator) {
+            throw new ConversationPermissionException('You cannot delete this message.');
+        }
+
+        $this->chatRepository->deleteMessage($message);
+        $conversation->touch();
+
+        event(new MessageDeleted($conversation->id, $message->id, $conversation->type, $user->id));
+    }
+
+    /**
+     * @return array{message_id: int, reaction: ?string, reactions: array<string, int>}
+     */
+    private function reactionOutcome(Conversation $conversation, ConversationMessage $message, int $userId): array
+    {
+        $totals = $this->chatRepository->reactionCounts($message);
+        $reaction = $this->chatRepository->reactionFor($message, $userId)?->reaction;
+
+        event(new MessageReactionChanged(
+            $conversation->id,
+            $message->id,
+            $conversation->type,
+            $totals,
+            $reaction?->value,
+            $userId,
+        ));
+
+        return [
+            'message_id' => $message->id,
+            'reaction' => $reaction?->value,
+            'reactions' => $totals,
+        ];
+    }
+
+    private function requireMessage(Conversation $conversation, int $messageId): ConversationMessage
+    {
+        $message = $this->chatRepository->messageFor($conversation, $messageId);
+        if ($message === null) {
+            throw new ConversationNotFoundException('This message is not available.');
+        }
+
+        return $message;
     }
 
     private function resolveForUser(User $user, int $conversationId): Conversation

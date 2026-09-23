@@ -6,6 +6,7 @@ namespace App\Domain\Chat\Contracts;
 
 use App\Domain\Auth\Models\User;
 use App\Domain\Chat\Data\SendMessageData;
+use App\Domain\Chat\Enums\MessageReactionType;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMessage;
 use App\Domain\Chat\Models\GroupInvite;
@@ -57,4 +58,16 @@ interface ChatService
     public function revokeInvite(User $user, int $conversationId): void;
 
     public function joinViaInvite(User $user, string $code): Conversation;
+
+    /**
+     * @return array{message_id: int, reaction: ?string, reactions: array<string, int>}
+     */
+    public function toggleMessageReaction(User $user, int $conversationId, int $messageId, MessageReactionType $reaction): array;
+
+    /**
+     * @return array{message_id: int, reaction: null, reactions: array<string, int>}
+     */
+    public function removeMessageReaction(User $user, int $conversationId, int $messageId): array;
+
+    public function deleteMessage(User $user, int $conversationId, int $messageId): void;
 }

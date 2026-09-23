@@ -9,6 +9,7 @@ use App\Domain\Hashtags\Models\Hashtag;
 use App\Domain\Posts\Data\CreatePostData;
 use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\CursorPaginator;
 
 interface PostService
@@ -62,4 +63,16 @@ interface PostService
      * @return CursorPaginator<int, Comment>
      */
     public function commentsFor(Post $post, int $limit = 20, ?string $cursor = null): CursorPaginator;
+
+    /**
+     * Records the viewer sharing a post. Returns the new total share count.
+     */
+    public function share(User $user, Post $post): int;
+
+    /**
+     * Trending posts ranked by engagement (Redis set first, DB fallback).
+     *
+     * @return Collection<int, Post>
+     */
+    public function trendingFor(User $user, int $limit = 30): Collection;
 }

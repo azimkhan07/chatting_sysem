@@ -6,8 +6,10 @@ namespace App\Domain\Chat\Models;
 
 use App\Domain\Auth\Models\User;
 use App\Domain\Chat\Enums\MessageType;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -16,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property-read int $user_id
  * @property-read User|null $user
  * @property-read Conversation|null $conversation
+ * @property-read Collection<int, MessageReaction> $reactions
  * @property-read MessageType $type
  * @property-read string $body
  * @property-read string|null $media_url
@@ -55,5 +58,10 @@ final class ConversationMessage extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(MessageReaction::class, 'message_id');
     }
 }

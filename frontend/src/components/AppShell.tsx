@@ -120,7 +120,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
               className={
                 isChat
                   ? 'flex min-h-0 flex-1 flex-col'
-                  : 'mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:px-8 md:pb-8'
+                  : 'w-full px-4 pb-28 pt-4 md:px-6 md:pb-8'
               }
             >
               {children}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Domain\Chat\Enums\MessageReactionType;
 use App\Domain\Chat\Models\ConversationMessage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -29,8 +30,40 @@ final class MessageResource extends JsonResource
             'body' => $this->body,
             'media_url' => $this->media_url,
             'read' => $this->readByOthers($viewerId),
+            'reactions' => $this->reactionSummary(),
+            'my_reaction' => $this->viewerReaction($viewerId),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function reactionSummary(): array
+    {
+        $defaults = [];
+        foreach (MessageReactionType::cases() as $case) {
+            $defaults[$case->value] = 0;
+        }
+
+        if (! $this->relationLoaded('reactions')) {
+            return $defaults;
+        }
+
+        $counts = $this->reactions->map(fn ($reaction): string => $reaction->reaction->value)->countBy()->all();
+
+        return array_merge($defaults, $counts);
+    }
+
+    private function viewerReaction(?int $viewerId): ?string
+    {
+        if ($viewerId === null || ! $this->relationLoaded('reactions')) {
+            return null;
+        }
+
+        $mine = $this->reactions->firstWhere('user_id', $viewerId);
+
+        return $mine === null ? null : $mine->reaction->value;
     }
 
     /**

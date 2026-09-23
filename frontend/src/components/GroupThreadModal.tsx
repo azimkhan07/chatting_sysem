@@ -5,6 +5,7 @@ import { Spinner } from '@/components/AuthLayout'
 import { ImageIcon, SendIcon, XIcon } from '@/components/icons'
 import { threadsApi } from '@/lib/api'
 import { echoInstance } from '@/lib/echo'
+import { REACTION_EMOJI } from '@/lib/reactions'
 import { useAuthStore } from '@/stores/authStore'
 import type {
   RealtimeThreadEntryPayload,
@@ -14,15 +15,6 @@ import type {
   ThreadReactionName,
 } from '@/types/thread'
 import { THREAD_REACTIONS } from '@/types/thread'
-
-const REACTION_EMOJI: Record<ThreadReactionName, string> = {
-  like: '👍',
-  love: '❤️',
-  haha: '😂',
-  wow: '😮',
-  sad: '😢',
-  angry: '😡',
-}
 
 export function GroupThreadModal({
   conversationId,

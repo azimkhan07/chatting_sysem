@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Billing\SubscriptionController;
 use App\Http\Controllers\Api\V1\Chat\ChatInviteController;
 use App\Http\Controllers\Api\V1\Chat\ChatMemberController;
 use App\Http\Controllers\Api\V1\Chat\ChatMessageController;
+use App\Http\Controllers\Api\V1\Chat\ChatReactionController;
 use App\Http\Controllers\Api\V1\Chat\ChatUnreadController;
 use App\Http\Controllers\Api\V1\Chat\ConversationController;
 use App\Http\Controllers\Api\V1\Hashtags\HashtagController;
@@ -50,9 +51,11 @@ Route::prefix('v1')->group(function (): void {
         Route::get('me', [PostController::class, 'mine']);
         Route::get('reels', [PostController::class, 'reels']);
         Route::get('explore', [PostController::class, 'explore']);
+        Route::get('trending', [PostController::class, 'trending']);
 
         Route::post('{post}/like', [PostInteractionController::class, 'like']);
         Route::delete('{post}/like', [PostInteractionController::class, 'unlike']);
+        Route::post('{post}/share', [PostInteractionController::class, 'share']);
         Route::get('{post}/comments', [PostInteractionController::class, 'comments']);
         Route::post('{post}/comments', [PostInteractionController::class, 'storeComment']);
     });
@@ -85,6 +88,9 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('conversations/{conversation}/messages', [ChatMessageController::class, 'index'])->whereNumber('conversation');
         Route::post('conversations/{conversation}/messages', [ChatMessageController::class, 'store'])->whereNumber('conversation');
+        Route::delete('conversations/{conversation}/messages/{message}', [ChatMessageController::class, 'destroy'])->whereNumber(['conversation', 'message']);
+        Route::post('conversations/{conversation}/messages/{message}/reactions', [ChatReactionController::class, 'store'])->whereNumber(['conversation', 'message']);
+        Route::delete('conversations/{conversation}/messages/{message}/reactions', [ChatReactionController::class, 'destroy'])->whereNumber(['conversation', 'message']);
         Route::post('conversations/{conversation}/read', [ChatMessageController::class, 'read'])->whereNumber('conversation');
         Route::post('conversations/{conversation}/typing', [ChatMessageController::class, 'typing'])->whereNumber('conversation');
 

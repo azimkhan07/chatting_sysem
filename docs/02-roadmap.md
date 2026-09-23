@@ -34,19 +34,25 @@ Ordered by dependency, each item shipped with its own tests + docs update:
 3. **Feed (Home)**
    - Posts (text/image/video), server-ranked feed, cursor pagination, infinite scroll.
    - Like / unlike, comments (nested one level), share count.
+   - [x] Share count + share button — `post_shares` (unique per post+user), `POST posts/{post}/share`, `shares_count` exposed, PostCard copy/native-share with optimistic update.
 4. **Reels**
    - Upload → server transcodes (rotations) + HLS + poster.
    - Full-screen vertical player, autoplay muted, like/comment/share.
 5. **Explore**
    - Search users/hashtags; trending grid (Redis-ranked).
+   - [x] Trending grid — Redis sorted set `posts:trending` (like=1/comment=2/share=4), bumped in realtime, `posts:refresh-trending` every 5 min, DB-ranked fallback, `GET posts/trending`, Explore tab toggle.
 6. **Chat (1:1 + Groups)**
    - Reverb WebSockets: messages, typing, presence, read receipts.
-   - Groups: create/join/invite, roles (owner/admin/member).
-   - **Stress case:** a user with 100+ groups must have a snappy chat list (server-side
-     last-message + unread aggregation via Redis/DB views).
+   - Groups: create/join/invite, roles (owner/admin/member), shareable invite links + realtime join.
+   - [x] Full-page chat layout — inbox rail + thread fill the whole body beside the sidebar; mobile responsive with bottom tab bar and back-navigation thread.
+   - [x] Message reactions (6 emojis, toggle/switch, realtime via Reverb) + delete-for-everyone (sender or group moderator).
+   - [x] **Stress case:** a user with 100+ groups gets a snappy inbox — `ChatInboxCache` (Redis
+     per-user unread hash + last-message snapshots), single-pass grouped SQL fill with DB fallback.
 7. **Blue Tick**
    - Request verification → pay ₹1/₹5 (UPI/Mock gateway v1) → admin review → badge.
    - Auto-renew + expiry. Cancellation removes tick.
+   - [x] Cancellation removes the tick immediately when the last active subscription is cancelled;
+     auto-renew/expiry covered by feature tests.
 8. **Notifications**
    - [x] Real-time + persisted; unread badge (server-computed), per-module.
    - Real-time via Reverb: `NotificationCreated` broadcast on `private-user.{id}` (realtime-notifications), persisted feed + unread-count + mark-all-read endpoints.
