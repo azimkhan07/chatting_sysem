@@ -140,6 +140,7 @@ Route::prefix('v1')->group(function (): void {
     });
 
     Route::prefix('admin/subscriptions')->middleware(['auth:sanctum', 'admin', 'throttle:api'])->group(function (): void {
+        Route::get('stats', [SubscriptionAdminController::class, 'stats']);
         Route::get('/', [SubscriptionAdminController::class, 'index']);
         Route::post('{subscription}/approve', [SubscriptionAdminController::class, 'approve'])->whereNumber('subscription');
         Route::post('{subscription}/reject', [SubscriptionAdminController::class, 'reject'])->whereNumber('subscription');

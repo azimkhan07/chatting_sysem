@@ -167,4 +167,26 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
             ->orderByDesc('id')
             ->paginate($perPage);
     }
+
+    public function stats(): array
+    {
+        $counts = Subscription::query()
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status')
+            ->map(fn (mixed $total): int => (int) $total)
+            ->all();
+
+        $revenue = Subscription::query()
+            ->whereIn('status', [
+                SubscriptionStatus::Active->value,
+                SubscriptionStatus::Expired->value,
+            ])
+            ->sum('amount_paisa');
+
+        return [
+            'counts' => $counts,
+            'revenue_paisa' => (int) $revenue,
+        ];
+    }
 }

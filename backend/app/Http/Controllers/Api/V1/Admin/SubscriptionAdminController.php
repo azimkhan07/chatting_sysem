@@ -8,7 +8,7 @@ use App\Domain\Billing\Contracts\SubscriptionRepository;
 use App\Domain\Billing\Enums\SubscriptionStatus;
 use App\Domain\Billing\Services\SubscriptionService;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\SubscriptionResource;
+use App\Http\Resources\Admin\SubscriptionReviewResource;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +20,13 @@ final class SubscriptionAdminController extends Controller
         private readonly SubscriptionRepository $subscriptions,
     ) {}
 
+    public function stats(): JsonResponse
+    {
+        return ApiResponse::success([
+            'stats' => $this->subscriptions->stats(),
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $status = $request->query('status');
@@ -30,7 +37,7 @@ final class SubscriptionAdminController extends Controller
         );
 
         return ApiResponse::success([
-            'subscriptions' => SubscriptionResource::collection($paginator->items()),
+            'subscriptions' => SubscriptionReviewResource::collection($paginator->items()),
             'meta' => [
                 'total' => $paginator->total(),
                 'page' => $paginator->currentPage(),
@@ -53,7 +60,7 @@ final class SubscriptionAdminController extends Controller
         );
 
         return ApiResponse::success([
-            'subscription' => new SubscriptionResource($approved),
+            'subscription' => new SubscriptionReviewResource($approved),
             'message' => 'Verification approved. The blue badge is now live on the profile.',
         ]);
     }
@@ -72,7 +79,7 @@ final class SubscriptionAdminController extends Controller
         );
 
         return ApiResponse::success([
-            'subscription' => new SubscriptionResource($rejected),
+            'subscription' => new SubscriptionReviewResource($rejected),
             'message' => 'Verification rejected and payment refunded.',
         ]);
     }

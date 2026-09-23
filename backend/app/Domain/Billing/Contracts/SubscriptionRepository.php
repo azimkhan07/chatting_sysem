@@ -38,4 +38,12 @@ interface SubscriptionRepository
      * @return LengthAwarePaginator<int, Subscription>
      */
     public function all(int $perPage, ?SubscriptionStatus $status): LengthAwarePaginator;
+
+    /**
+     * Admin dashboard numbers: subscription counts per status and the revenue
+     * collected from orders that were paid for (active + expired, refunds out).
+     *
+     * @return array{counts: array<string, int>, revenue_paisa: int}
+     */
+    public function stats(): array;
 }
