@@ -10,10 +10,12 @@ use App\Domain\Chat\Enums\MemberRole;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMember;
 use App\Domain\Chat\Models\ConversationMessage;
+use App\Domain\Chat\Models\GroupInvite;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 final class EloquentChatRepository implements ChatRepository
 {
@@ -173,6 +175,47 @@ final class EloquentChatRepository implements ChatRepository
     public function removeMember(Conversation $conversation, int $userId): void
     {
         $conversation->members()->where('user_id', $userId)->delete();
+    }
+
+    public function validInviteFor(int $conversationId): ?GroupInvite
+    {
+        return GroupInvite::query()
+            ->where('conversation_id', $conversationId)
+            ->whereNull('revoked_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->latest('id')
+            ->first();
+    }
+
+    public function createInvite(Conversation $conversation, int $createdBy): GroupInvite
+    {
+        $invite = $conversation->invites()->create([
+            'created_by' => $createdBy,
+            'code' => strtoupper(Str::random(10)),
+        ]);
+
+        /** @var GroupInvite $invite */
+        $invite = $invite->refresh();
+
+        return $invite;
+    }
+
+    public function revokeInvite(GroupInvite $invite): void
+    {
+        $invite->update(['revoked_at' => now()]);
+    }
+
+    public function inviteByCode(string $code): ?GroupInvite
+    {
+        return GroupInvite::query()
+            ->where('code', $code)
+            ->whereNull('revoked_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->first();
     }
 
     private function advanceWatermark(Conversation $conversation, int $userId, int $upToMessageId): void

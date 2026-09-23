@@ -8,10 +8,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { Spinner } from '@/components/AuthLayout'
+import { GroupInviteModal } from '@/components/GroupInviteModal'
 import { GroupThreadModal } from '@/components/GroupThreadModal'
 import {
   ArrowLeftIcon,
   BellIcon,
+  LinkIcon,
   PlusIcon,
   SendIcon,
   SparkleIcon,
@@ -220,6 +222,7 @@ function ThreadPane({
   const [optimistic, setOptimistic] = useState<ConversationMessage[]>([])
   const [composerError, setComposerError] = useState<string | null>(null)
   const [threadOpen, setThreadOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
   const pinnedRef = useRef(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastTypingRef = useRef(0)
@@ -271,6 +274,11 @@ function ThreadPane({
   const conversation = conversationQuery.data?.conversation ?? null
   const latestServerId = messages.reduce((max, message) => Math.max(max, message.id), 0)
   const isMuted = conversation?.muted ?? false
+  const isModerator =
+    conversation?.members.some(
+      (member) =>
+        member.user.id === me?.id && (member.role === 'owner' || member.role === 'admin'),
+    ) ?? false
   const mutationVariablesRef = useRef<string | null>(null)
 
   const loadOlderMessages = useCallback(() => {
@@ -395,6 +403,17 @@ function ThreadPane({
           <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
           <p className="truncate text-xs text-slate-500">{subtitle}</p>
         </div>
+        {conversation?.type === 'group' && isModerator ? (
+          <button
+            type="button"
+            onClick={() => setInviteOpen(true)}
+            title="Invite people"
+            aria-label="Invite people to this group"
+            className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+          >
+            <LinkIcon className="h-5 w-5" />
+          </button>
+        ) : null}
         {conversation?.type === 'group' ? (
           <button
             type="button"
@@ -534,6 +553,14 @@ function ThreadPane({
           conversationId={conversation.id}
           groupName={name}
           onClose={() => setThreadOpen(false)}
+        />
+      ) : null}
+
+      {inviteOpen && conversation !== null ? (
+        <GroupInviteModal
+          conversationId={conversation.id}
+          groupName={name}
+          onClose={() => setInviteOpen(false)}
         />
       ) : null}
     </section>

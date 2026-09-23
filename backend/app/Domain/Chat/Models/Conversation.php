@@ -76,4 +76,9 @@ final class Conversation extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function invites(): HasMany
+    {
+        return $this->hasMany(GroupInvite::class);
+    }
 }

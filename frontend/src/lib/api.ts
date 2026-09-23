@@ -382,3 +382,24 @@ export const threadsApi = {
       { reaction },
     ),
 }
+
+export interface GroupInviteInfo {
+  conversation_id: number
+  code: string
+  expires_at: string | null
+  created_by: { id: number; display_name: string; username: string }
+}
+
+export const invitesApi = {
+  current: (conversationId: number) =>
+    api.get<{ invite: GroupInviteInfo | null }>(`/chat/groups/${conversationId}/invite`),
+  create: (conversationId: number) =>
+    api.post<{ invite: GroupInviteInfo }>(`/chat/groups/${conversationId}/invite`, {}),
+  revoke: (conversationId: number) =>
+    api.delete<null>(`/chat/groups/${conversationId}/invite`),
+  join: (code: string) =>
+    api.post<{ conversation: Conversation }>(
+      `/chat/invites/${encodeURIComponent(code)}/join`,
+      {},
+    ),
+}

@@ -11,6 +11,7 @@ import Explore from '@/pages/Explore'
 import ForgotPassword from '@/pages/ForgotPassword'
 import HashtagPage from '@/pages/HashtagPage'
 import Home from '@/pages/Home'
+import JoinChat from '@/pages/JoinChat'
 import Login from '@/pages/Login'
 import Notifications from '@/pages/Notifications'
 import Profile from '@/pages/Profile'
@@ -37,6 +38,10 @@ export default function App() {
               <Route
                 path={`${path('chat')}/:conversationId`}
                 element={<ChatPage />}
+              />
+              <Route
+                path={`${path('chat')}/join/:code`}
+                element={<JoinChat />}
               />
               <Route path={path('explore')} element={<Explore />} />
               <Route path="/hashtags/:tag" element={<HashtagPage />} />

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\ProfileController;
 use App\Http\Controllers\Api\V1\Billing\SubscriptionController;
+use App\Http\Controllers\Api\V1\Chat\ChatInviteController;
 use App\Http\Controllers\Api\V1\Chat\ChatMemberController;
 use App\Http\Controllers\Api\V1\Chat\ChatMessageController;
 use App\Http\Controllers\Api\V1\Chat\ChatUnreadController;
@@ -89,6 +90,11 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('conversations/{conversation}/members', [ChatMemberController::class, 'store'])->whereNumber('conversation');
         Route::delete('conversations/{conversation}/members/{member}', [ChatMemberController::class, 'destroy'])->whereNumber(['conversation', 'member']);
+
+        Route::get('groups/{conversation}/invite', [ChatInviteController::class, 'show'])->whereNumber('conversation');
+        Route::post('groups/{conversation}/invite', [ChatInviteController::class, 'store'])->whereNumber('conversation');
+        Route::delete('groups/{conversation}/invite', [ChatInviteController::class, 'destroy'])->whereNumber('conversation');
+        Route::post('invites/{code}/join', [ChatInviteController::class, 'join'])->where('code', '[A-Za-z0-9]+');
 
         Route::get('groups/{conversation}/thread', [ThreadController::class, 'show'])->whereNumber('conversation');
         Route::post('groups/{conversation}/thread', [ThreadController::class, 'start'])->whereNumber('conversation');

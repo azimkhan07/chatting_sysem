@@ -33,3 +33,7 @@ export function hashtagPage(tag: string): string {
 export function chatConversation(conversationId: number | string): string {
   return `${ROUTES.chat}/${encodeURIComponent(String(conversationId))}`
 }
+
+export function chatConversationJoin(code: string): string {
+  return `${ROUTES.chat}/join/${encodeURIComponent(code)}`
+}

@@ -8,6 +8,7 @@ use App\Domain\Auth\Models\User;
 use App\Domain\Chat\Data\SendMessageData;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMessage;
+use App\Domain\Chat\Models\GroupInvite;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\CursorPaginator;
 
@@ -48,4 +49,12 @@ interface ChatService
     public function removeMember(User $user, int $conversationId, int $memberUserId): Conversation;
 
     public function typing(User $user, int $conversationId): void;
+
+    public function currentInvite(User $user, int $conversationId): ?GroupInvite;
+
+    public function inviteFor(User $user, int $conversationId): GroupInvite;
+
+    public function revokeInvite(User $user, int $conversationId): void;
+
+    public function joinViaInvite(User $user, string $code): Conversation;
 }

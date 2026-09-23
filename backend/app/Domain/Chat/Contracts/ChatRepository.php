@@ -8,6 +8,7 @@ use App\Domain\Chat\Enums\MemberRole;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMember;
 use App\Domain\Chat\Models\ConversationMessage;
+use App\Domain\Chat\Models\GroupInvite;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\CursorPaginator;
 
@@ -61,4 +62,12 @@ interface ChatRepository
     public function unreadTotal(int $userId): int;
 
     public function removeMember(Conversation $conversation, int $userId): void;
+
+    public function validInviteFor(int $conversationId): ?GroupInvite;
+
+    public function createInvite(Conversation $conversation, int $createdBy): GroupInvite;
+
+    public function revokeInvite(GroupInvite $invite): void;
+
+    public function inviteByCode(string $code): ?GroupInvite;
 }

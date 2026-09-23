@@ -16,6 +16,8 @@ use App\Domain\Chat\Exceptions\InvalidConversationException;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMember;
 use App\Domain\Chat\Models\ConversationMessage;
+use App\Domain\Chat\Models\GroupInvite;
+use App\Events\MemberJoined;
 use App\Events\MessageSent;
 use App\Events\UserTyping;
 use Illuminate\Database\Eloquent\Collection;
@@ -186,6 +188,64 @@ final class ChatService implements ChatServiceContract
         if (Cache::add("typing:{$conversation->type->value}:{$conversation->id}:{$user->id}", true, 2)) {
             event(new UserTyping($conversation->id, $user->id, $conversation->type));
         }
+    }
+
+    public function currentInvite(User $user, int $conversationId): ?GroupInvite
+    {
+        $conversation = $this->resolveForUser($user, $conversationId);
+        $this->assertGroup($conversation);
+        $this->assertModerator($conversation, $user->id);
+
+        return $this->chatRepository->validInviteFor($conversation->id)?->load('creator');
+    }
+
+    public function inviteFor(User $user, int $conversationId): GroupInvite
+    {
+        $conversation = $this->resolveForUser($user, $conversationId);
+        $this->assertGroup($conversation);
+        $this->assertModerator($conversation, $user->id);
+
+        $invite = $this->chatRepository->validInviteFor($conversation->id);
+        if ($invite === null) {
+            $invite = $this->chatRepository->createInvite($conversation, $user->id);
+        }
+
+        return $invite->load('creator');
+    }
+
+    public function revokeInvite(User $user, int $conversationId): void
+    {
+        $conversation = $this->resolveForUser($user, $conversationId);
+        $this->assertGroup($conversation);
+        $this->assertModerator($conversation, $user->id);
+
+        $invite = $this->chatRepository->validInviteFor($conversation->id);
+        if ($invite !== null) {
+            $this->chatRepository->revokeInvite($invite);
+        }
+    }
+
+    public function joinViaInvite(User $user, string $code): Conversation
+    {
+        $invite = $this->chatRepository->inviteByCode(strtoupper($code));
+        if ($invite === null) {
+            throw new ConversationNotFoundException('This invite link is no longer valid.');
+        }
+
+        $conversation = $this->chatRepository->conversationForUser($user->id, $invite->conversation_id);
+        if ($conversation !== null) {
+            return $conversation;
+        }
+
+        $conversation = Conversation::query()->findOrFail($invite->conversation_id);
+        $member = $this->chatRepository->addMember($conversation, $user->id, ['role' => MemberRole::Member]);
+        $conversation->load(['members.user', 'lastMessage.user']);
+
+        if ($member->wasRecentlyCreated) {
+            event(new MemberJoined($conversation, $user));
+        }
+
+        return $conversation;
     }
 
     private function resolveForUser(User $user, int $conversationId): Conversation
