@@ -34,6 +34,7 @@ import type {
   RealtimeDeletedPayload,
   RealtimeMessagePayload,
   RealtimeReactionPayload,
+  RealtimeTypingPayload,
 } from '@/types/chat'
 import type { User } from '@/types/user'
 
@@ -234,6 +235,16 @@ function ThreadPane({
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastTypingRef = useRef(0)
   const readWatermarkRef = useRef(0)
+  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({})
+  const typingTimeoutsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+
+  useEffect(() => {
+    const timers = typingTimeoutsRef.current
+    return () => {
+      for (const timer of timers.values()) clearTimeout(timer)
+      timers.clear()
+    }
+  }, [])
 
   const conversationQuery = useQuery({
     queryKey: ['chat', 'conversation', conversationId],
@@ -341,6 +352,13 @@ function ThreadPane({
     const channel = echo.private(`${prefix}.${conversationId}`)
 
     channel.listen('.message.sent', (payload: RealtimeMessagePayload) => {
+      setTypingUsers((current) => {
+        const key = `${payload.message.conversation_id}:${payload.message.sender?.id ?? 0}`
+        if (!(key in current)) return current
+        const next = { ...current }
+        delete next[key]
+        return next
+      })
       queryClient.setQueryData<InfiniteData<ChatMessagesPage, string | undefined>>(
         messagesQueryKey,
         (current) => {
@@ -378,10 +396,31 @@ function ThreadPane({
       void queryClient.invalidateQueries({ queryKey: ['chat'] })
     })
 
+    channel.listen('.typing', (payload: RealtimeTypingPayload) => {
+      if (payload.conversation_id !== conversationId || payload.user_id === me?.id) return
+      const key = `${payload.conversation_id}:${payload.user_id}`
+      const pending = typingTimeoutsRef.current.get(key)
+      if (pending) clearTimeout(pending)
+      typingTimeoutsRef.current.set(
+        key,
+        window.setTimeout(() => {
+          typingTimeoutsRef.current.delete(key)
+          setTypingUsers((current) => {
+            if (!(key in current)) return current
+            const next = { ...current }
+            delete next[key]
+            return next
+          })
+        }, 3_500),
+      )
+      setTypingUsers((current) => ({ ...current, [key]: payload.user_id }))
+    })
+
     return () => {
       channel.stopListening('.message.sent')
       channel.stopListening('.message.reaction.changed')
       channel.stopListening('.message.deleted')
+      channel.stopListening('.typing')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, conversation?.type, me?.id, queryClient])
@@ -486,6 +525,16 @@ function ThreadPane({
   const name = conversation ? displayName(conversation) : 'Chat'
   const subtitle = conversation?.type === 'group' ? `${conversation.members_count} members` : 'Direct message'
 
+  const typingNames = useMemo(() => {
+    const prefix = `${conversationId}:`
+    const ids = Object.keys(typingUsers)
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => Number(key.split(':')[1]))
+    if (ids.length === 0) return []
+    const memberById = new Map(conversation?.members.map((member) => [member.user.id, member.user]))
+    return ids.map((id) => memberById.get(id)?.display_name ?? `#${id}`)
+  }, [typingUsers, conversation?.members, conversationId])
+
   const muteMutation = useMutation({
     mutationFn: (muted: boolean) => chatApi.setMuted(conversationId, muted),
     onSuccess: () => {
@@ -509,7 +558,15 @@ function ThreadPane({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
-          <p className="truncate text-xs text-slate-500">{subtitle}</p>
+          {typingNames.length > 0 ? (
+            <p className="truncate text-xs font-medium text-brand-300">
+              {typingNames.length === 1
+                ? `${typingNames[0]} is typing…`
+                : `${typingNames.length} people are typing…`}
+            </p>
+          ) : (
+            <p className="truncate text-xs text-slate-500">{subtitle}</p>
+          )}
         </div>
         {conversation?.type === 'group' && isModerator ? (
           <button

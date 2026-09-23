@@ -86,3 +86,8 @@ export interface RealtimeMessagePayload {
   conversation_id: number
   message: ConversationMessage
 }
+
+export interface RealtimeTypingPayload {
+  conversation_id: number
+  user_id: number
+}
