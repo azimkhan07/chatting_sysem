@@ -4,9 +4,11 @@ export interface User {
   id: number
   username: string
   display_name: string
+  bio: string | null
   email: string | null
   mobile: string | null
   avatar_url: string | null
+  cover_url: string | null
   is_verified: boolean
   status: UserStatus
   created_at: string

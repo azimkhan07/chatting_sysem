@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
+use App\Http\Controllers\Api\V1\Auth\ProfileController;
 use App\Http\Controllers\Api\V1\Billing\SubscriptionController;
 use App\Http\Controllers\Api\V1\Chat\ChatMemberController;
 use App\Http\Controllers\Api\V1\Chat\ChatMessageController;
@@ -33,6 +34,12 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('auth')->middleware('auth:sanctum')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
+    });
+
+    Route::prefix('me')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+        Route::patch('/', [ProfileController::class, 'update']);
+        Route::post('avatar', [ProfileController::class, 'uploadAvatar']);
+        Route::post('cover', [ProfileController::class, 'uploadCover']);
     });
 
     Route::prefix('posts')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {

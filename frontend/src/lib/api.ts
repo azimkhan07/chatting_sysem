@@ -210,6 +210,21 @@ export const usersApi = {
     api.delete<FollowResult>(`/users/${encodeURIComponent(String(identifier))}/follow`),
 }
 
+export const profileApi = {
+  update: (data: { display_name?: string; bio?: string | null }) =>
+    api.patch<{ user: User }>('/me', data),
+  uploadAvatar: (file: File) => {
+    const data = new FormData()
+    data.append('image', file)
+    return api.postForm<{ user: User }>('/me/avatar', data)
+  },
+  uploadCover: (file: File) => {
+    const data = new FormData()
+    data.append('image', file)
+    return api.postForm<{ user: User }>('/me/cover', data)
+  },
+}
+
 export const notificationsApi = {
   list: (cursor?: string) =>
     api.get<NotificationsPage>(

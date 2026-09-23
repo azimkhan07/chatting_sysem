@@ -2,6 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 
 import { Spinner } from '@/components/AuthLayout'
+import EditProfileModal from '@/components/EditProfileModal'
 import { postsApi, usersApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import type { Post } from '@/types/post'
@@ -10,6 +11,7 @@ export default function Profile() {
   const user = useAuthStore((state) => state.user)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const [loadMoreVisible, setLoadMoreVisible] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
 
   const profileQuery = useQuery({
     queryKey: ['user', 'profile', user?.username],
@@ -62,12 +64,26 @@ export default function Profile() {
 
   return (
     <div className="space-y-4">
-      <header className="glass-card p-4 sm:p-5">
+      <header className="glass-card overflow-hidden p-4 sm:p-5">
+        {user?.cover_url ? (
+          <div className="-mx-4 -mt-4 mb-3 h-28 sm:-mx-5 sm:-mt-5">
+            <img src={user.cover_url} alt="Cover" className="h-full w-full object-cover" />
+          </div>
+        ) : null}
+
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            <span className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xl font-bold text-[#fff] ring-2 ring-white/10 sm:h-20 sm:w-20 sm:text-2xl">
-              {initials}
-            </span>
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt=""
+                className="h-16 w-16 rounded-full object-cover ring-2 ring-white/10 sm:h-20 sm:w-20"
+              />
+            ) : (
+              <span className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xl font-bold text-[#fff] ring-2 ring-white/10 sm:h-20 sm:w-20 sm:text-2xl">
+                {initials}
+              </span>
+            )}
             {user?.is_verified ? (
               <span className="absolute -right-1 -bottom-1 grid h-6 w-6 place-items-center rounded-full bg-sky-500 text-xs font-bold text-[#fff] ring-2 ring-midnight-950">
                 ✓
@@ -83,6 +99,9 @@ export default function Profile() {
               ) : null}
             </h1>
             <p className="text-sm text-slate-400">@{user?.username ?? '…'}</p>
+            {user?.bio ? (
+              <p className="mt-1 text-sm leading-snug text-slate-300">{user.bio}</p>
+            ) : null}
             {joined ? <p className="mt-0.5 text-xs text-slate-500">Joined {joined}</p> : null}
           </div>
         </div>
@@ -110,13 +129,14 @@ export default function Profile() {
 
         <button
           type="button"
-          disabled
-          title="Coming soon"
+          onClick={() => setEditModalOpen(true)}
           className="btn-secondary mt-4 w-full"
         >
           Edit profile
         </button>
       </header>
+
+      {editModalOpen ? <EditProfileModal onClose={() => setEditModalOpen(false)} /> : null}
 
       <div className="space-y-1">
         <h2 className="px-1 text-sm font-bold text-slate-300">Your posts</h2>

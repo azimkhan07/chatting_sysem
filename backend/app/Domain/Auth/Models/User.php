@@ -23,9 +23,11 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read int $id
  * @property-read string $email
  * @property-read string|null $mobile
- * @property-read string $display_name
+ * @property string $display_name
+ * @property string|null $bio
  * @property-read string $password
  * @property-read string|null $avatar_path
+ * @property-read string|null $cover_path
  * @property-read bool $is_verified
  * @property-read UserStatus $status
  * @property-read Carbon|null $last_seen_at
@@ -47,8 +49,10 @@ class User extends Authenticatable
         'email',
         'mobile',
         'display_name',
+        'bio',
         'password',
         'avatar_path',
+        'cover_path',
         'is_verified',
         'status',
         'last_seen_at',
