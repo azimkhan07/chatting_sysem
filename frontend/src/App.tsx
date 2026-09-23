@@ -20,6 +20,10 @@ import ResetPassword from '@/pages/ResetPassword'
 import Settings from '@/pages/Settings'
 import UserProfile from '@/pages/UserProfile'
 import Verify from '@/pages/Verify'
+import AdminDashboard from '@/pages/admin/AdminDashboard'
+import AdminLayout from '@/pages/admin/AdminLayout'
+import AdminLogin from '@/pages/admin/AdminLogin'
+import AdminReviews from '@/pages/admin/AdminReviews'
 
 export default function App() {
   return (
@@ -61,26 +65,14 @@ export default function App() {
               <Route path={path('verified')} element={<Verify />} />
             </Route>
           </Route>
-          <Route path="/admin" element={<AdminSkeleton />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="reviews" element={<AdminReviews />} />
+          </Route>
           <Route path="*" element={<Navigate to={path('home')} replace />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
-  )
-}
-
-function AdminSkeleton() {
-  return (
-    <div className="grid h-svh place-items-center bg-midnight-950 px-4 text-center">
-      <div className="max-w-sm rounded-3xl border border-white/10 bg-slate-900/60 p-8">
-        <p className="text-lg font-extrabold tracking-tight text-white">
-          Admin surface reserved
-        </p>
-        <p className="mt-2 text-sm text-slate-400">
-          The admin panel is scoped out per the security & route strategy — it
-          opens in a dedicated phase with its own auth perimeter.
-        </p>
-      </div>
-    </div>
   )
 }

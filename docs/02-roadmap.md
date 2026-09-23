@@ -53,6 +53,8 @@ Ordered by dependency, each item shipped with its own tests + docs update:
    - Auto-renew + expiry. Cancellation removes tick.
    - [x] Cancellation removes the tick immediately when the last active subscription is cancelled;
      auto-renew/expiry covered by feature tests.
+   - [x] Admin review panel at `/admin` (separate surface, own auth/store): dashboard of per-status
+     counts + net revenue, review queue with approve/reject/refund and status filters.
 8. **Notifications**
    - [x] Real-time + persisted; unread badge (server-computed), per-module.
    - Real-time via Reverb: `NotificationCreated` broadcast on `private-user.{id}` (realtime-notifications), persisted feed + unread-count + mark-all-read endpoints.

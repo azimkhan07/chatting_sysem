@@ -21,6 +21,7 @@ import type { FollowResult, PublicUser, User, UserPage } from '@/types/user'
 
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
+const ADMIN_STORAGE_KEY = 'amtechat.admin'
 
 interface ApiEnvelope<T> {
   data: T | null
@@ -42,9 +43,9 @@ export class ApiError extends Error {
   }
 }
 
-function readToken(): string | null {
+function readFromStorage(key: string): string | null {
   try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+    const raw = localStorage.getItem(key)
     if (!raw) return null
     const parsed = JSON.parse(raw) as { state?: { token?: string | null } }
     return parsed.state?.token ?? null
@@ -53,59 +54,69 @@ function readToken(): string | null {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = readToken()
-  const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  headers.set('X-Request-Id', crypto.randomUUID())
-  if (init.body && !(init.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json')
+const readToken = () => readFromStorage(AUTH_STORAGE_KEY)
+const readAdminToken = () => readFromStorage(ADMIN_STORAGE_KEY)
+
+type TokenReader = () => string | null
+
+function makeApi(readTokenFn: TokenReader) {
+  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const token = readTokenFn()
+    const headers = new Headers(init.headers)
+    headers.set('Accept', 'application/json')
+    headers.set('X-Request-Id', crypto.randomUUID())
+    if (init.body && !(init.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json')
+    }
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+
+    const response = await fetch(`${API_BASE}${path}`, { ...init, headers })
+    const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | null
+
+    if (!response.ok) {
+      const error = body?.errors?.[0]
+      throw new ApiError(
+        response.status,
+        error?.code ?? 'UNEXPECTED_ERROR',
+        error?.message ?? 'Something went wrong. Please try again.',
+        error?.field,
+      )
+    }
+
+    if (body === null) {
+      throw new ApiError(
+        response.status,
+        'INVALID_RESPONSE',
+        'The server returned an invalid response.',
+      )
+    }
+
+    return body.data as T
   }
-  if (token) headers.set('Authorization', `Bearer ${token}`)
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers })
-  const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | null
-
-  if (!response.ok) {
-    const error = body?.errors?.[0]
-    throw new ApiError(
-      response.status,
-      error?.code ?? 'UNEXPECTED_ERROR',
-      error?.message ?? 'Something went wrong. Please try again.',
-      error?.field,
-    )
+  return {
+    get: <T>(path: string) => request<T>(path),
+    post: <T>(path: string, data: unknown) =>
+      request<T>(path, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    postForm: <T>(path: string, data: FormData) =>
+      request<T>(path, {
+        method: 'POST',
+        body: data,
+      }),
+    patch: <T>(path: string, data: unknown) =>
+      request<T>(path, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   }
-
-  if (body === null) {
-    throw new ApiError(
-      response.status,
-      'INVALID_RESPONSE',
-      'The server returned an invalid response.',
-    )
-  }
-
-  return body.data as T
 }
 
-export const api = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, data: unknown) =>
-    request<T>(path, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  postForm: <T>(path: string, data: FormData) =>
-    request<T>(path, {
-      method: 'POST',
-      body: data,
-    }),
-  patch: <T>(path: string, data: unknown) =>
-    request<T>(path, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
-}
+export const api = makeApi(readToken)
+export const adminApi = makeApi(readAdminToken)
 
 export interface LikeResult {
   liked: boolean
@@ -420,6 +431,61 @@ export const invitesApi = {
   join: (code: string) =>
     api.post<{ conversation: Conversation }>(
       `/chat/invites/${encodeURIComponent(code)}/join`,
+      {},
+    ),
+}
+
+export interface SubscriptionReviewUser {
+  id: number
+  username: string
+  display_name: string
+  bio: string | null
+  avatar_url: string | null
+  is_verified: boolean
+  created_at: string | null
+}
+
+export interface SubscriptionReview {
+  id: number
+  status: string
+  status_code: string
+  plan: string
+  plan_name: string
+  amount_paisa: number
+  price_month: string
+  auto_renew: boolean
+  paid: boolean
+  is_verified: boolean
+  verified_at: string | null
+  created_at: string | null
+  user: SubscriptionReviewUser | null
+}
+
+export interface SubscriptionReviewsPage {
+  subscriptions: SubscriptionReview[]
+  meta: { total: number; page: number; per_page: number }
+}
+
+export interface AdminStats {
+  counts: Record<string, number>
+  revenue_paisa: number
+}
+
+export const subscriptionsAdminApi = {
+  list: (status?: string, page = 1) => {
+    const query = new URLSearchParams({ page: String(page), limit: '20' })
+    if (status) query.set('status', status)
+    return adminApi.get<SubscriptionReviewsPage>(`/admin/subscriptions?${query}`)
+  },
+  stats: () => adminApi.get<{ stats: AdminStats }>('/admin/subscriptions/stats'),
+  approve: (id: number) =>
+    adminApi.post<{ subscription: SubscriptionReview }>(
+      `/admin/subscriptions/${id}/approve`,
+      {},
+    ),
+  reject: (id: number) =>
+    adminApi.post<{ subscription: SubscriptionReview }>(
+      `/admin/subscriptions/${id}/reject`,
       {},
     ),
 }

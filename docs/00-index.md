@@ -75,6 +75,7 @@ are green on the machine that built them: `phpunit` (152), `pint`, `phpstan` (le
 | Posts: share count + share button | `post_shares` table (unique post+user, idempotent), `POST posts/{post}/share`, `shares_count` in `PostResource`, PostCard share with optimistic count + copy/native-share | phpunit/6 tests + phpstan + build ✅ |
 | Posts: Explore trending grid | Redis sorted set `posts:trending` (like=1, comment=2, share=4), bump on actions, `posts:refresh-trending` every 5 min, DB-ranked fallback, `GET posts/trending`, Explore tab | phpunit + phpstan + build ✅ |
 | Blue tick: cancel revokes badge | Cancelling the last active subscription immediately clears `is_verified`; survives when an active sibling exists; auto-renew/expiry tests | phpunit/6 tests + phpstan ✅ |
+| Admin subscription review panel | Separate `/admin` surface: own login + token store, dashboard with per-status counts + net revenue, review queue with approve/reject/refund + status filters + pagination | phpunit/6 tests + phpstan + build ✅ |
 
 ### Pending / next
 
