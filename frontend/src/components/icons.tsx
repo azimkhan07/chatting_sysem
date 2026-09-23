@@ -136,6 +136,16 @@ export function ArrowLeftIcon(props: IconProps) {
   )
 }
 
+export function ImageIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="9" cy="9.5" r="1.5" />
+      <path d="m5 18 5-5 3 3 3-3 3 3" />
+    </svg>
+  )
+}
+
 export function PlusIcon(props: IconProps) {
   return (
     <svg {...base} {...props} aria-hidden="true">

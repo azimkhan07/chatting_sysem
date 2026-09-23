@@ -6,7 +6,9 @@ namespace App\Domain\Chat\Models;
 
 use App\Domain\Auth\Models\User;
 use App\Domain\Chat\Enums\ConversationType;
+use Database\Factories\ConversationFactory;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,6 +27,17 @@ use Illuminate\Support\Carbon;
  */
 final class Conversation extends Model
 {
+    /** @use HasFactory<ConversationFactory> */
+    use HasFactory;
+
+    /**
+     * Bound explicitly: model lives in the Domain namespace.
+     */
+    protected static function newFactory(): ConversationFactory
+    {
+        return ConversationFactory::new();
+    }
+
     /**
      * @var list<string>
      */

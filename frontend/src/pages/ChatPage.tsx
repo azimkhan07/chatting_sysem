@@ -8,11 +8,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { Spinner } from '@/components/AuthLayout'
+import { GroupThreadModal } from '@/components/GroupThreadModal'
 import {
   ArrowLeftIcon,
   BellIcon,
   PlusIcon,
   SendIcon,
+  SparkleIcon,
   UsersIcon,
   XIcon,
 } from '@/components/icons'
@@ -217,6 +219,7 @@ function ThreadPane({
   const [draft, setDraft] = useState('')
   const [optimistic, setOptimistic] = useState<ConversationMessage[]>([])
   const [composerError, setComposerError] = useState<string | null>(null)
+  const [threadOpen, setThreadOpen] = useState(false)
   const pinnedRef = useRef(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastTypingRef = useRef(0)
@@ -392,6 +395,17 @@ function ThreadPane({
           <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
           <p className="truncate text-xs text-slate-500">{subtitle}</p>
         </div>
+        {conversation?.type === 'group' ? (
+          <button
+            type="button"
+            onClick={() => setThreadOpen(true)}
+            title="Group story thread"
+            aria-label="Open group story thread"
+            className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-brand-300"
+          >
+            <SparkleIcon className="h-5 w-5" />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => muteMutation.mutate(!isMuted)}
@@ -513,6 +527,14 @@ function ThreadPane({
             </p>
           ) : null}
         </>
+      ) : null}
+
+      {threadOpen && conversation !== null ? (
+        <GroupThreadModal
+          conversationId={conversation.id}
+          groupName={name}
+          onClose={() => setThreadOpen(false)}
+        />
       ) : null}
     </section>
   )

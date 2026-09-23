@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Music\SongController;
 use App\Http\Controllers\Api\V1\Posts\PostController;
 use App\Http\Controllers\Api\V1\Posts\PostInteractionController;
 use App\Http\Controllers\Api\V1\Story\StoryController;
+use App\Http\Controllers\Api\V1\Threads\ThreadController;
 use App\Http\Controllers\Api\V1\User\NotificationController;
 use App\Http\Controllers\Api\V1\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -88,6 +89,11 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('conversations/{conversation}/members', [ChatMemberController::class, 'store'])->whereNumber('conversation');
         Route::delete('conversations/{conversation}/members/{member}', [ChatMemberController::class, 'destroy'])->whereNumber(['conversation', 'member']);
+
+        Route::get('groups/{conversation}/thread', [ThreadController::class, 'show'])->whereNumber('conversation');
+        Route::post('groups/{conversation}/thread', [ThreadController::class, 'start'])->whereNumber('conversation');
+        Route::post('groups/{conversation}/thread/entries', [ThreadController::class, 'addEntry'])->whereNumber('conversation');
+        Route::post('groups/{conversation}/thread/entries/{entry}/reactions', [ThreadController::class, 'toggleReaction'])->whereNumber(['conversation', 'entry']);
     });
 
     Route::prefix('users')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {

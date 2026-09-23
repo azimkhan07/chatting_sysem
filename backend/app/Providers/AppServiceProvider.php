@@ -29,6 +29,8 @@ use App\Domain\Songs\Repositories\EloquentSongRepository;
 use App\Domain\Stories\Contracts\StoryRepository;
 use App\Domain\Stories\Repositories\EloquentStoryRepository;
 use App\Domain\Stories\Services\StoryService;
+use App\Domain\Threads\Contracts\ThreadRepository;
+use App\Domain\Threads\Repositories\EloquentThreadRepository;
 use App\Services\AuthService;
 use App\Services\ChatService;
 use App\Services\PostService;
@@ -54,6 +56,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(StoryService::class, StoryService::class);
         $this->app->bind(ChatRepository::class, EloquentChatRepository::class);
         $this->app->bind(ChatServiceContract::class, ChatService::class);
+        $this->app->bind(ThreadRepository::class, EloquentThreadRepository::class);
         $this->app->bind(SubscriptionRepository::class, EloquentSubscriptionRepository::class);
         $this->app->bind(PasswordResetServiceContract::class, LaravelPasswordResetService::class);
     }

@@ -50,8 +50,17 @@ Ordered by dependency, each item shipped with its own tests + docs update:
 8. **Notifications**
    - [x] Real-time + persisted; unread badge (server-computed), per-module.
    - Real-time via Reverb: `NotificationCreated` broadcast on `private-user.{id}` (realtime-notifications), persisted feed + unread-count + mark-all-read endpoints.
-9. **Signature Feature**
-   - Selected direction, built, tested, shipped (see `01-vision-and-features.md`).
+9. **Signature Feature — Group Story Threads** ✅
+   - Selected direction: a 24-hour collaborative, multi-contributor timeline in a group.
+   - [x] Backend: `threads` / `thread_entries` / `thread_reactions` tables, Domain service +
+     repository, member-only endpoints (start/show/add-entry/reactions), `threads:expire`
+     scheduler writes a recap (entries, participants, reaction totals, top contributor).
+   - [x] Realtime via Reverb: `ThreadEntryAdded` + `ThreadReactionAdded` on `private-group.{id}`
+     (6 reactions: like/love/haha/wow/sad/angry, toggle/switch).
+   - [x] Frontend: Story thread button in group chat header → `GroupThreadModal`
+     (composer + image attach + reaction bar + live Echo sync + ended recap view).
+   - [x] Tests: 14 feature tests (auth, membership, idempotent start, expiry, reactions, recap,
+     broadcast events).
 
 **Exit criteria:** Public beta. Anonymous visitor → sign-up → follow someone → post →
 reel → chat in a group → buy blue tick → see notifications, all with no hangs.

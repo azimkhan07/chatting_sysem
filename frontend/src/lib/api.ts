@@ -8,6 +8,13 @@ import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
 import type { SearchSong, Song } from '@/types/song'
 import type { GifResult, Story, StoryGroup, TextStyle } from '@/types/story'
+import type {
+  Thread,
+  ThreadDetail,
+  ThreadEntry,
+  ThreadReactionName,
+  ThreadReactionResult,
+} from '@/types/thread'
 import type { FollowResult, PublicUser, User, UserPage } from '@/types/user'
 
 const API_BASE = '/api/v1'
@@ -353,4 +360,25 @@ export const chatApi = {
   removeMember: (conversationId: number, userId: number) =>
     api.delete<null>(`/chat/conversations/${conversationId}/members/${userId}`),
   unreadTotal: () => api.get<ChatUnreadTotal>('/chat/unread-total'),
+}
+
+export const threadsApi = {
+  show: (conversationId: number) =>
+    api.get<ThreadDetail>(`/chat/groups/${conversationId}/thread`),
+  start: (conversationId: number) =>
+    api.post<{ thread: Thread }>(`/chat/groups/${conversationId}/thread`, {}),
+  addEntry: (conversationId: number, form: { body: string; media: File | null }) => {
+    const data = new FormData()
+    if (form.body.trim()) data.append('body', form.body)
+    if (form.media) data.append('media', form.media)
+    return api.postForm<{ thread: Thread; entry: ThreadEntry }>(
+      `/chat/groups/${conversationId}/thread/entries`,
+      data,
+    )
+  },
+  toggleReaction: (conversationId: number, entryId: number, reaction: ThreadReactionName) =>
+    api.post<ThreadReactionResult>(
+      `/chat/groups/${conversationId}/thread/entries/${entryId}/reactions`,
+      { reaction },
+    ),
 }

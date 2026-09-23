@@ -50,23 +50,28 @@ Our model makes it **transparent, cheap, and automated**:
 
 ## Signature feature (the thing FB/IG/X/WP don't have)
 
-> Status: **OPEN — product decision required** (shortlist below).
-> This is the hook. Design it into the data model from day one so v2 can extend it.
+> Status: **DECIDED & SHIPPED — "Group Story Threads"** (2026-09-23).
+> A 24-hour collaborative, multi-contributor timeline inside a group: every member posts
+> entries (text or image), reacts (like/love/haha/wow/sad/angry), and at expiry the thread
+> closes into a recap (entries, participants, reaction totals, top contributor).
+> No major platform does collaborative ephemeral threads — this is the v1 hook.
+> Shipped as roadmap item 9; see `02-roadmap.md` for the implementation summary.
 
-Constraint list:
-- Not replicable by feed/chat/status paradigms alone.
-- Drives daily engagement and/or paid (blue tick) adoption.
-- Feasible for a small team in v1, owner-to-scale later.
+Constraint list (evaluated against the pick):
+- Not replicable by feed/chat/status paradigms alone — separate table + domain + realtime channel, not a message type.
+- Drives daily engagement and/or paid (blue tick) adoption — group habit loop + recap FOMO (v2: boost recap reach to verified).
+- Feasible for a small team in v1, owner-to-scale later — one migration, 4 endpoints, one scheduler command.
 
-Shortlist directions (pick one or define a new one):
+Shortlist directions considered (pick one or define a new one):
 1. **Real-time "Live Room"** — audio/video drop-in spaces with guest co-hosting, tied to
-   groups (WhatsApp groups are static text; IG lives are broadcast-only).
+   groups (WhatsApp groups are static text; IG lives are broadcast-only). *(deferred)*
 2. **Group "Story Threads"** — ephemeral, collaborative, multi-contributor timelines inside
    a group with reaction-recaps (no major platform does collaborative ephemeral threads).
+   *(SELECTED — shipped)*
 3. **Verified-first social commerce** — marketplace only visible/buyable between verified
-   users, with escrow and ₹5 verification as the trust layer.
+   users, with escrow and ₹5 verification as the trust layer. *(deferred)*
 4. **AI "Mood Messenger"** — voice + text replies auto-summarized with emotional context
-   (reserved for v2 AI voice assistant; could seed the data model now).
+   (reserved for v2 AI voice assistant; could seed the data model now). *(reserved for v2)*
 
 ## Design language (UI/UX)
 
