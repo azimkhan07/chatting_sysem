@@ -31,6 +31,7 @@ import type {
   Conversation,
   ConversationMessage,
   MessageKind,
+  ReadReceipt,
   RealtimeDeletedPayload,
   RealtimeMessagePayload,
   RealtimeReactionPayload,
@@ -265,6 +266,14 @@ function ThreadPane({
     [messagePages.data],
   )
 
+  const myReadWatermarkId = useMemo(() => {
+    let watermark = 0
+    for (const message of serverMessages) {
+      if (message.sender?.id === me?.id && message.read) watermark = Math.max(watermark, message.id)
+    }
+    return watermark
+  }, [serverMessages, me?.id])
+
   const messages = useMemo(() => {
     const seen = new Set<number>()
     const output: ConversationMessage[] = []
@@ -451,6 +460,7 @@ function ThreadPane({
           body: variables.body,
           media_url: null,
           read: false,
+          read_by: [],
           reactions: emptyReactions(),
           my_reaction: null,
           created_at: new Date().toISOString(),
@@ -668,6 +678,9 @@ function ThreadPane({
                       ((message.sender?.id ?? 0) === me?.id ||
                         (conversation.type === 'group' && isModerator))
                     }
+                    readReceipts={
+                      message.id === myReadWatermarkId ? (message.read_by ?? []) : []
+                    }
                     onReact={(reaction) =>
                       reactMutation.mutate({ messageId: message.id, reaction })
                     }
@@ -780,6 +793,7 @@ function MessageBubble({
   showSender,
   actionable,
   canDelete,
+  readReceipts,
   onReact,
   onDelete,
 }: {
@@ -788,6 +802,7 @@ function MessageBubble({
   showSender: boolean
   actionable: boolean
   canDelete: boolean
+  readReceipts: ReadReceipt[]
   onReact: (reaction: ReactionName) => void
   onDelete: () => void
 }) {
@@ -830,9 +845,39 @@ function MessageBubble({
           >
             <span>{clockTime(message.created_at)}</span>
             {mine ? (
-              <span className={message.read ? 'text-emerald-300' : 'text-slate-400'} title={message.read ? 'Read' : 'Sent'}>
-                {message.read ? '✓✓' : '✓'}
-              </span>
+              readReceipts.length > 0 ? (
+                <span
+                  className="flex -space-x-1.5"
+                  title={`Seen by ${readReceipts.map((reader) => reader.display_name).join(', ')}`}
+                >
+                  {readReceipts.slice(0, 3).map((reader) =>
+                    reader.avatar_url ? (
+                      <img
+                        key={reader.id}
+                        src={reader.avatar_url}
+                        alt=""
+                        className="h-4 w-4 rounded-full border border-white/40 object-cover"
+                      />
+                    ) : (
+                      <span
+                        key={reader.id}
+                        className="grid h-4 w-4 place-items-center rounded-full border border-white/40 bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[7px] font-bold text-[#fff]"
+                      >
+                        {(reader.display_name || reader.username).charAt(0).toUpperCase()}
+                      </span>
+                    ),
+                  )}
+                  {readReceipts.length > 3 ? (
+                    <span className="grid h-4 w-4 place-items-center rounded-full border border-white/40 bg-white/15 text-[7px] font-bold text-slate-200">
+                      +{readReceipts.length - 3}
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                <span className="text-slate-400" title="Sent">
+                  ✓
+                </span>
+              )
             ) : null}
           </div>
         </div>

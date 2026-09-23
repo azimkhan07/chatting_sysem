@@ -58,7 +58,7 @@ Major decisions get recorded here so we never forget *why*.
 ## Progress tracker
 
 Latest status of the active build. Updated whenever a task finishes. All checks below
-are green on the machine that built them: `phpunit` (152), `pint`, `phpstan` (level 5),
+are green on the machine that built them: `phpunit` (159), `pint`, `phpstan` (level 5),
 `tsc -b`, `vite build`, `oxlint` (warnings only, none blocking).
 
 ### Completed
@@ -76,12 +76,17 @@ are green on the machine that built them: `phpunit` (152), `pint`, `phpstan` (le
 | Posts: Explore trending grid | Redis sorted set `posts:trending` (like=1, comment=2, share=4), bump on actions, `posts:refresh-trending` every 5 min, DB-ranked fallback, `GET posts/trending`, Explore tab | phpunit + phpstan + build ✅ |
 | Blue tick: cancel revokes badge | Cancelling the last active subscription immediately clears `is_verified`; survives when an active sibling exists; auto-renew/expiry tests | phpunit/6 tests + phpstan ✅ |
 | Admin subscription review panel | Separate `/admin` surface: own login + token store, dashboard with per-status counts + net revenue, review queue with approve/reject/refund + status filters + pagination | phpunit/6 tests + phpstan + build ✅ |
+| Admin review paid notification | `NotificationType::AdminReview` + `AdminReviewNotifier` fired from `SubscriptionService::recordPayment`, realtime to admins on their private channel | phpunit + phpstan + build ✅ |
+| Chat: typing indicator | Server-throttled `POST conversations/{id}/typing` (existing) + Reverb `UserTyping` event; thread header shows "X is typing…" (group: "N people…") with 3.5s expiry, clears when the message lands | phpunit + phpstan + build ✅ |
+| Chat: read receipts as DP (Instagram/Messenger style) | `MessageResource::read_by` = readers from member watermarks (`last_read_message_id`); UI draws reader DPs (up to 3 + overflow, overlap strip) on the last read message, replacing the ✓✓ double tick | phpunit + phpstan + build ✅ |
+| Chat: full-height thread card + compact new-message button | Chat card fills the whole page height (hides page background, even when empty); "New message" `w-auto` so it no longer stretches full width | build ✅ |
 
 ### Pending / next
 
 | Item | Notes |
 | ---- | ----- |
 | Group invite flows hardening (member add via invite already live API-side) | Join UX polish |
+| Chat presence (online status indicator) | Roadmap item 6 leftover; typing + read receipts shipped, presence still open |
 | Full suite re-run against real MySQL + Reverb in Docker | CI covers it via GitHub Actions |
 | Subscription switch plan (downgrade/upgrade) before expiry | Guarded by `verify()` today; needs an in-place switch flow |
 

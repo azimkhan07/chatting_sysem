@@ -46,6 +46,8 @@ Ordered by dependency, each item shipped with its own tests + docs update:
    - Groups: create/join/invite, roles (owner/admin/member), shareable invite links + realtime join.
    - [x] Full-page chat layout — inbox rail + thread fill the whole body beside the sidebar; mobile responsive with bottom tab bar and back-navigation thread.
    - [x] Message reactions (6 emojis, toggle/switch, realtime via Reverb) + delete-for-everyone (sender or group moderator).
+   - [x] Typing indicator — server-throttled `POST conversations/{id}/typing` + Reverb `UserTyping`; thread header shows "X is typing…" (group: "N people…") with a 3.5s expiry and clears when the message lands.
+   - [x] Read receipts as DP (Instagram/Messenger style) — watermark-based `read` + `read_by` in `MessageResource`; UI draws reader DPs on the last read message instead of a ✓✓ double tick.
    - [x] **Stress case:** a user with 100+ groups gets a snappy inbox — `ChatInboxCache` (Redis
      per-user unread hash + last-message snapshots), single-pass grouped SQL fill with DB fallback.
 7. **Blue Tick**

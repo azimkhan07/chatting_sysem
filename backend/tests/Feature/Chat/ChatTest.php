@@ -146,6 +146,7 @@ final class ChatTest extends TestCase
             ->json('data.messages');
 
         $this->assertTrue($messages[0]['read']);
+        $this->assertSame([$them->id], array_column($messages[0]['read_by'], 'id'));
     }
 
     public function test_message_send_is_idempotent_by_client_id(): void

@@ -24,6 +24,13 @@ export interface ChatMessageSender {
   is_verified: boolean
 }
 
+export interface ReadReceipt {
+  id: number
+  username: string
+  display_name: string
+  avatar_url: string | null
+}
+
 export interface ConversationMessage {
   id: number
   conversation_id: number
@@ -32,6 +39,7 @@ export interface ConversationMessage {
   body: string | null
   media_url: string | null
   read: boolean
+  read_by: ReadReceipt[]
   reactions: Record<ReactionName, number>
   my_reaction: ReactionName | null
   created_at: string

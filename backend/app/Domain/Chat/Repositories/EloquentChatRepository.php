@@ -114,7 +114,7 @@ final class EloquentChatRepository implements ChatRepository
     public function messagesFor(Conversation $conversation, int $limit, ?string $cursor): CursorPaginator
     {
         $paginator = $conversation->messages()
-            ->with(['user', 'conversation.members', 'reactions'])
+            ->with(['user', 'conversation.members.user', 'reactions'])
             ->orderByDesc('id')
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
 
@@ -129,7 +129,7 @@ final class EloquentChatRepository implements ChatRepository
             /** @var ConversationMessage|null $existing */
             $existing = $conversation->messages()
                 ->where('client_id', $attributes['client_id'])
-                ->with(['user', 'conversation.members'])
+                ->with(['user', 'conversation.members.user'])
                 ->latest('id')
                 ->first();
 
@@ -149,7 +149,7 @@ final class EloquentChatRepository implements ChatRepository
 
         $this->advanceWatermark($conversation, $userId, $message->id);
 
-        $message->load(['user', 'conversation.members']);
+        $message->load(['user', 'conversation.members.user']);
         $conversation->touch();
 
         $this->inboxCache->noteNewMessage($conversation, $message);
