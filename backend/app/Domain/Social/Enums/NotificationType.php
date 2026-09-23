@@ -10,4 +10,5 @@ enum NotificationType: string
     case Like = 'like';
     case Comment = 'comment';
     case Verified = 'verified';
+    case AdminReview = 'admin_review';
 }

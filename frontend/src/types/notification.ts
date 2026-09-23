@@ -1,6 +1,11 @@
 import type { User } from '@/types/user'
 
-export type NotificationType = 'follow' | 'like' | 'comment'
+export type NotificationType =
+  | 'follow'
+  | 'like'
+  | 'comment'
+  | 'verified'
+  | 'admin_review'
 
 export interface Notification {
   id: number
@@ -8,6 +13,10 @@ export interface Notification {
   data: {
     post_id?: number
     comment_preview?: string
+    subscription_id?: number
+    plan?: string
+    amount_paisa?: number
+    approved?: boolean
   }
   read_at: string | null
   created_at: string

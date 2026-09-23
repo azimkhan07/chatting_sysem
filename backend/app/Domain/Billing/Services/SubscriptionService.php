@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Billing\Services;
 
+use App\Domain\Admin\Services\AdminReviewNotifier;
 use App\Domain\Auth\Models\User;
 use App\Domain\Billing\Contracts\SubscriptionRepository;
 use App\Domain\Billing\Enums\Plan;
@@ -19,6 +20,7 @@ final class SubscriptionService
     public function __construct(
         private readonly SubscriptionRepository $subscriptions,
         private readonly NotificationRepository $notifications,
+        private readonly AdminReviewNotifier $adminReviewNotifier,
     ) {}
 
     /**
@@ -88,6 +90,7 @@ final class SubscriptionService
     /**
      * Mock payment capture in v1. Records the gateway token and keeps the
      * subscription pending until an admin reviews and approves/rejects it.
+     * Admins are notified in realtime so the queue never goes stale.
      */
     public function recordPayment(User $user, Subscription $subscription, string $gateway, string $token): Subscription
     {
@@ -97,7 +100,11 @@ final class SubscriptionService
             throw new SubscriptionNotAllowedException('This subscription cannot accept payment right now.');
         }
 
-        return $this->subscriptions->recordPayment($subscription, $token);
+        $paid = $this->subscriptions->recordPayment($subscription, $token);
+
+        $this->adminReviewNotifier->notifyReviewPending($user, $paid);
+
+        return $paid;
     }
 
     /**

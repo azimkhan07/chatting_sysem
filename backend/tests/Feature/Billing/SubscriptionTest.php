@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Billing;
 
+use App\Domain\Admin\Models\Role;
 use App\Domain\Auth\Models\User;
 use App\Domain\Billing\Contracts\SubscriptionRepository;
 use App\Domain\Billing\Enums\Plan;
 use App\Domain\Billing\Enums\SubscriptionStatus;
 use App\Domain\Billing\Models\Subscription;
 use App\Domain\Billing\Services\SubscriptionService;
+use App\Domain\Social\Models\UserNotification;
+use App\Events\NotificationCreated;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 final class SubscriptionTest extends TestCase
@@ -144,6 +148,42 @@ final class SubscriptionTest extends TestCase
         $this->assertSame(['renewed' => 0, 'expired' => 1], $result);
         $this->assertSame(SubscriptionStatus::Expired, $subscription->refresh()->status);
         $this->assertSame(false, $user->refresh()->is_verified);
+    }
+
+    public function test_paying_for_verification_notifies_admins_of_pending_review(): void
+    {
+        Event::fake([NotificationCreated::class]);
+
+        $admin = $this->withAdminRole(User::factory()->create());
+        $otherAdmin = $this->withAdminRole(User::factory()->create());
+        $buyer = User::factory()->create();
+        $subscription = $this->service()->verify((int) $buyer->id, Plan::Basic);
+
+        $this->service()->recordPayment($buyer, $subscription, 'mock', 'mock_ck_paid_token');
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $admin->id,
+            'actor_id' => $buyer->id,
+            'type' => 'admin_review',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $otherAdmin->id,
+            'actor_id' => $buyer->id,
+            'type' => 'admin_review',
+        ]);
+
+        Event::assertDispatched(NotificationCreated::class, fn (NotificationCreated $event): bool => $event->userId === $admin->id);
+        Event::assertDispatched(NotificationCreated::class, fn (NotificationCreated $event): bool => $event->userId === $otherAdmin->id);
+
+        $this->assertSame(true, UserNotification::query()->where('user_id', $admin->id)->first()?->data['subscription_id'] === $subscription->id);
+    }
+
+    private function withAdminRole(User $user): User
+    {
+        $role = Role::query()->where('name', 'admin')->firstOrFail();
+        $user->roles()->attach($role->id);
+
+        return $user->refresh();
     }
 
     private function activate(User $user, Plan $plan): Subscription

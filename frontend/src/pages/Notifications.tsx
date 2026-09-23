@@ -151,6 +151,14 @@ function messageFor(notification: Notification): string {
       return 'liked your post.'
     case 'comment':
       return `commented: “${notification.data.comment_preview ?? ''}”`
+    case 'verified': {
+      if (notification.data.approved === false) {
+        return 'submitted a verification request that was not approved this time.'
+      }
+      return 'approved your blue tick — it is now live on your profile.'
+    }
+    case 'admin_review':
+      return `paid ₹${((notification.data.amount_paisa ?? 0) / 100).toFixed(2)} for ${notification.data.plan ?? 'a'} verification — review it.`
   }
 }
 
