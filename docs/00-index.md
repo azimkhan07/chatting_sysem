@@ -82,6 +82,8 @@ are green on the machine that built them: `phpunit` (166), `pint`, `phpstan` (le
 | Chat: full-height thread card + compact new-message button | Chat card fills the whole page height (hides page background, even when empty); "New message" `w-auto` so it no longer stretches full width | build ✅ |
 | Full-viewport shell with svh fallback | `app-shell` class: `100vh` fallback + `100svh` override so the app frame never collapses when `svh` is unsupported | build ✅ |
 | Subscription switch plan (downgrade/upgrade) in place | `POST subscriptions/switch` + `GET subscriptions/active`; pending switch links old active subscription (`switch_from_subscription_id`); approval supersedes the old plan and keeps the badge continuous; rejection leaves the current plan untouched; admin review shows "Plan switch from…" | phpunit/8 tests + phpstan + build ✅ |
+| Light theme: pure-white canvas | Light mode canvas unified to `#ffffff` (was `#f2f4fb`) so the page reads as one full white surface; dark theme unchanged | build ✅ |
+| Password show/hide toggle | Eye toggle on every password field: Login, Register (both), ResetPassword, Admin console — via shared `AuthField` + exported `EyeIcon`/`EyeOffIcon` | build ✅ |
 
 ### Pending / next
 

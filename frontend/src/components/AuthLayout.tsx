@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 
 interface AuthFieldProps {
@@ -23,6 +24,9 @@ export function AuthField({
   hint,
   onChange,
 }: AuthFieldProps) {
+  const isPassword = type === 'password'
+  const [revealed, setRevealed] = useState(false)
+
   return (
     <div className="space-y-1.5">
       <label
@@ -31,22 +35,77 @@ export function AuthField({
       >
         {label}
       </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        autoComplete={autoComplete ?? name}
-        onChange={(event) => onChange(event.target.value)}
-        className={error ? 'input-field is-invalid' : 'input-field'}
-      />
+      <div className="relative">
+        <input
+          id={name}
+          name={name}
+          type={isPassword && revealed ? 'text' : type}
+          value={value}
+          placeholder={placeholder}
+          autoComplete={autoComplete ?? name}
+          onChange={(event) => onChange(event.target.value)}
+          className={[
+            error ? 'input-field is-invalid' : 'input-field',
+            isPassword ? 'pr-11' : '',
+          ].join(' ')}
+        />
+        {isPassword ? (
+          <button
+            type="button"
+            onClick={() => setRevealed((current) => !current)}
+            aria-label={revealed ? 'Hide password' : 'Show password'}
+            tabIndex={-1}
+            className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 transition hover:text-slate-300"
+          >
+            {revealed ? <EyeOffIcon /> : <EyeIcon />}
+          </button>
+        ) : null}
+      </div>
       {error ? (
         <p className="text-sm text-rose-400">{error}</p>
       ) : hint ? (
         <p className="text-sm text-slate-500">{hint}</p>
       ) : null}
     </div>
+  )
+}
+
+export function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4.5 w-4.5" aria-hidden="true">
+      <path
+        d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  )
+}
+
+export function EyeOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4.5 w-4.5" aria-hidden="true">
+      <path
+        d="M3 3l18 18"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10.6 5.1A9.6 9.6 0 0 1 12 5c6.5 0 10 7 10 7a17.4 17.4 0 0 1-2.9 3.9M6.7 6.6A17.5 17.5 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.9-1.3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
 

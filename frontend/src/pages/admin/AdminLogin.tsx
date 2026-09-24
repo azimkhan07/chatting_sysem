@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 
-import { BrandMark, FormError, Spinner } from '@/components/AuthLayout'
+import { BrandMark, EyeIcon, EyeOffIcon, FormError, Spinner } from '@/components/AuthLayout'
 import { ApiError } from '@/lib/api'
 import { useAdminStore } from '@/stores/adminStore'
 
@@ -11,6 +11,7 @@ export default function AdminLogin() {
   const login = useAdminStore((state) => state.login)
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [revealed, setRevealed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -91,16 +92,27 @@ export default function AdminLogin() {
               >
                 Password
               </label>
-              <input
-                id="admin-password"
-                name="password"
-                type="password"
-                value={password}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                onChange={(event) => setPassword(event.target.value)}
-                className="input-field"
-              />
+              <div className="relative">
+                <input
+                  id="admin-password"
+                  name="password"
+                  type={revealed ? 'text' : 'password'}
+                  value={password}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="input-field pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setRevealed((current) => !current)}
+                  aria-label={revealed ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                  className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 transition hover:text-slate-300"
+                >
+                  {revealed ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
             </div>
 
             <button
