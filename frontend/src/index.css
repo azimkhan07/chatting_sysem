@@ -210,8 +210,13 @@ body {
     animation: orb-drift 18s ease-in-out infinite;
   }
 
-  .glass-card {
+.glass-card {
     @apply rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl;
+  }
+
+  .app-shell {
+    height: 100vh;
+    height: 100svh;
   }
 
   .input-field {

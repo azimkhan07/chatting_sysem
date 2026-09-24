@@ -26,7 +26,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
   const isChat = location.pathname === '/chat' || location.pathname.startsWith('/chat/')
 
   return (
-    <div className="relative flex h-svh flex-col bg-midnight-950">
+    <div className="app-shell relative flex flex-col bg-midnight-950">
       <div className="mesh-bg">
         <div className="orb -top-48 left-1/4 h-96 w-96 bg-brand-600/15" />
         <div className="orb bottom-0 right-0 h-80 w-80 bg-fuchsia-600/10 [animation-delay:-9s]" />
