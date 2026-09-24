@@ -134,6 +134,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('tiers', [SubscriptionController::class, 'tiers']);
         Route::post('verify', [SubscriptionController::class, 'verify']);
         Route::post('checkout', [SubscriptionController::class, 'checkout']);
+        Route::post('switch', [SubscriptionController::class, 'switch']);
+        Route::get('active', [SubscriptionController::class, 'active']);
         Route::get('{subscription}', [SubscriptionController::class, 'show'])->whereNumber('subscription');
         Route::post('{subscription}/pay', [SubscriptionController::class, 'pay'])->whereNumber('subscription');
         Route::delete('{subscription}', [SubscriptionController::class, 'destroy'])->whereNumber('subscription');

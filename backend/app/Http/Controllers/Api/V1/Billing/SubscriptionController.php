@@ -53,6 +53,29 @@ final class SubscriptionController extends Controller
         ]);
     }
 
+    public function switch(ChoosePlanRequest $request): JsonResponse
+    {
+        $subscription = $this->service->switchPlan(
+            (int) $request->user()->id,
+            Plan::fromName($request->validated('plan')),
+        );
+
+        return ApiResponse::success([
+            'subscription' => new SubscriptionResource($subscription),
+        ], status: 201);
+    }
+
+    public function active(Request $request): JsonResponse
+    {
+        $subscription = $this->service->activeFor((int) $request->user()->id);
+
+        return ApiResponse::success([
+            'subscription' => $subscription === null
+                ? null
+                : new SubscriptionResource($subscription),
+        ]);
+    }
+
     public function pay(PaySubscriptionRequest $request, Subscription $subscription): JsonResponse
     {
         $updated = $this->service->recordPayment(

@@ -178,6 +178,101 @@ final class SubscriptionTest extends TestCase
         $this->assertSame(true, UserNotification::query()->where('user_id', $admin->id)->first()?->data['subscription_id'] === $subscription->id);
     }
 
+    public function test_switch_creates_pending_subscription_linked_to_the_active_one(): void
+    {
+        $user = User::factory()->create();
+        $this->activate($user, Plan::Basic);
+
+        $switch = $this->service()->switchPlan((int) $user->id, Plan::Pro);
+
+        $this->assertSame(Plan::Pro, $switch->plan);
+        $this->assertSame(SubscriptionStatus::Pending, $switch->status);
+        $this->assertSame(500, $switch->amount_paisa);
+        $this->assertNotNull($switch->switch_from_subscription_id);
+        $this->assertSame(true, $user->refresh()->is_verified);
+        $this->assertSame(true, $switch->refresh()->auto_renew);
+    }
+
+    public function test_switch_is_idempotent_for_the_same_plan(): void
+    {
+        $user = User::factory()->create();
+        $active = $this->activate($user, Plan::Basic);
+
+        $this->assertSame($active->id, $this->service()->switchPlan((int) $user->id, Plan::Basic)->id);
+    }
+
+    public function test_switch_without_an_active_subscription_starts_a_fresh_request(): void
+    {
+        $user = User::factory()->create();
+
+        $switch = $this->service()->switchPlan((int) $user->id, Plan::Pro);
+
+        $this->assertSame(SubscriptionStatus::Pending, $switch->status);
+        $this->assertNull($switch->switch_from_subscription_id);
+    }
+
+    public function test_approving_a_switch_supersedes_the_old_plan_and_keeps_the_badge(): void
+    {
+        $user = User::factory()->create();
+        $old = $this->activate($user, Plan::Basic);
+        $switch = $this->service()->switchPlan((int) $user->id, Plan::Pro);
+        $adminId = (int) User::factory()->create()->id;
+        $this->repository()->recordPayment($switch, 'mock_ck_switch');
+
+        $this->repository()->approve($switch, $adminId);
+
+        $this->assertSame(SubscriptionStatus::Active, $switch->refresh()->status);
+        $this->assertSame(SubscriptionStatus::Expired, $old->refresh()->status);
+        $this->assertSame(false, $old->refresh()->auto_renew);
+        $this->assertSame(true, $user->refresh()->is_verified);
+    }
+
+    public function test_rejecting_a_switch_leaves_the_current_plan_active_and_verified(): void
+    {
+        $user = User::factory()->create();
+        $old = $this->activate($user, Plan::Basic);
+        $switch = $this->service()->switchPlan((int) $user->id, Plan::Pro);
+
+        $this->repository()->reject($switch);
+
+        $this->assertSame(SubscriptionStatus::Refunded, $switch->refresh()->status);
+        $this->assertSame(SubscriptionStatus::Active, $old->refresh()->status);
+        $this->assertSame(true, $user->refresh()->is_verified);
+    }
+
+    public function test_switch_endpoint_creates_a_switch_subscription(): void
+    {
+        $user = User::factory()->create();
+        $old = $this->activate($user, Plan::Basic);
+
+        $this->actingAs($user)
+            ->postJson('/api/v1/subscriptions/switch', ['plan' => Plan::Pro->value])
+            ->assertCreated()
+            ->assertJsonPath('data.subscription.status_code', 'pending')
+            ->assertJsonPath('data.subscription.plan', 'amtech_pro')
+            ->assertJsonPath('data.subscription.switch_from.subscription_id', $old->id)
+            ->assertJsonPath('data.subscription.switch_from.plan_name', 'Amtech Basic');
+    }
+
+    public function test_active_endpoint_returns_the_current_subscription_or_null(): void
+    {
+        $fresh = User::factory()->create();
+
+        $this->actingAs($fresh)
+            ->getJson('/api/v1/subscriptions/active')
+            ->assertOk()
+            ->assertJsonPath('data.subscription', null);
+
+        $user = User::factory()->create();
+        $this->activate($user, Plan::Basic);
+
+        $this->actingAs($user)
+            ->getJson('/api/v1/subscriptions/active')
+            ->assertOk()
+            ->assertJsonPath('data.subscription.status_code', 'active')
+            ->assertJsonPath('data.subscription.plan', 'amtech_basic');
+    }
+
     private function withAdminRole(User $user): User
     {
         $role = Role::query()->where('name', 'admin')->firstOrFail();

@@ -50,6 +50,29 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
             ->first();
     }
 
+    public function findPendingSwitchFor(int $userId, Plan $plan): ?Subscription
+    {
+        return Subscription::query()
+            ->where('user_id', $userId)
+            ->where('plan', $plan->value)
+            ->whereNotNull('switch_from_subscription_id')
+            ->where('status', SubscriptionStatus::Pending->value)
+            ->latest('id')
+            ->first();
+    }
+
+    public function createSwitch(int $userId, Plan $plan, Subscription $from): Subscription
+    {
+        return Subscription::query()->create([
+            'user_id' => $userId,
+            'plan' => $plan,
+            'amount_paisa' => $plan->amountPaisa(),
+            'status' => SubscriptionStatus::Pending,
+            'auto_renew' => true,
+            'switch_from_subscription_id' => $from->id,
+        ]);
+    }
+
     public function recordPayment(Subscription $subscription, string $token): Subscription
     {
         $subscription->update([
@@ -73,6 +96,16 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
         ]);
 
         $subscription->user()->update(['is_verified' => true]);
+
+        if ($subscription->switch_from_subscription_id !== null) {
+            Subscription::query()
+                ->whereKey($subscription->switch_from_subscription_id)
+                ->where('status', SubscriptionStatus::Active->value)
+                ->update([
+                    'status' => SubscriptionStatus::Expired->value,
+                    'auto_renew' => false,
+                ]);
+        }
 
         return $subscription->fresh();
     }
@@ -162,7 +195,7 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
     public function all(int $perPage, ?SubscriptionStatus $status): LengthAwarePaginator
     {
         return Subscription::query()
-            ->with('user')
+            ->with(['user', 'switchFrom'])
             ->when($status !== null, fn ($query) => $query->where('status', $status->value))
             ->orderByDesc('id')
             ->paginate($perPage);

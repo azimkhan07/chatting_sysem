@@ -254,6 +254,11 @@ function ReviewCard({
             {formatPaisa(subscription.amount_paisa)}
             {subscription.paid ? ' · paid' : ' · not paid'}
           </p>
+          {subscription.switch_from ? (
+            <p className="mt-0.5 text-xs font-medium text-brand-300">
+              Plan switch from {subscription.switch_from.plan_name}
+            </p>
+          ) : null}
           <p className="mt-0.5 text-xs text-slate-500">
             Requested {subscription.created_at ? timeAgo(subscription.created_at) : 'recently'}
             {subscription.auto_renew ? ' · auto-renew on' : ''}

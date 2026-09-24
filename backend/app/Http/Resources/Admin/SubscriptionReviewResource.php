@@ -33,6 +33,11 @@ final class SubscriptionReviewResource extends JsonResource
             'paid' => $this->isPaid(),
             'is_verified' => $user->is_verified ?? false,
             'verified_at' => $this->verified_at?->toIso8601String(),
+            'switch_from' => $this->switchFrom !== null ? [
+                'subscription_id' => $this->switchFrom->id,
+                'plan' => $this->switchFrom->plan->value,
+                'plan_name' => $this->switchFrom->plan->label(),
+            ] : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'user' => $user === null ? null : [
                 'id' => $user->id,

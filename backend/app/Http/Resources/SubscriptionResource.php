@@ -45,6 +45,11 @@ final class SubscriptionResource extends JsonResource
             'verified_at' => $this->verified_at?->toIso8601String(),
             'starts_at' => $this->starts_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),
+            'switch_from' => $this->switchFrom !== null ? [
+                'subscription_id' => $this->switchFrom->id,
+                'plan' => $this->switchFrom->plan->value,
+                'plan_name' => $this->switchFrom->plan->label(),
+            ] : null,
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

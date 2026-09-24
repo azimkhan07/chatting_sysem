@@ -314,6 +314,11 @@ export interface SubscriptionData {
   auto_renew: boolean
   is_verified: boolean
   expires_at: string | null
+  switch_from: {
+    subscription_id: number
+    plan: string
+    plan_name: string
+  } | null
 }
 
 export const subscriptionsApi = {
@@ -327,6 +332,9 @@ export const subscriptionsApi = {
       client_token: string
       amount_paisa: number
     }>('/subscriptions/checkout', { plan }),
+  active: () => api.get<{ subscription: SubscriptionData | null }>('/subscriptions/active'),
+  switch: (plan: string) =>
+    api.post<{ subscription: SubscriptionData }>('/subscriptions/switch', { plan }),
   pay: (subscriptionId: number, gateway: string, token: string) =>
     api.post<{ subscription: SubscriptionData }>(
       `/subscriptions/${subscriptionId}/pay`,
@@ -458,6 +466,11 @@ export interface SubscriptionReview {
   is_verified: boolean
   verified_at: string | null
   created_at: string | null
+  switch_from: {
+    subscription_id: number
+    plan: string
+    plan_name: string
+  } | null
   user: SubscriptionReviewUser | null
 }
 

@@ -24,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property-read Carbon|null $expires_at
  * @property-read bool $auto_renew
  * @property-read string|null $payment_token
+ * @property-read int|null $switch_from_subscription_id
+ * @property-read Subscription|null $switchFrom
  * @property-read Carbon $created_at
  * @property-read Carbon $updated_at
  */
@@ -42,6 +44,7 @@ final class Subscription extends Model
         'expires_at',
         'auto_renew',
         'payment_token',
+        'switch_from_subscription_id',
     ];
 
     /**
@@ -63,6 +66,11 @@ final class Subscription extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function switchFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'switch_from_subscription_id');
     }
 
     public function isPending(): bool

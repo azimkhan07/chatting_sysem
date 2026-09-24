@@ -138,6 +138,29 @@ final class SubscriptionService
     }
 
     /**
+     * Switches an active subscription to another plan in place. The current
+     * subscription keeps running until the new one is approved; approval
+     * supersedes it so the blue badge is never interrupted. With no active
+     * subscription this simply starts a fresh verification request.
+     */
+    public function switchPlan(int $userId, Plan $plan): Subscription
+    {
+        $active = $this->subscriptions->activeFor($userId);
+
+        if ($active === null) {
+            return $this->subscriptions->findPendingFor($userId, $plan)
+                ?? $this->subscriptions->create($userId, $plan);
+        }
+
+        if ($active->plan === $plan) {
+            return $active;
+        }
+
+        return $this->subscriptions->findPendingSwitchFor($userId, $plan)
+            ?? $this->subscriptions->createSwitch($userId, $plan, $active);
+    }
+
+    /**
      * Advance the clock on every due subscription: auto-renew active ones and
      * expire the rest (flipping is_verified=false). Called by the scheduler.
      *

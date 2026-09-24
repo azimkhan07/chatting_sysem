@@ -19,6 +19,18 @@ interface SubscriptionRepository
 
     public function activeFor(int $userId): ?Subscription;
 
+    /**
+     * In-flight plan switch for (user, plan): a pending subscription that is
+     * replacing an existing active one.
+     */
+    public function findPendingSwitchFor(int $userId, Plan $plan): ?Subscription;
+
+    /**
+     * Starts a plan switch: a pending subscription for the new plan that
+     * links back to the active subscription it will supersede on approval.
+     */
+    public function createSwitch(int $userId, Plan $plan, Subscription $from): Subscription;
+
     public function recordPayment(Subscription $subscription, string $token): Subscription;
 
     public function approve(Subscription $subscription, int $adminId): Subscription;

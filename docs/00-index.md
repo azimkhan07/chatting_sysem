@@ -58,7 +58,7 @@ Major decisions get recorded here so we never forget *why*.
 ## Progress tracker
 
 Latest status of the active build. Updated whenever a task finishes. All checks below
-are green on the machine that built them: `phpunit` (159), `pint`, `phpstan` (level 5),
+are green on the machine that built them: `phpunit` (166), `pint`, `phpstan` (level 5),
 `tsc -b`, `vite build`, `oxlint` (warnings only, none blocking).
 
 ### Completed
@@ -80,6 +80,8 @@ are green on the machine that built them: `phpunit` (159), `pint`, `phpstan` (le
 | Chat: typing indicator | Server-throttled `POST conversations/{id}/typing` (existing) + Reverb `UserTyping` event; thread header shows "X is typing…" (group: "N people…") with 3.5s expiry, clears when the message lands | phpunit + phpstan + build ✅ |
 | Chat: read receipts as DP (Instagram/Messenger style) | `MessageResource::read_by` = readers from member watermarks (`last_read_message_id`); UI draws reader DPs (up to 3 + overflow, overlap strip) on the last read message, replacing the ✓✓ double tick | phpunit + phpstan + build ✅ |
 | Chat: full-height thread card + compact new-message button | Chat card fills the whole page height (hides page background, even when empty); "New message" `w-auto` so it no longer stretches full width | build ✅ |
+| Full-viewport shell with svh fallback | `app-shell` class: `100vh` fallback + `100svh` override so the app frame never collapses when `svh` is unsupported | build ✅ |
+| Subscription switch plan (downgrade/upgrade) in place | `POST subscriptions/switch` + `GET subscriptions/active`; pending switch links old active subscription (`switch_from_subscription_id`); approval supersedes the old plan and keeps the badge continuous; rejection leaves the current plan untouched; admin review shows "Plan switch from…" | phpunit/8 tests + phpstan + build ✅ |
 
 ### Pending / next
 
@@ -88,6 +90,5 @@ are green on the machine that built them: `phpunit` (159), `pint`, `phpstan` (le
 | Group invite flows hardening (member add via invite already live API-side) | Join UX polish |
 | Chat presence (online status indicator) | Roadmap item 6 leftover; typing + read receipts shipped, presence still open |
 | Full suite re-run against real MySQL + Reverb in Docker | CI covers it via GitHub Actions |
-| Subscription switch plan (downgrade/upgrade) before expiry | Guarded by `verify()` today; needs an in-place switch flow |
 
 See [02 — Roadmap](02-roadmap.md) for the phased plan; ticked items are shipped plus tests.

@@ -57,6 +57,9 @@ Ordered by dependency, each item shipped with its own tests + docs update:
      auto-renew/expiry covered by feature tests.
    - [x] Admin review panel at `/admin` (separate surface, own auth/store): dashboard of per-status
      counts + net revenue, review queue with approve/reject/refund and status filters.
+   - [x] In-place plan switch (downgrade/upgrade) before expiry — `POST subscriptions/switch`
+     creates a pending switch linked to the active subscription; approval supersedes the old plan
+     (badge never drops), rejection keeps the current plan; `GET subscriptions/active` powers the UI.
 8. **Notifications**
    - [x] Real-time + persisted; unread badge (server-computed), per-module.
    - Real-time via Reverb: `NotificationCreated` broadcast on `private-user.{id}` (realtime-notifications), persisted feed + unread-count + mark-all-read endpoints.
