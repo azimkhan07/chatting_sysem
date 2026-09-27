@@ -40,6 +40,38 @@ frontend/src/
 └─ styles/
 ```
 
+### Settings composition
+
+`pages/Settings.tsx` is a thin accordion shell. Each group is its own component under
+`components/settings/`, and the shared pieces — `Panel`, `Row`, `Toggle`, `FIELD` — live in
+`components/settings/SettingsUI.tsx`.
+
+That split is not cosmetic. Every section needs `Panel`, `Row` and `FIELD`, and `Settings.tsx`
+imports every section; if the primitives lived in the page, each section would have to import
+the page that renders it. That is a cycle, and it fails in a way that is hard to read — a
+`const` in the cycle body is in its temporal dead zone when the cycle runs.
+
+```
+components/settings/
+├─ SettingsUI.tsx            # Panel, Row, Toggle, FIELD — no domain knowledge
+├─ AccountCenterSection.tsx  # profile facts, export, deactivate, delete
+├─ PreferencesSection.tsx    # privacy + notification toggles (optimistic)
+├─ SecuritySection.tsx       # password change, per-device sessions
+├─ FamilySection.tsx         # roster, roles, add/remove/leave/dissolve
+└─ HelpSection.tsx           # support links, about, privacy requests
+```
+
+Two rules the sections follow:
+
+- **Permissions come from the server.** `FamilyMemberResource` returns a per-viewer
+  `permissions` block, so the client never re-derives "may this viewer remove that member"
+  from its own role. One source of truth means the buttons cannot disagree with the API.
+- **Irreversible actions re-check the password.** Deactivate and delete both require it, on
+  the client as well as the server, because a hijacked token that can also wipe the account is
+  the worst possible combination. The data export goes through `api.download()` rather than an
+  `<a download>`: a navigation request cannot send the bearer token, so a plain link 401s.
+
+
 ## State rules
 
 1. **Server state lives in TanStack Query** — caches projections keyed by url+cursor;

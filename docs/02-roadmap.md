@@ -90,6 +90,10 @@ Ordered by dependency, each item shipped with its own tests + docs update:
    - [x] Invite flows hardened on the client — two-step revoke confirm, expiry/creator line,
      clipboard fallback for non-https origins, error banners with retry, and a join page that
      handles missing codes, real API failures (429/403/5xx) and retries.
+   - [x] **Pinned messages** (subscription-gated) — `pinned_at` / `pinned_by` on `messages`,
+     `MessagePinService` as the only writer, `GET .../pins` plus pin/unpin endpoints, a pinned
+     bar in the conversation and a bubble-level pin control. Locked accounts get
+     `FEATURE_LOCKED` carrying `chat_pinned_messages`, so the crown lands on that one control.
 
 7. **Blue Tick**
    - Request verification → pay ₹1/₹5 (UPI/Mock gateway v1) → admin review → badge.
@@ -116,10 +120,42 @@ Ordered by dependency, each item shipped with its own tests + docs update:
    - [x] Tests: 14 feature tests (auth, membership, idempotent start, expiry, reactions, recap,
      broadcast events).
 10. **Discovery** (added during the Phase 1 polish pass)
-   - [x] `GET /users/top` — reach-ordered accounts the viewer does not follow yet, so a new
-     user has somewhere to follow from before they know anyone.
-   - [x] `POST /users/match-contacts` — opt-in phone matching on the last 10 digits, capped at
-     500 numbers, nothing stored, suspended/banned accounts and self excluded.
+    - [x] `GET /users/top` — reach-ordered accounts the viewer does not follow yet, so a new
+      user has somewhere to follow from before they know anyone.
+    - [x] `POST /users/match-contacts` — opt-in phone matching on the last 10 digits, capped at
+      500 numbers, nothing stored, suspended/banned accounts and self excluded.
+11. **Business & Professional Profiles** (added during the Phase 1 polish pass)
+    - [x] `account_type` = `personal` / `professional` / `business`, set from `PATCH /me`, with
+      `User::accountType()` as a read accessor so a freshly registered account is never a null
+      enum.
+    - [x] Publicly listed `contact_email` / `contact_phone` behind `show_contact`, editable only
+      by the owner. The account's own `email` / `mobile` are never published.
+    - [x] Profile actions follow the account type: `Follow` primary everywhere, `Message` outline
+      for personal accounts and `Contact` outline for a business account with published contact.
+      Empty contact cannot be toggled on by accident.
+    - [x] Downgrading to `personal` wipes the contact columns and unsets the flag.
+12. **Account Center & Family Center** (added during the Phase 1 polish pass)
+    - [x] Self-service deactivate (reversible) vs admin suspend (final) as two separate states;
+      `POST /auth/reactivate` re-checks the password and issues a token in the same call, and the
+      sign-in form switches into a reactivation mode on `ACCOUNT_DEACTIVATED` instead of
+      dead-ending.
+    - [x] Password change that revokes every *other* session while keeping the caller signed in,
+      plus a per-device sessions list and revoke-one / revoke-all-others.
+    - [x] `GET /me/account/export` returns one portable JSON file (credentials excluded) and is
+      fetched with the bearer token rather than navigated to, so it works at all.
+    - [x] Account delete anonymises and soft-deletes: posts and messages other people already
+      have stay intact, follow edges are cleared on both sides, and the family membership is
+      removed (dissolving the family if the deleted account owned it).
+    - [x] Privacy + notification preferences in `user_settings`, created lazily, with the legal
+      key list derived from the model so the validator cannot drift from the schema.
+    - [x] Family Center: `family_groups` + `family_members`, roles `guardian` / `adult` / `teen`,
+      add-by-username, role changes, leave, remove, rename, dissolve. The owner is always a
+      guardian and can never be removed; only the owner may grant guardianship; a teen cannot
+      manage the roster. Someone else's family returns `404`, not `403`, so the endpoint cannot
+      be used to discover a household. 23 feature tests.
+    - [x] Settings page as a one-open-at-a-time accordion (Appearance, Account Center,
+      Preferences, Security, Family Center, Help & about) so a person looking for Appearance does
+      not page past the "Delete account" button.
 
 **Phase 1 status: complete.** Everything above is shipped except four items that are
 deliberately v2+ work, listed here so the deferral is a decision and not an omission:

@@ -26,9 +26,19 @@ Conventions:
 | cover_path        | string/null |                             |
 | is_verified       | boolean   | tick visible = subscription active |
 | status            | enum      | `active` / `suspended` / `banned` (see `App\Domain\Auth\Enums\UserStatus`) |
-| account_type      | enum      | personal | creator | org     |
+| account_type      | enum      | `personal` / `professional` / `business` (see `App\Domain\Auth\Enums\AccountType`) |
+| contact_email     | string/null | **publicly listed** contact address, only when published |
+| contact_phone     | string/null | **publicly listed** contact number, only when published |
+| show_contact      | boolean   | gate for the two columns above |
+| deactivated_at    | datetime/null | self-service deactivate; reversible. Deliberately *not* a `status` value — a suspension is admin-only and final, whereas a deactivation can be undone with a password |
 | last_seen_at      | datetime  | for online hint fallback     |
 | timestamps        |           | + soft deletes               |
+
+`email` / `mobile` are owner-only. `UserResource` never publishes them; the public profile
+exposes `contact_email` / `contact_phone` instead, and only for a professional or business
+account with `show_contact = true`. Downgrading to `personal` wipes the contact columns and
+unsets the flag, so a leftover contact can never outlive the account type that justified it.
+
 
 ### subscriptions (blue tick)
 
@@ -149,9 +159,18 @@ user_id, post_id — like source for share-tree analytics (v2).
 | media_path       | string  | + thumbnail for media |
 | media_url        | string  | nullable external source (a provider GIF, or the `/storage/...` a drawing upload returned); validated by `MediaUrl::isSafeReference()` |
 | reply_to_id      | FK      | optional |
+| pinned_at        | datetime|null | set when a member pins the message; `null` means unpinned |
+| pinned_by        | FK      | nullable; who pinned it, so the pin can be attributed and revoked |
 | edited_at        | datetime|null |
 | deleted_at       | soft    | system tombstone for everyone |
 | created_at       | datetime| message ordering key |
+
+**Pinned messages:** index `(conversation_id, pinned_at)`. `MessagePinService` is the only
+writer; it refuses when the caller is not a member, when the message is deleted, and when
+the account lacks the `chat_pinned_messages` entitlement (`403 FEATURE_LOCKED` carrying the
+feature key, so the client puts the crown on that one control). `GET .../pins` returns the
+newest pin first. Only one pin is surfaced in the conversation bar; the full list is behind
+the bar, so a chat with 40 pins does not push the composer off screen.
 
 **Unread computation (the hang-proof part):**
 - Per member: `last_read_message_id` watermark.
@@ -183,7 +202,7 @@ metadata in `post_media`. Signed/transient URLs for private content (attachments
 | read_at  | datetime|null |
 | link     | string  | route on client |
 
-Unread badge = count where read_at null (Redis-accelerated, same pattern as chat).
+Unread badge = count where read_at null (Redis-accelerated, same pattern for chat).
 
 ## Billing
 
@@ -198,6 +217,79 @@ Unread badge = count where read_at null (Redis-accelerated, same pattern as chat
 | status         | enum   | initiated | success | failed | refunded |
 | currency       | string | INR   |
 
+## Account Center module
+
+### user_settings
+
+Privacy and notification preferences, one row per user, created lazily on first read by
+`SettingsService::for()` so a user who never opens Settings still has a complete, defaulted
+row instead of a pile of null checks at every call site.
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| id | bigint | |
+| user_id | FK | unique |
+| discoverable | bool | search + Explore |
+| show_activity_status | bool | |
+| allow_message_requests | bool | |
+| allow_tagging | bool | |
+| notify_messages / notify_requests / notify_follows / notify_likes / notify_comments | bool | |
+
+`UserSettings::preferenceGroups()` is the single list of legal keys; `UpdateSettingsRequest`
+derives its rules from it, so adding a preference to the schema and validating it are one
+change rather than two. Unknown keys are rejected instead of silently dropped, so a typo in
+a client payload is visible rather than a preference that never saves.
+
+Sessions are **not** a table — they are Sanctum `personal_access_tokens`, and the token name
+carries the user agent so the sessions list can say "Android" instead of "Unknown device".
+
+## Family Center module
+
+| family_groups | Type | Notes |
+| ------------- | ---- | ----- |
+| id | bigint | |
+| owner_id | FK | cascade delete; not fillable, only `FamilyService` writes it |
+| name | string(60) | |
+
+| family_members | Type | Notes |
+| -------------- | ---- | ----- |
+| id | bigint | |
+| family_group_id | FK | cascade delete |
+| user_id | FK | **unique** — one family per user, enforced by the index |
+| role | enum | `guardian` / `adult` / `teen` |
+| timestamps | | join order |
+
+Two invariants hold everywhere and are re-checked rather than assumed:
+1. The owner is always a guardian and can never be removed, demoted or renamed around.
+2. A family therefore always has at least one guardian.
+
+Permission matrix (the membership row is the only authority — there is no separate
+"is this user a parent" flag to fall out of sync):
+
+| Action | guardian (non-owner) | owner | adult | teen |
+| ------ | -------------------- | ----- | ----- | ---- |
+| rename / dissolve family | no | yes | no | no |
+| add adult or teen | yes | yes | yes | no |
+| add another guardian | no | yes | no | no |
+| change a non-guardian role | yes | yes | yes | no |
+| change or remove a guardian | no | yes | no | no |
+| remove a non-guardian | yes | yes | yes | no |
+| approve spending | yes | yes | no | no |
+| leave | yes | n/a | yes | yes |
+
+Members are added **by username**, with no pending-invite step: it matches the supervision
+use case (a guardian setting up a teen's account) and keeps the schema free of tokens that
+have to expire, be resent, or leak. A consent-pending flow is a deliberate follow-up.
+
+"Someone else's family" and "no such family" both return `404 NOT_FOUND`, so the endpoint
+cannot be used to discover that a given household exists. A suspended or deactivated account
+cannot be added.
+
+Deleting an account clears the membership: soft delete keeps the `users` row, so the FK
+cascade never fires and the membership would otherwise survive as a ghost in someone else's
+roster. If the deleted account owned the family, the family is dissolved too — leaving a
+household headless would leave the remaining members with nobody who can manage them.
+
 ## ERD (summary)
 
 ```
@@ -211,6 +303,8 @@ users ──< conversations >< conversation_members >< users
 conversations ──< messages
 users ──< subscriptions (blue tick) ──< payments
 users ──< notifications
+users ──1 user_settings
+users ──1 family_members >──1 family_groups ──> users (owner)
 ```
 
 ## Migration & seeding rules

@@ -1,4 +1,11 @@
-export type UserStatus = 'active' | 'suspended' | 'blocked'
+/**
+ * Mirrors `App\Domain\Auth\Enums\UserStatus` on the server.
+ *
+ * `banned` is an admin action and `suspended` is the softer admin state; neither
+ * is reversible by the user, which is why both are distinct from a
+ * self-service deactivation (`deactivated_at` on the account, no status change).
+ */
+export type UserStatus = 'active' | 'suspended' | 'banned'
 
 /**
  * Personal accounts are message + follow only. Professional and business
