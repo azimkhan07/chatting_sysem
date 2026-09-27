@@ -9,31 +9,51 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { Spinner } from '@/components/AuthLayout'
+import { ChatPersonalizeModal } from '@/components/chat/ChatPersonalizeModal'
+import { DrawingCanvas } from '@/components/chat/DrawingCanvas'
+import { GifPicker } from '@/components/chat/GifPicker'
+import { PremiumBadge, PremiumLock } from '@/components/chat/PremiumLock'
+import { SeenBySheet } from '@/components/chat/SeenBySheet'
+import { UpgradePrompt } from '@/components/chat/UpgradePrompt'
 import { GroupInviteModal } from '@/components/GroupInviteModal'
 import { GroupThreadModal } from '@/components/GroupThreadModal'
 import {
   ArrowLeftIcon,
   BellIcon,
+  BrushIcon,
+  ImageStackIcon,
   LinkIcon,
+  PencilIcon,
   PlusIcon,
   SendIcon,
+  SmileIcon,
   SparkleIcon,
   UsersIcon,
   XIcon,
 } from '@/components/icons'
-import { chatApi, usersApi } from '@/lib/api'
+import { useChatEntitlements } from '@/hooks/useChatEntitlements'
+import { ApiError, chatApi, usersApi } from '@/lib/api'
 import { echoInstance } from '@/lib/echo'
+import { EMOJI_GROUPS, appendEmoji } from '@/lib/emoji'
 import { chatConversation, path } from '@/lib/paths'
 import { emptyReactions, REACTIONS, REACTION_EMOJI, type ReactionName } from '@/lib/reactions'
+import { clockTime } from '@/lib/time'
+import { wallpaperClassName } from '@/lib/wallpapers'
+import { useConversationPresence } from '@/hooks/usePresence'
 import { useAuthStore } from '@/stores/authStore'
+import { usePresenceStore } from '@/stores/presenceStore'
+import { DiscoverSidePanel } from '@/components/discovery/DiscoverSidePanel'
 import type {
+  ChatFeatureKey,
   ChatMessagesPage,
   Conversation,
   ConversationMessage,
   MessageKind,
   ReadReceipt,
   RealtimeDeletedPayload,
+  RealtimeMemberJoinedPayload,
   RealtimeMessagePayload,
+  RealtimePresencePayload,
   RealtimeReactionPayload,
   RealtimeTypingPayload,
 } from '@/types/chat'
@@ -48,9 +68,10 @@ export default function ChatPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
   const activeId = conversationId ? Number(conversationId) : null
   const [composer, setComposer] = useState<'dm' | 'group' | null>(null)
+  const [lockedFeature, setLockedFeature] = useState<ChatFeatureKey | null>(null)
 
   return (
-    <div className="flex h-full min-h-0 flex-1 bg-midnight-950">
+    <div className="chat-fill flex min-h-0 flex-1 overflow-hidden bg-midnight-950">
       <InboxPane
         activeId={activeId}
         className={activeId === null ? 'flex' : 'hidden md:flex'}
@@ -60,7 +81,7 @@ export default function ChatPage() {
       />
 
       {activeId === null ? (
-        <div className="hidden min-w-0 flex-1 flex-col items-center justify-center gap-3 px-8 text-center md:flex">
+        <div className="chat-fill hidden min-w-0 flex-1 flex-col items-center justify-center gap-3 px-8 text-center md:flex">
           <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/5 text-slate-400">
             <UsersIcon className="h-7 w-7" />
           </span>
@@ -77,15 +98,31 @@ export default function ChatPage() {
           </button>
         </div>
       ) : (
-        <ThreadPane conversationId={activeId} onBack={() => navigate(path('chat'))} />
+        <ThreadPane
+          conversationId={activeId}
+          onBack={() => navigate(path('chat'))}
+          onLocked={setLockedFeature}
+        />
       )}
+
+      {activeId !== null ? (
+        <DiscoverSidePanel
+          onOpenDm={() => setComposer('dm')}
+          onSearch={() => setComposer('dm')}
+        />
+      ) : null}
 
       {composer !== null ? (
         <NewChatModal
           mode={composer}
           onClose={() => setComposer(null)}
           onCreated={(conversation) => navigate(chatConversation(conversation.id))}
+          onLocked={setLockedFeature}
         />
+      ) : null}
+
+      {lockedFeature !== null ? (
+        <UpgradePrompt feature={lockedFeature} onClose={() => setLockedFeature(null)} />
       ) : null}
     </div>
   )
@@ -104,19 +141,47 @@ function InboxPane({
   onNewGroup: () => void
   onSelect: (id: number) => void
 }) {
+  const queryClient = useQueryClient()
+  const [tab, setTab] = useState<'chats' | 'requests'>('chats')
   const inbox = useQuery({
     queryKey: ['chat', 'conversations'],
     queryFn: chatApi.conversations,
     refetchInterval: INBOX_POLL_MS,
   })
 
-  const conversations = inbox.data?.conversations ?? []
+  const all = useMemo(() => inbox.data?.conversations ?? [], [inbox.data])
+  // A pending request is not a chat yet, so it lives in its own tab instead of
+  // silently sitting in the main list as if it were a real conversation.
+  const requests = useMemo(() => all.filter((item) => item.state === 'requested'), [all])
+  const chats = useMemo(() => all.filter((item) => item.state === 'active'), [all])
+  const conversations = tab === 'requests' ? requests : chats
+  const syncConversation = usePresenceStore((state) => state.syncConversation)
+
+  useEffect(() => {
+    for (const conversation of all) syncConversation(conversation)
+  }, [all, syncConversation])
+
+  const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['chat'] })
+  }, [queryClient])
+
+  const acceptMutation = useMutation({
+    mutationFn: (conversationId: number) => chatApi.acceptRequest(conversationId),
+    onSuccess: refresh,
+    onError: refresh,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (conversationId: number) => chatApi.deleteRequest(conversationId),
+    onSuccess: refresh,
+    onError: refresh,
+  })
 
   return (
     <aside
-      className={`${className} w-full shrink-0 flex-col border-b border-white/5 md:w-80 md:border-r md:border-b-0`}
+      className={`${className} chat-fill w-full shrink-0 flex-col overflow-hidden border-b border-white/5 md:w-80 md:border-r md:border-b-0`}
     >
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+      <div className="flex shrink-0 items-center justify-between px-4 pt-4 pb-2">
         <h1 className="text-lg font-extrabold tracking-tight text-white">Chats</h1>
         <div className="flex items-center gap-1">
           <button
@@ -140,6 +205,24 @@ function InboxPane({
         </div>
       </div>
 
+      {requests.length > 0 || tab === 'requests' ? (
+        <div className="mx-2 mb-2 flex shrink-0 gap-1 rounded-xl bg-white/[0.04] p-1">
+          {(['chats', 'requests'] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={[
+                'flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold capitalize transition',
+                tab === key ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200',
+              ].join(' ')}
+            >
+              {key === 'requests' && requests.length > 0 ? `Requests (${requests.length})` : key}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {inbox.isPending ? (
           <div className="grid place-items-center py-16">
@@ -149,9 +232,13 @@ function InboxPane({
 
         {!inbox.isPending && conversations.length === 0 ? (
           <div className="grid place-items-center rounded-2xl border border-dashed border-white/10 px-4 py-12 text-center">
-            <p className="text-sm font-semibold text-slate-300">No conversations yet</p>
+            <p className="text-sm font-semibold text-slate-300">
+              {tab === 'requests' ? 'No message requests' : 'No conversations yet'}
+            </p>
             <p className="mt-1 text-xs text-slate-500">
-              Start a private message or create a group.
+              {tab === 'requests'
+                ? 'Requests from people you do not follow land here.'
+                : 'Start a private message or create a group.'}
             </p>
           </div>
         ) : null}
@@ -164,6 +251,13 @@ function InboxPane({
                 conversation={conversation}
                 active={conversation.id === activeId}
                 onClick={() => onSelect(conversation.id)}
+                onAccept={() => acceptMutation.mutate(conversation.id)}
+                onDelete={() => deleteMutation.mutate(conversation.id)}
+                busy={
+                  acceptMutation.isPending || deleteMutation.isPending
+                    ? (acceptMutation.variables ?? deleteMutation.variables) === conversation.id
+                    : false
+                }
               />
             ))}
           </div>
@@ -176,68 +270,144 @@ function InboxPane({
 function ConversationRow({
   conversation,
   active,
+  busy,
   onClick,
+  onAccept,
+  onDelete,
 }: {
   conversation: Conversation
   active: boolean
+  busy?: boolean
   onClick: () => void
+  onAccept?: () => void
+  onDelete?: () => void
 }) {
   const name = displayName(conversation)
-  const preview = previewFor(conversation)
   const unread = conversation.unread_count ?? 0
+  const peerId = peerIdFor(conversation)
+  const isOnline = usePresenceStore((state) => (peerId ? state.online[peerId] ?? false : false))
+  const lastSeen = usePresenceStore((state) => (peerId ? state.lastSeen[peerId] ?? null : null))
+  const pending = conversation.state === 'requested'
+  // A pending request is not a live chat, so presence/typing noise would be a
+  // lie: nobody is in there yet.
+  const status = pending ? null : presenceLabel(conversation, isOnline, lastSeen)
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={[
-        'flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition',
+        'flex w-full items-center gap-2 rounded-2xl p-2.5 text-left transition',
         active ? 'bg-white/[0.07]' : 'hover:bg-white/[0.04]',
       ].join(' ')}
     >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-sm font-bold text-[#fff]">
-        {name.charAt(0).toUpperCase()}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
-          <span className="shrink-0 text-[11px] text-slate-500">
-            {relativeTime(conversation.updated_at)}
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
+        <span className="relative shrink-0">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-sm font-bold text-[#fff]">
+            {name.charAt(0).toUpperCase()}
           </span>
-        </div>
-        <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="truncate text-xs text-slate-400">{preview}</p>
-          {unread > 0 ? (
-            <span className="shrink-0 rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#fff]">
-              {unread > 99 ? '99+' : unread}
+          {pending ? null : <OnlineDot online={isOnline} />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm font-semibold text-slate-100">{name}</span>
+            <span className="shrink-0 text-[11px] text-slate-500">
+              {relativeTime(conversation.updated_at)}
             </span>
-          ) : null}
+          </span>
+          <span className="mt-0.5 flex items-center justify-between gap-2">
+            <span className="truncate text-xs text-slate-400">
+              {pending ? (
+                <span className="text-amber-300/90">
+                  {conversation.is_request_actionable ? 'Message request' : 'Request sent · waiting'}
+                </span>
+              ) : (
+                <>
+                  {status ? <span className="text-slate-500">{status} · </span> : null}
+                  {previewFor(conversation)}
+                </>
+              )}
+            </span>
+            {unread > 0 && !pending ? (
+              <span className="shrink-0 rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#fff]">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            ) : null}
+          </span>
+        </span>
+      </button>
+
+      {conversation.is_request_actionable && onAccept && onDelete ? (
+        <div className="flex shrink-0 flex-col gap-1">
+          <button
+            type="button"
+            onClick={onAccept}
+            disabled={busy}
+            title="Accept request"
+            aria-label={`Accept the message request from ${name}`}
+            className="rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300 transition hover:bg-emerald-500/25 disabled:opacity-50"
+          >
+            Accept
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy}
+            title="Delete request"
+            aria-label={`Delete the message request from ${name}`}
+            className="rounded-lg bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+          >
+            Delete
+          </button>
         </div>
-      </div>
-    </button>
+      ) : null}
+    </div>
+  )
+}
+
+function OnlineDot({ online }: { online: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={[
+        'absolute bottom-0 right-0 block h-3 w-3 rounded-full ring-2 ring-midnight-950 transition',
+        online ? 'bg-emerald-500' : 'bg-slate-600',
+      ].join(' ')}
+    />
   )
 }
 
 function ThreadPane({
   conversationId,
   onBack,
+  onLocked,
 }: {
   conversationId: number
   onBack: () => void
+  onLocked: (feature: ChatFeatureKey) => void
 }) {
   const queryClient = useQueryClient()
   const me = useAuthStore((state) => state.user)
   const [draft, setDraft] = useState('')
+  const [caret, setCaret] = useState(0)
   const [optimistic, setOptimistic] = useState<ConversationMessage[]>([])
   const [composerError, setComposerError] = useState<string | null>(null)
   const [threadOpen, setThreadOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [personalizeOpen, setPersonalizeOpen] = useState(false)
+  const [seenBy, setSeenBy] = useState<ReadReceipt[] | null>(null)
+  const [panel, setPanel] = useState<'none' | 'emoji' | 'gif' | 'draw'>('none')
   const pinnedRef = useRef(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastTypingRef = useRef(0)
   const readWatermarkRef = useRef(0)
   const [typingUsers, setTypingUsers] = useState<Record<string, number>>({})
   const typingTimeoutsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const { isUnlocked, wallpapers } = useChatEntitlements()
+  const isGifUnlocked = isUnlocked('chat_gif')
+  const isDrawingUnlocked = isUnlocked('chat_drawing')
 
   useEffect(() => {
     const timers = typingTimeoutsRef.current
@@ -299,6 +469,14 @@ function ThreadPane({
   }, [serverMessages, optimistic, me?.id])
 
   const conversation = conversationQuery.data?.conversation ?? null
+  const syncConversation = usePresenceStore((state) => state.syncConversation)
+  const setOnline = usePresenceStore((state) => state.setOnline)
+
+  useEffect(() => {
+    if (conversation) syncConversation(conversation)
+  }, [conversation, syncConversation])
+
+  useConversationPresence(conversation)
   const latestServerId = messages.reduce((max, message) => Math.max(max, message.id), 0)
   const isMuted = conversation?.muted ?? false
   const isModerator =
@@ -425,14 +603,28 @@ function ThreadPane({
       setTypingUsers((current) => ({ ...current, [key]: payload.user_id }))
     })
 
+    channel.listen('.presence.changed', (payload: RealtimePresencePayload) => {
+      if (payload.conversation_id !== conversationId) return
+      setOnline(payload.user_id, payload.is_online, payload.last_seen_at)
+      void queryClient.invalidateQueries({ queryKey: ['chat', 'conversation', conversationId] })
+    })
+
+    channel.listen('.member.joined', (payload: RealtimeMemberJoinedPayload) => {
+      if (payload.conversation_id !== conversationId) return
+      setOnline(payload.user.id, true)
+      void queryClient.invalidateQueries({ queryKey: ['chat'] })
+    })
+
     return () => {
       channel.stopListening('.message.sent')
       channel.stopListening('.message.reaction.changed')
       channel.stopListening('.message.deleted')
       channel.stopListening('.typing')
+      channel.stopListening('.presence.changed')
+      channel.stopListening('.member.joined')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, conversation?.type, me?.id, queryClient])
+  }, [conversationId, conversation?.type, me?.id, queryClient, setOnline])
   const mutationVariablesRef = useRef<string | null>(null)
 
   const loadOlderMessages = useCallback(() => {
@@ -533,7 +725,24 @@ function ThreadPane({
   }
 
   const name = conversation ? displayName(conversation) : 'Chat'
-  const subtitle = conversation?.type === 'group' ? `${conversation.members_count} members` : 'Direct message'
+  const peerId = conversation ? peerIdFor(conversation) : null
+  const peerOnline = usePresenceStore((state) => (peerId ? state.online[peerId] ?? false : false))
+  const peerLastSeen = usePresenceStore((state) => (peerId ? state.lastSeen[peerId] ?? null : null))
+  const groupOnlineCount = usePresenceStore((state) => {
+    if (!conversation || conversation.type !== 'group') return 0
+    return conversation.members.filter(
+      (member) => member.user.id !== me?.id && (state.online[member.user.id] ?? false),
+    ).length
+  })
+  const subtitle = (() => {
+    if (!conversation) return 'Chat'
+    if (conversation.type === 'group') {
+      const online = Math.max(groupOnlineCount, conversation.online_count ?? 0)
+      const members = `${conversation.members_count} members`
+      return online > 0 ? `${online} online · ${members}` : members
+    }
+    return presenceLabel(conversation, peerOnline, peerLastSeen) ?? 'Direct message'
+  })()
 
   const typingNames = useMemo(() => {
     const prefix = `${conversationId}:`
@@ -552,9 +761,61 @@ function ThreadPane({
     },
   })
 
+  const requestMutation = useMutation({
+    mutationFn: (variables: { accept: boolean }) =>
+      variables.accept
+        ? chatApi.acceptRequest(conversationId)
+        : chatApi.deleteRequest(conversationId),
+    onSuccess: (_, variables) => {
+      if (variables.accept) {
+        void queryClient.invalidateQueries({ queryKey: ['chat', 'conversation', conversationId] })
+      } else {
+        onBack()
+      }
+    },
+    onError: (error) => setComposerError(error.message),
+  })
+
+  const personalizeMutation = useMutation({
+    mutationFn: (values: { nickname: string | null; wallpaper_key: string | null }) =>
+      chatApi.personalize(conversationId, values),
+    onSuccess: (result) => {
+      setPersonalizeOpen(false)
+      queryClient.setQueryData(['chat', 'conversation', conversationId], result)
+      void queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+    },
+    onError: (error) => setComposerError(error.message),
+  })
+
+  const drawingMutation = useMutation({
+    mutationFn: async (blob: Blob) => {
+      const uploaded = await chatApi.uploadDrawing(conversationId, blob)
+      return chatApi.sendMedia(conversationId, 'drawing', uploaded.media_url)
+    },
+    onSuccess: () => {
+      setPanel('none')
+      setComposerError(null)
+      void queryClient.invalidateQueries({ queryKey: ['chat'] })
+    },
+    onError: (error) => setComposerError(error.message),
+  })
+
+  const gifMutation = useMutation({
+    mutationFn: (url: string) => chatApi.sendMedia(conversationId, 'gif', url),
+    onSuccess: () => {
+      setPanel('none')
+      setComposerError(null)
+      void queryClient.invalidateQueries({ queryKey: ['chat'] })
+    },
+    onError: (error) => setComposerError(error.message),
+  })
+
+  const pendingRequest = conversation?.state === 'requested'
+  const wallpaper = wallpaperClassName(conversation?.my_wallpaper_key)
+
   return (
-    <section className="flex min-w-0 flex-1 flex-col">
-      <header className="flex items-center gap-3 border-b border-white/5 px-3 py-2.5">
+    <section className="chat-fill flex min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="flex shrink-0 items-center gap-3 border-b border-white/5 bg-midnight-950 px-3 py-2.5">
         <button
           type="button"
           onClick={onBack}
@@ -563,11 +824,25 @@ function ThreadPane({
         >
           <ArrowLeftIcon className="h-5 w-5" />
         </button>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-sm font-bold text-[#fff]">
-          {name.charAt(0).toUpperCase()}
+        <span className="relative shrink-0">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-sm font-bold text-[#fff]">
+            {name.charAt(0).toUpperCase()}
+          </span>
+          {conversation?.type === 'dm' && !pendingRequest ? (
+            <OnlineDot online={peerOnline} />
+          ) : null}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
+          <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-100">
+            {conversation?.my_nickname?.trim() ? (
+              <span title="Nickname only you can see">{name}</span>
+            ) : (
+              name
+            )}
+            {conversation?.peer_verified ? (
+              <PremiumBadge title="Verified account" />
+            ) : null}
+          </p>
           {typingNames.length > 0 ? (
             <p className="truncate text-xs font-medium text-brand-300">
               {typingNames.length === 1
@@ -578,6 +853,15 @@ function ThreadPane({
             <p className="truncate text-xs text-slate-500">{subtitle}</p>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => setPersonalizeOpen(true)}
+          title="Nickname & wallpaper"
+          aria-label="Chat nickname and wallpaper"
+          className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+        >
+          <PencilIcon className="h-5 w-5" />
+        </button>
         {conversation?.type === 'group' && isModerator ? (
           <button
             type="button"
@@ -616,6 +900,40 @@ function ThreadPane({
         </button>
       </header>
 
+      {pendingRequest ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-amber-400/20 bg-amber-400/[0.07] px-4 py-2.5 text-xs text-amber-100">
+          <p className="min-w-0 flex-1">
+            {conversation?.is_request_actionable
+              ? 'This person wants to start a chat with you.'
+              : 'Waiting for them to accept your request.'}
+          </p>
+          {conversation?.is_request_actionable ? (
+            <>
+              <button
+                type="button"
+                onClick={() => requestMutation.mutate({ accept: true })}
+                disabled={requestMutation.isPending}
+                className="rounded-lg bg-emerald-500/20 px-3 py-1.5 font-bold text-emerald-200 transition hover:bg-emerald-500/30 disabled:opacity-50"
+              >
+                Accept
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Delete this request and its messages?')) {
+                    requestMutation.mutate({ accept: false })
+                  }
+                }}
+                disabled={requestMutation.isPending}
+                className="rounded-lg bg-rose-500/15 px-3 py-1.5 font-bold text-rose-200 transition hover:bg-rose-500/25 disabled:opacity-50"
+              >
+                Delete
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       {conversationQuery.isPending ? (
         <div className="grid flex-1 place-items-center">
           <Spinner className="h-6 w-6" />
@@ -639,7 +957,7 @@ function ThreadPane({
               if (!node) return
               pinnedRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80
             }}
-            className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4"
+            className={`min-h-0 flex-1 space-y-3 overflow-y-auto bg-cover bg-fixed px-3 py-4 ${wallpaper}`}
           >
             <PaginationSentinel
               hasNext={messagePages.hasNextPage}
@@ -681,6 +999,7 @@ function ThreadPane({
                     readReceipts={
                       message.id === myReadWatermarkId ? (message.read_by ?? []) : []
                     }
+                    onSeenBy={setSeenBy}
                     onReact={(reaction) =>
                       reactMutation.mutate({ messageId: message.id, reaction })
                     }
@@ -700,28 +1019,118 @@ function ThreadPane({
               event.preventDefault()
               handleSend()
             }}
-            className="flex items-end gap-2 border-t border-white/5 p-3"
+            className="relative flex shrink-0 items-end gap-1 border-t border-white/5 bg-midnight-950 p-3"
           >
+            {panel === 'gif' ? (
+              <GifPicker
+                onClose={() => setPanel('none')}
+                onPick={(gif) => gifMutation.mutate(gif.url)}
+              />
+            ) : null}
+            {panel === 'draw' ? (
+              <DrawingCanvas
+                busy={drawingMutation.isPending}
+                onCancel={() => setPanel('none')}
+                onSubmit={(blob) => drawingMutation.mutate(blob)}
+              />
+            ) : null}
+            {panel === 'emoji' ? (
+              <div className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-white/10 bg-midnight-900 p-3 shadow-2xl">
+                {EMOJI_GROUPS.map((group) => (
+                  <div key={group.label} className="mb-2 last:mb-0">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      {group.label}
+                    </p>
+                    <div className="grid grid-cols-8 gap-0.5">
+                      {group.emoji.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => {
+                            const next = appendEmoji(draft, emoji, caret)
+                            setDraft(next.text)
+                            setCaret(next.caret)
+                            maybeSendTyping()
+                          }}
+                          className="grid h-8 w-8 place-items-center rounded-lg text-lg transition hover:bg-white/10"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setPanel((current) => (current === 'emoji' ? 'none' : 'emoji'))}
+              title="Emoji"
+              aria-label="Insert emoji"
+              className={[
+                'grid h-10 w-10 shrink-0 place-items-center rounded-full transition',
+                panel === 'emoji' ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5',
+              ].join(' ')}
+            >
+              <SmileIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isGifUnlocked) {
+                  onLocked('chat_gif')
+                  return
+                }
+                setPanel((current) => (current === 'gif' ? 'none' : 'gif'))
+              }}
+              title={isGifUnlocked ? 'GIF' : 'GIF · Premium'}
+              aria-label="Send a GIF"
+              className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/5"
+            >
+              <ImageStackIcon className="h-5 w-5" />
+              {isGifUnlocked ? null : <LockDot />}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isDrawingUnlocked) {
+                  onLocked('chat_drawing')
+                  return
+                }
+                setPanel((current) => (current === 'draw' ? 'none' : 'draw'))
+              }}
+              title={isDrawingUnlocked ? 'Draw' : 'Draw · Premium'}
+              aria-label="Draw and send a sketch"
+              className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/5"
+            >
+              <BrushIcon className="h-5 w-5" />
+              {isDrawingUnlocked ? null : <LockDot />}
+            </button>
             <textarea
               value={draft}
               onChange={(event) => {
                 setDraft(event.target.value)
+                setCaret(event.target.selectionStart)
                 maybeSendTyping()
               }}
+              onKeyUp={(event) => setCaret(event.currentTarget.selectionStart)}
+              onClick={(event) => setCaret(event.currentTarget.selectionStart)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault()
                   handleSend()
                 }
               }}
-              placeholder="Type a message…"
+              placeholder={pendingRequest ? 'Accept the request to send messages' : 'Type a message…'}
               rows={1}
+              disabled={pendingRequest}
               aria-label="Message"
-              className="min-h-[2.5rem] max-h-32 flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-brand-400/50"
+              className="min-h-[2.5rem] max-h-32 flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-brand-400/50 disabled:opacity-60"
             />
             <button
               type="submit"
-              disabled={!draft.trim() || sendMutation.isPending}
+              disabled={!draft.trim() || sendMutation.isPending || pendingRequest}
               aria-label="Send message"
               className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500 text-[#fff] transition hover:bg-brand-400 disabled:opacity-40"
             >
@@ -733,7 +1142,7 @@ function ThreadPane({
             </button>
           </form>
           {composerError ? (
-            <p className="border-t border-white/5 px-4 pb-2 text-xs text-rose-400">
+            <p className="shrink-0 border-t border-white/5 px-4 pb-2 text-xs text-rose-400">
               {composerError}
             </p>
           ) : null}
@@ -755,7 +1164,30 @@ function ThreadPane({
           onClose={() => setInviteOpen(false)}
         />
       ) : null}
+
+      {personalizeOpen && conversation !== null ? (
+        <ChatPersonalizeModal
+          conversation={conversation}
+          wallpapers={wallpapers}
+          busy={personalizeMutation.isPending}
+          onClose={() => setPersonalizeOpen(false)}
+          onSave={(values) => personalizeMutation.mutate(values)}
+        />
+      ) : null}
+
+      {seenBy !== null ? (
+        <SeenBySheet receipts={seenBy} onClose={() => setSeenBy(null)} />
+      ) : null}
     </section>
+  )
+}
+
+function LockDot() {
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-400"
+    />
   )
 }
 
@@ -796,6 +1228,7 @@ function MessageBubble({
   readReceipts,
   onReact,
   onDelete,
+  onSeenBy,
 }: {
   message: ConversationMessage
   mine: boolean
@@ -805,9 +1238,11 @@ function MessageBubble({
   readReceipts: ReadReceipt[]
   onReact: (reaction: ReactionName) => void
   onDelete: () => void
+  onSeenBy: (receipts: ReadReceipt[]) => void
 }) {
   const kind: MessageKind = message.type ?? 'text'
-  const isMedia = kind === 'image' || kind === 'video'
+  const isMedia =
+    kind === 'image' || kind === 'video' || kind === 'gif' || kind === 'drawing'
   const [picker, setPicker] = useState(false)
 
   return (
@@ -831,7 +1266,14 @@ function MessageBubble({
             kind === 'video' ? (
               <video src={message.media_url} controls playsInline className="max-h-72 rounded-2xl" />
             ) : (
-              <img src={message.media_url} alt="Shared media" className="max-h-72 w-full rounded-2xl object-cover" />
+              <img
+                src={message.media_url}
+                alt={kind === 'drawing' ? 'Drawing' : kind === 'gif' ? 'GIF' : 'Shared media'}
+                className={[
+                  'max-h-72 w-full rounded-2xl',
+                  kind === 'drawing' ? 'bg-white/95 object-contain' : 'object-cover',
+                ].join(' ')}
+              />
             )
           ) : (
             <p className="whitespace-pre-wrap break-words">{message.body ?? ''}</p>
@@ -846,9 +1288,12 @@ function MessageBubble({
             <span>{clockTime(message.created_at)}</span>
             {mine ? (
               readReceipts.length > 0 ? (
-                <span
-                  className="flex -space-x-1.5"
-                  title={`Seen by ${readReceipts.map((reader) => reader.display_name).join(', ')}`}
+                <button
+                  type="button"
+                  onClick={() => onSeenBy(readReceipts)}
+                  title="Tap to see who has seen this"
+                  aria-label={`Seen by ${readReceipts.map((reader) => reader.display_name).join(', ')}`}
+                  className="flex -space-x-1.5 transition hover:opacity-80"
                 >
                   {readReceipts.slice(0, 3).map((reader) =>
                     reader.avatar_url ? (
@@ -872,7 +1317,7 @@ function MessageBubble({
                       +{readReceipts.length - 3}
                     </span>
                   ) : null}
-                </span>
+                </button>
               ) : (
                 <span className="text-slate-400" title="Sent">
                   ✓
@@ -959,13 +1404,16 @@ function NewChatModal({
   mode,
   onClose,
   onCreated,
+  onLocked,
 }: {
   mode: 'dm' | 'group'
   onClose: () => void
   onCreated: (conversation: Conversation) => void
+  onLocked: (feature: ChatFeatureKey) => void
 }) {
   const queryClient = useQueryClient()
   const me = useAuthStore((state) => state.user)
+  const { isUnlocked } = useChatEntitlements()
   const [active, setActive] = useState<'dm' | 'group'>(mode)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<User[]>([])
@@ -1006,7 +1454,16 @@ function NewChatModal({
       void queryClient.invalidateQueries({ queryKey: ['chat'] })
       onCreated(conversation)
     },
-    onError: (err) => setError(err.message),
+    onError: (err: unknown) => {
+      // A stranger DM becomes a message request, which is the premium tier.
+      // Rather than a dead "something went wrong", point at the feature.
+      const apiError = err instanceof ApiError ? err : null
+      if (apiError?.code === 'FEATURE_LOCKED' && apiError.details?.feature === 'message_requests') {
+        onLocked('message_requests')
+        return
+      }
+      setError(err instanceof Error ? err.message : 'Could not start the chat.')
+    },
   })
 
   function toggle(userId: number) {
@@ -1103,6 +1560,22 @@ function NewChatModal({
                   </p>
                   <p className="truncate text-xs text-slate-500">@{user.username}</p>
                 </div>
+                {active === 'dm' && user.is_followed_by_me === false ? (
+                  isUnlocked('message_requests') ? (
+                    <span
+                      title="They do not follow you — this opens as a message request"
+                      className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-slate-400"
+                    >
+                      Request
+                    </span>
+                  ) : (
+                    <PremiumLock
+                      feature="message_requests"
+                      label="Message requests"
+                      onLocked={onLocked}
+                    />
+                  )
+                ) : null}
                 {isSelected ? (
                   <span className="grid h-5 w-5 place-items-center rounded-full bg-brand-500 text-[10px] text-[#fff]">
                     ✓
@@ -1161,15 +1634,62 @@ function mutateMessageInPages(
 }
 
 function displayName(conversation: Conversation): string {
+  // The viewer's own nickname wins over the server-supplied name: it is the
+  // label they chose for this chat, and it is private to them.
+  const nickname = conversation.my_nickname?.trim()
+  if (nickname) return nickname
   return conversation.display_name || 'Chat'
+}
+
+/** The other person in a DM. Groups have no single peer, so they return null. */
+function peerIdFor(conversation: Conversation): number | null {
+  if (conversation.type === 'group') return null
+  if (conversation.peer_presence) return conversation.peer_presence.user_id
+  return conversation.members[0]?.user.id ?? null
+}
+
+function presenceLabel(
+  conversation: Conversation,
+  isOnline: boolean,
+  lastSeen: string | null,
+): string | null {
+  if (conversation.type === 'group') {
+    const online = conversation.online_count ?? 0
+    if (online <= 0) return null
+    return online === 1 ? '1 online' : `${online} online`
+  }
+  if (isOnline) return 'Online'
+  return lastSeen === null ? null : lastSeenLabel(lastSeen)
+}
+
+function lastSeenLabel(value: string): string {
+  const timestamp = new Date(value).getTime()
+  if (Number.isNaN(timestamp)) return 'Offline'
+
+  const minutes = Math.round((Date.now() - timestamp) / 60_000)
+  if (minutes < 1) return 'Last seen just now'
+  if (minutes < 60) return `Last seen ${minutes}m ago`
+
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `Last seen ${hours}h ago`
+
+  const days = Math.round(hours / 24)
+  if (days <= 7) return `Last seen ${days}d ago`
+
+  return `Last seen ${new Date(value).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })}`
 }
 
 function previewFor(conversation: Conversation): string {
   const last = conversation.last_message
-  if (!last) return 'No messages yet'
+  if (!last) return conversation.state === 'requested' ? 'Wants to start a chat' : 'No messages yet'
   if (last.body) return last.body
   if (last.type === 'image') return 'Photo'
   if (last.type === 'video') return 'Video'
+  if (last.type === 'gif') return 'GIF'
+  if (last.type === 'drawing') return 'Drawing'
   return 'Message'
 }
 
@@ -1198,13 +1718,6 @@ function formatDay(value: string): string {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-  })
-}
-
-function clockTime(value: string): string {
-  return new Date(value).toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
   })
 }
 

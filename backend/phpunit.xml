@@ -32,5 +32,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Redis is optional in the suite (chat degrades to SQL): fail fast
+             instead of paying the connect timeout on every cache lookup. -->
+        <env name="REDIS_TIMEOUT" value="0.05"/>
+        <env name="REDIS_READ_TIMEOUT" value="0.05"/>
     </php>
 </phpunit>

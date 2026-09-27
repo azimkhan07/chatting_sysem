@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Domain\Stories\Models\Story;
+use App\Support\Media\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,7 +17,7 @@ final class StoryResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $this->type,
-            'url' => $this->media_path !== null ? asset('storage/'.$this->media_path) : $this->media_url,
+            'url' => $this->media_path !== null ? MediaUrl::ofNullable($this->media_path) : $this->media_url,
             'caption' => $this->caption,
             'effects' => $this->effects,
             'text_style' => $this->text_style,

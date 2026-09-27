@@ -25,7 +25,7 @@ final class EloquentHashtagRepository implements HashtagRepository
         }
 
         $ids = array_map(
-            fn (string $name): int => Hashtag::query()->firstOrCreate(['name' => $name])->id,
+            fn (string $name): int => Hashtag::query()->createOrFirst(['name' => $name])->id,
             array_unique($found),
         );
 

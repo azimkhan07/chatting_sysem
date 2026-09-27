@@ -3,8 +3,11 @@
 Source of truth: `backend/database/migrations`. This doc is the blueprint → keep in sync.
 
 Conventions:
-- **ULID** primary keys for all public-facing rows (no sequential IDs leak, no enumeration).
-- Timestamps everywhere. Soft deletes on user content (moderation friendly).
+- **ULID** primary keys for public-facing rows (no sequential IDs leak, no enumeration).
+  Known exception: `comments.id` is a plain auto-increment `bigint`, as are the join/counter
+  tables — always check the migration before relying on a key type.
+- Timestamps everywhere. Soft deletes on user content (moderation friendly). `comments` is the
+  exception: it has no `deleted_at` in v1.
 - Money as integer **paise** (₹). `amount_paisa`.
 - Reads are cheap because we eagerly load projections; **derived columns stored on purpose**
   (counters) only where a Redis counter would be lossy for correctness (e.g. likes).
@@ -22,7 +25,7 @@ Conventions:
 | avatar_path       | string/null | object-store path          |
 | cover_path        | string/null |                             |
 | is_verified       | boolean   | tick visible = subscription active |
-| status            | enum      | active | suspended | banned    |
+| status            | enum      | `active` / `suspended` / `banned` (see `App\Domain\Auth\Enums\UserStatus`) |
 | account_type      | enum      | personal | creator | org     |
 | last_seen_at      | datetime  | for online hint fallback     |
 | timestamps        |           | + soft deletes               |
@@ -84,14 +87,18 @@ PK(post_id, user_id) — no duplicates. Counter kept on posts.
 
 ### comments
 
-| Column  | Type   | Notes |
-| ------- | ------ | ----- |
-| id      | ulid   |       |
-| post_id | FK     |       |
-| user_id | FK     |       |
-| parent_id | FK   | one-level nesting (later depth) |
-| body    | text   |       |
-| deleted_at | soft |     |
+| Column     | Type    | Notes |
+| ---------- | ------- | ----- |
+| id         | bigint  | auto-increment (not a ULID) |
+| post_id    | FK      | cascade delete |
+| user_id    | FK      | cascade delete |
+| parent_id  | FK      | nullable; one-level nesting enforced in the application layer (`CommentOnPostAction` rejects a reply to a reply), `nullOnDelete`, indexed with `post_id` |
+| body       | text    | |
+| timestamps |         | |
+
+Replies are never returned as standalone rows: `GET posts/{post}/comments` returns root
+comments only, each with a `replies` preview (max 3) and the total `reply_count`. There is
+no `deleted_at` on `comments` in v1 — a comment is deleted by deleting the row.
 
 ### shares
 
@@ -109,11 +116,13 @@ user_id, post_id — like source for share-tree analytics (v2).
 
 ### conversations
 
-| Column     | Type   | Notes |
-| ---------- | ------ | ----- |
-| id         | ulid   |       |
-| type       | enum   | dm | group |
-| created_by | FK     |       |
+| Column       | Type   | Notes |
+| ------------ | ------ | ----- |
+| id           | ulid   |       |
+| type         | enum   | dm \| group |
+| state        | enum   | active \| requested — `requested` = a DM from a non-follower waiting for accept |
+| requested_by | FK     | nullable; the sender of a pending request (the only side with actions) |
+| created_by   | FK     |       |
 
 ### conversation_members (DM = 2 rows, Group = N rows)
 
@@ -121,9 +130,11 @@ user_id, post_id — like source for share-tree analytics (v2).
 | ------------- | ------ | ----- |
 | conversation_id | FK   |       |
 | user_id       | FK     |       |
-| role          | enum   | owner | admin | member |
+| role          | enum   | owner \| admin \| member |
 | last_read_message_id | FK | watermark for unread calc |
 | is_muted      | bool   |       |
+| nickname      | string | nullable, **private to this row's owner** — premium, never exposed to other members |
+| wallpaper_key | string | nullable, built-in gradient key, **private to this row's owner** — premium |
 | joined_at     | datetime |  |
 
 ### messages
@@ -133,9 +144,10 @@ user_id, post_id — like source for share-tree analytics (v2).
 | id               | ulid    |       |
 | conversation_id  | FK      | index(conversation_id, id DESC) |
 | sender_id        | FK      |       |
-| type             | enum    | text | image | video | audio | system |
+| type             | enum    | text \| image \| video \| gif \| drawing \| system — gif/drawing are premium |
 | body             | text    | text messages / captions |
 | media_path       | string  | + thumbnail for media |
+| media_url        | string  | nullable external source (a provider GIF, or the `/storage/...` a drawing upload returned); validated by `MediaUrl::isSafeReference()` |
 | reply_to_id      | FK      | optional |
 | edited_at        | datetime|null |
 | deleted_at       | soft    | system tombstone for everyone |

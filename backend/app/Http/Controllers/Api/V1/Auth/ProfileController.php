@@ -12,6 +12,7 @@ use App\Http\Resources\UserResource;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 final class ProfileController extends Controller
 {
@@ -56,11 +57,20 @@ final class ProfileController extends Controller
         }
 
         $previous = $user->{$column};
-        if (is_string($previous) && $previous !== '' && $previous !== $path) {
-            Storage::disk('public')->delete($previous);
+        $replaced = is_string($previous) && $previous !== '' && $previous !== $path;
+
+        try {
+            $user->forceFill([$column => $path])->save();
+        } catch (Throwable $e) {
+            // Never leave an orphaned file behind when the write did not land.
+            Storage::disk('public')->delete($path);
+
+            throw $e;
         }
 
-        $user->forceFill([$column => $path])->save();
+        if ($replaced) {
+            Storage::disk('public')->delete($previous);
+        }
 
         return ApiResponse::success([
             'user' => (new UserResource($user->refresh()))->resolve(),

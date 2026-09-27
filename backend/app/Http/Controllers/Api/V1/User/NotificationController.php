@@ -8,6 +8,7 @@ use App\Domain\Social\Contracts\NotificationRepository;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\NotificationResource;
 use App\Support\ApiResponse;
+use App\Support\PageSize;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +20,7 @@ final class NotificationController extends Controller
     {
         $paginator = $this->notifications->listFor(
             $request->user()->id,
-            $request->integer('limit', 30),
+            PageSize::clamp($request->integer('limit', 30), 30),
             $request->query('cursor'),
         );
 

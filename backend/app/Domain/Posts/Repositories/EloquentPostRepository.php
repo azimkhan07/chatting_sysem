@@ -16,6 +16,12 @@ use Illuminate\Pagination\CursorPaginator;
 
 final class EloquentPostRepository implements PostRepository
 {
+    /**
+     * How many replies are inlined under a root comment. Anything beyond this is
+     * reachable from the root comment's own reply count.
+     */
+    private const REPLIES_PREVIEW = 3;
+
     public function create(int $userId, CreatePostData $data): Post
     {
         return Post::query()->create([
@@ -62,20 +68,18 @@ final class EloquentPostRepository implements PostRepository
 
     public function hashtagFeedFor(Hashtag $hashtag, int $viewerId, int $limit, ?string $cursor): CursorPaginator
     {
-        return Post::query()
+        // The one surface that genuinely needs the tag list on each post, so
+        // here the relation is worth its query; elsewhere it is not.
+        return $this->baseQuery($viewerId)
+            ->with('hashtags')
             ->whereHas('hashtags', fn (Builder $query): Builder => $query->whereKey($hashtag->id))
-            ->with(['user', 'media', 'hashtags'])
-            ->withCount(['likes', 'comments'])
-            ->withExists([
-                'likes as liked_by_me' => fn (Builder $query): Builder => $query->where('user_id', $viewerId),
-            ])
             ->orderByDesc('id')
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
     }
 
     public function like(Post $post, int $userId): bool
     {
-        $like = $post->likes()->firstOrCreate(['user_id' => $userId]);
+        $like = $post->likes()->createOrFirst(['user_id' => $userId]);
 
         return $like->wasRecentlyCreated;
     }
@@ -92,11 +96,12 @@ final class EloquentPostRepository implements PostRepository
         return (int) $post->likes_count;
     }
 
-    public function addComment(Post $post, int $userId, string $body): Comment
+    public function addComment(Post $post, int $userId, string $body, ?int $parentId = null): Comment
     {
         /** @var Comment $comment */
         $comment = $post->comments()->create([
             'user_id' => $userId,
+            'parent_id' => $parentId,
             'body' => $body,
         ]);
 
@@ -106,18 +111,26 @@ final class EloquentPostRepository implements PostRepository
     public function commentsFor(Post $post, int $limit, ?string $cursor): CursorPaginator
     {
         return $post->comments()
+            ->whereNull('parent_id')
             ->with('user')
+            ->withCount('replies')
+            ->with([
+                'replies' => fn ($query) => $query
+                    ->with('user')
+                    ->oldest('id')
+                    ->limit(self::REPLIES_PREVIEW),
+            ])
             ->orderByDesc('id')
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
     }
 
-    public function share(Post $post, int $userId): int
+    public function share(Post $post, int $userId): array
     {
-        $post->shares()->firstOrCreate(['user_id' => $userId]);
+        $share = $post->shares()->createOrFirst(['user_id' => $userId]);
 
         $post->loadCount('shares');
 
-        return (int) $post->shares_count;
+        return ['count' => (int) $post->shares_count, 'created' => $share->wasRecentlyCreated];
     }
 
     public function trendingFor(int $viewerId, int $limit): Collection
@@ -129,6 +142,9 @@ final class EloquentPostRepository implements PostRepository
         return $this->baseQuery($viewerId)
             ->where('created_at', '>=', now()->subDays(TrendingRanking::WINDOW_DAYS))
             ->orderByRaw($score.' desc')
+            // Deterministic tiebreak, otherwise the cut inside the score-0 block
+            // can change between two identical requests.
+            ->orderByDesc('id')
             ->limit($limit)
             ->get();
     }
@@ -141,6 +157,9 @@ final class EloquentPostRepository implements PostRepository
 
         $byId = $this->baseQuery($viewerId)
             ->whereIn('id', $ids)
+            // The ranked set has no TTL per member, so the ranking window has to
+            // be enforced here or stale ids stay "trending" forever.
+            ->where('created_at', '>=', now()->subDays(TrendingRanking::WINDOW_DAYS))
             ->get()
             ->keyBy('id');
 
@@ -156,12 +175,17 @@ final class EloquentPostRepository implements PostRepository
     }
 
     /**
+     * Every feed surface shares this projection so a page costs a fixed number
+     * of queries instead of one per post. `hashtags` is intentionally *not*
+     * eager loaded: the API payload does not need it and it doubled the query
+     * count of a feed page.
+     *
      * @return Builder<Post>
      */
     private function baseQuery(int $viewerId): Builder
     {
         return Post::query()
-            ->with(['user', 'media', 'hashtags'])
+            ->with(['user', 'media'])
             ->withCount(['likes', 'comments', 'shares'])
             ->withExists([
                 'likes as liked_by_me' => fn (Builder $query): Builder => $query->where('user_id', $viewerId),

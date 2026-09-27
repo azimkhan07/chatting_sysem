@@ -2,7 +2,29 @@
 
 Goal: instant-feeling uploads, professional output, never block the request thread.
 
-## Stages
+## Status — read this first
+
+This page mixes **what v1 actually does** with the **target design**. v1 is deliberately
+much smaller than the target: uploads are validated and stored synchronously on the
+request thread, and there is no transcode queue, no HLS, no poster/thumbnail generation
+and no EXIF rewriting yet.
+
+| Capability | v1 (shipped) | Target (not built) |
+| ---------- | ------------- | ------------------ |
+| Validation | Content sniffed in PHP (`App\Support\Media\MediaInspector`): magic bytes decide image vs video, real MIME recorded, extension normalised to match the bytes | same + `ffprobe` for duration/codec probing |
+| Limits | image ≤ 8 MB, video ≤ 100 MB, ≤ 5 media per post, avatar/cover ≤ 5 MB and 64–6000 px | same + reels duration/aspect enforcement |
+| Storage | Local `public` disk, original file preserved, root-relative `/storage/...` URLs (`ASSET_URL` can point at a CDN) | S3-compatible `media` disk, signed URLs for DM attachments |
+| Delivery | Single progressive file played natively by `<video>` (MP4/MOV/WebM) | Adaptive HLS renditions + posters + thumbnails |
+| Re-scanning | None — bytes are stored as uploaded, so EXIF/GPS is **not** stripped yet | Strip EXIF, re-orient, generate thumb/card/full sizes |
+| Queue | None; the request does inspect + store inline | `media` queue: inspect → transcode → thumbnails/poster → Ready event |
+| Upload sessions | Single-request multipart upload | Chunked resumable `UploadSession` + presigned PUT |
+| Moderation | None | Hash duplicate checks, moderation queue |
+
+Everything in the "Target" column belongs to Phase 2/3 work and should not be quoted as
+current behaviour. `ffmpeg`/`ffprobe`, `config/media.php` and `/health/media` below are
+design notes only — none of them exist in the codebase today.
+
+## Stages (target design)
 
 ```
   POST /uploads (session)          ──▶ presign destination + upload token
@@ -25,15 +47,19 @@ Goal: instant-feeling uploads, professional output, never block the request thre
 
 ## Rules
 
-- **Magic-byte + MIME whitelist** server-side (jpg/png/webp/gif; mp4/webm + mov).
-- Limits: image ≤ 8 MB; video ≤ 200 MB (v1); reels ≤ 90 s vertical-ish; aspect enforced
-  softly (portrait > square for reels tab).
-- **Chunked upload** resumes; idempotent (`UploadSession`). 
+- **Magic-byte + MIME whitelist** server-side (jpg/png/webp/gif; mp4/webm + mov) — shipped in
+  `MediaInspector`. The sniffed type wins over the client-declared one, so a video named
+  `.png` is stored as `.mp4` rather than rejected.
+- Limits: image ≤ 8 MB; video ≤ 100 MB; ≤ 5 media files per post. Reel duration/aspect
+  enforcement is not implemented yet.
+- **Chunked upload** resumes; idempotent (`UploadSession`) — target, not shipped.
 - Transcodes run on `media` queue with high concurrency control; failures surface as
-  `status: failed` + retry job with cap.
-- Object store: S3-compatible disk `media`. Local dev: `storage/app/media`.
-- Expiring/signed URLs for DM attachments; eager-load paths via `post_media`.
-- EXIF/GPS stripped server-side at ingest (privacy).
+  `status: failed` + retry job with cap. — target, not shipped.
+- Object store: S3-compatible disk `media`. Local dev: `storage/app/media`. — target; v1 uses
+  the default `public` disk.
+- Expiring/signed URLs for DM attachments; eager-load paths via `post_media`. — target.
+- EXIF/GPS stripped server-side at ingest (privacy). — target; **open gap in v1**, since the
+  uploaded bytes are stored untouched.
 
 ## Views/analytics (reels)
 

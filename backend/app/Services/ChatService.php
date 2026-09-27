@@ -8,9 +8,12 @@ use App\Domain\Auth\Models\User;
 use App\Domain\Chat\Contracts\ChatRepository;
 use App\Domain\Chat\Contracts\ChatService as ChatServiceContract;
 use App\Domain\Chat\Data\SendMessageData;
+use App\Domain\Chat\Enums\ChatFeature;
+use App\Domain\Chat\Enums\ConversationState;
 use App\Domain\Chat\Enums\ConversationType;
 use App\Domain\Chat\Enums\MemberRole;
 use App\Domain\Chat\Enums\MessageReactionType;
+use App\Domain\Chat\Enums\MessageType;
 use App\Domain\Chat\Exceptions\ConversationNotFoundException;
 use App\Domain\Chat\Exceptions\ConversationPermissionException;
 use App\Domain\Chat\Exceptions\InvalidConversationException;
@@ -18,6 +21,8 @@ use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\ConversationMember;
 use App\Domain\Chat\Models\ConversationMessage;
 use App\Domain\Chat\Models\GroupInvite;
+use App\Domain\Chat\Services\ChatEntitlements;
+use App\Domain\Social\Contracts\FollowRepository;
 use App\Events\MemberJoined;
 use App\Events\MessageDeleted;
 use App\Events\MessageReactionChanged;
@@ -29,7 +34,11 @@ use Illuminate\Support\Facades\Cache;
 
 final class ChatService implements ChatServiceContract
 {
-    public function __construct(private readonly ChatRepository $chatRepository) {}
+    public function __construct(
+        private readonly ChatRepository $chatRepository,
+        private readonly FollowRepository $followRepository,
+        private readonly ChatEntitlements $entitlements,
+    ) {}
 
     public function conversationsFor(User $user): Collection
     {
@@ -47,14 +56,81 @@ final class ChatService implements ChatServiceContract
             return $existing;
         }
 
+        // A DM from a total stranger must not land in the primary inbox, so it
+        // opens as a request the recipient has to accept. Any follow edge in
+        // either direction means the two already know each other.
+        $connected = $this->followRepository->connected($user->id, $targetUserId);
+
+        if (! $connected) {
+            // The requests inbox is the premium tier's anti-spam feature, so a
+            // free account simply cannot open one. This is checked here rather
+            // than on the route because groups and follow-DMs share this action.
+            $this->entitlements->authorize($user, ChatFeature::MessageRequests);
+        }
+
         $conversation = $this->chatRepository->createConversation([
             'type' => ConversationType::Dm->value,
+            'state' => $connected
+                ? ConversationState::Active->value
+                : ConversationState::Requested->value,
+            'requested_by' => $connected ? null : $user->id,
             'created_by' => $user->id,
         ]);
         $this->chatRepository->addMember($conversation, $user->id, ['role' => MemberRole::Owner]);
         $this->chatRepository->addMember($conversation, $targetUserId, ['role' => MemberRole::Member]);
 
         $conversation->load(['members.user', 'lastMessage.user']);
+
+        return $conversation;
+    }
+
+    /**
+     * Accept a pending DM request: the conversation becomes a normal chat for
+     * both sides. Only the recipient may accept — the sender cannot promote
+     * their own request.
+     */
+    public function acceptRequest(User $user, int $conversationId): Conversation
+    {
+        $conversation = $this->requireRequest($user, $conversationId);
+
+        $conversation->state = ConversationState::Active;
+        $conversation->requested_by = null;
+        $conversation->save();
+
+        $conversation->load(['members.user', 'lastMessage.user']);
+
+        return $conversation;
+    }
+
+    /**
+     * Reject a pending DM request. The whole thread goes, not just the flag, so
+     * a spammer's messages cannot linger in the database.
+     */
+    public function deleteRequest(User $user, int $conversationId): void
+    {
+        $conversation = $this->requireRequest($user, $conversationId);
+
+        $this->chatRepository->removeMember($conversation, $conversation->requested_by ?? 0);
+        $this->chatRepository->removeMember($conversation, $user->id);
+        $this->chatRepository->deleteConversation($conversation);
+    }
+
+    private function requireRequest(User $user, int $conversationId): Conversation
+    {
+        $conversation = $this->chatRepository->conversationForUser($user->id, $conversationId);
+
+        if ($conversation === null) {
+            throw new ConversationNotFoundException('Conversation not found.');
+        }
+
+        if ($conversation->type !== ConversationType::Dm || $conversation->state !== ConversationState::Requested) {
+            throw new ConversationPermissionException('This conversation is not a message request.');
+        }
+
+        // The requester keeps their copy; only the recipient decides.
+        if ($conversation->requested_by === $user->id) {
+            throw new ConversationPermissionException('You cannot accept your own message request.');
+        }
 
         return $conversation;
     }
@@ -103,10 +179,14 @@ final class ChatService implements ChatServiceContract
     {
         $conversation = $this->resolveForUser($user, $conversationId);
 
+        if (($feature = $this->featureFor($data->type)) !== null) {
+            $this->entitlements->authorize($user, $feature);
+        }
+
         $message = $this->chatRepository->createMessage($conversation, $user->id, [
             'type' => $data->type->value,
             'body' => $data->body,
-            'media_url' => null,
+            'media_url' => $data->mediaUrl,
             'client_id' => $data->clientId,
         ]);
 
@@ -115,6 +195,20 @@ final class ChatService implements ChatServiceContract
         }
 
         return $message;
+    }
+
+    /**
+     * GIFs and sketches are premium. Text, image and video sharing stay free, so
+     * the lock sits on the two expressive types rather than on every non-text
+     * message.
+     */
+    private function featureFor(MessageType $type): ?ChatFeature
+    {
+        return match ($type) {
+            MessageType::Gif => ChatFeature::Gif,
+            MessageType::Drawing => ChatFeature::Drawing,
+            MessageType::Text, MessageType::Image, MessageType::Video => null,
+        };
     }
 
     public function markRead(User $user, int $conversationId, int $upToMessageId): array
@@ -147,6 +241,38 @@ final class ChatService implements ChatServiceContract
         $conversation->members()
             ->where('user_id', $user->id)
             ->update(['muted' => $muted]);
+
+        $conversation->load(['members.user', 'lastMessage.user']);
+
+        return $conversation;
+    }
+
+    /**
+     * Personalise a conversation for the viewer only: a private nickname and
+     * wallpaper. Both are premium, so the entitlement is checked here as well
+     * as on the route — a locked feature must fail the same way whichever door
+     * the caller comes through.
+     */
+    public function personalize(
+        User $user,
+        int $conversationId,
+        ?string $nickname,
+        ?string $wallpaperKey,
+    ): Conversation {
+        if ($nickname !== null) {
+            $this->entitlements->authorize($user, ChatFeature::Nickname);
+        }
+
+        if ($wallpaperKey !== null) {
+            $this->entitlements->authorize($user, ChatFeature::Wallpaper);
+        }
+
+        $conversation = $this->resolveForUser($user, $conversationId);
+
+        $conversation->members()->where('user_id', $user->id)->update([
+            'nickname' => $nickname,
+            'wallpaper_key' => $wallpaperKey,
+        ]);
 
         $conversation->load(['members.user', 'lastMessage.user']);
 

@@ -28,16 +28,27 @@ Ordered by dependency, each item shipped with its own tests + docs update:
 
 1. **Identity**
    - Sanctum (or JWT-free token) auth: register, login, logout, me.
-   - Avatar/cover upload (media pipeline v1: images resize + thumbs).
+   - [x] Suspended/banned accounts are refused at login **and** on every authenticated API call
+     (`EnsureUserIsActive` after `auth:sanctum`); the offending token is revoked on use.
+   - [x] Avatar/cover upload — content-sniffed, size/dimension capped, safe replace
+     (new file written first, old one deleted only after success).
+   - [ ] Image resize + thumbnail variants (media pipeline v2, see `08-media-pipeline.md`).
 2. **Profiles & Follow**
-   - Profiles, bio, followers/following, follow/unfollow (server-computed counts).
+   - [x] Profiles, bio, followers/following, follow/unfollow (server-computed counts).
+   - [x] Followers/following list modal + clickable counters on `Profile` / `UserProfile`;
+     list payload carries `is_followed_by_me` so rows can show a follow control.
 3. **Feed (Home)**
-   - Posts (text/image/video), server-ranked feed, cursor pagination, infinite scroll.
-   - Like / unlike, comments (nested one level), share count.
-   - [x] Share count + share button — `post_shares` (unique per post+user), `POST posts/{post}/share`, `shares_count` exposed, PostCard copy/native-share with optimistic update.
+   - [x] Posts (text/image/video), cursor pagination, infinite scroll.
+   - [x] Like / unlike, share count, and **one-level nested comments** — `comments.parent_id`,
+     root-only listing with an inline reply preview + `reply_count`, replies to a reply
+     rejected, reply notifications to the comment author.
+   - [ ] Server-ranked feed ordering — v1 ships a straightforward cursor feed (own posts +
+     followed authors); the ranking/fan-out layer is Phase 3 scale work, not v1.
 4. **Reels**
-   - Upload → server transcodes (rotations) + HLS + poster.
-   - Full-screen vertical player, autoplay muted, like/comment/share.
+   - [x] Upload with content sniffing, full-screen vertical player, autoplay muted,
+     like/comment/share, reels tab on Home.
+   - [ ] Server transcodes (rotation) + HLS + poster. **Not built.** v1 stores and plays the
+     uploaded file progressively; see the v1/target table in `08-media-pipeline.md`.
 5. **Explore**
    - Search users/hashtags; trending grid (Redis-ranked).
    - [x] Trending grid — Redis sorted set `posts:trending` (like=1/comment=2/share=4), bumped in realtime, `posts:refresh-trending` every 5 min, DB-ranked fallback, `GET posts/trending`, Explore tab toggle.
@@ -49,7 +60,35 @@ Ordered by dependency, each item shipped with its own tests + docs update:
    - [x] Typing indicator — server-throttled `POST conversations/{id}/typing` + Reverb `UserTyping`; thread header shows "X is typing…" (group: "N people…") with a 3.5s expiry and clears when the message lands.
    - [x] Read receipts as DP (Instagram/Messenger style) — watermark-based `read` + `read_by` in `MessageResource`; UI draws reader DPs on the last read message instead of a ✓✓ double tick.
    - [x] **Stress case:** a user with 100+ groups gets a snappy inbox — `ChatInboxCache` (Redis
-     per-user unread hash + last-message snapshots), single-pass grouped SQL fill with DB fallback.
+      per-user unread hash + last-message snapshots), single-pass grouped SQL fill with DB fallback.
+   - [x] Presence / online status — Redis `presence:online` zset (90s window) with `last_seen_at`
+     DB fallback, `POST /chat/presence` heartbeat, `UserPresenceChanged` (`presence.changed`) on
+     DM/group channels, `presence-{dm|group}.{id}` rosters, `chat:presence-sweep` every 30s,
+     `online_count` / `peer_presence` / `members[].user.is_online` in `ConversationResource`,
+     and client dots + "Last seen …" in the inbox and thread header.
+   - [x] **Spam control: message requests** — a DM from a non-follower is stored as
+     `state = requested` instead of a live chat. Recipient-only `accept` / `delete` (delete cascades
+     members + messages), a dedicated Requests tab in the inbox, an in-thread banner, and a disabled
+     composer until accepted. Accept/Delete stay available after a subscription lapses so a
+     legitimate request is never stuck.
+   - [x] **Premium chat tier** (subscription-gated, backend-enforced) — `ChatFeature` catalogue
+     (`message_requests`, `chat_nickname`, `chat_wallpaper`, `chat_gif`, `chat_drawing`),
+     `GET /chat/entitlements`, `EnsureChatFeature` route middleware and `ChatEntitlements::authorize`
+     in the service layer, `FEATURE_LOCKED` errors carrying the feature key, and crown/lock UI that
+     names the exact locked feature. Free accounts keep follow-DM, groups, reactions and typing.
+   - [x] Per-chat personalization — private `nickname` + `wallpaper_key` on `conversation_members`
+     (never exposed to the other person), one sheet for both, 8 built-in gradient wallpapers.
+   - [x] Richer composer — emoji picker (insert at caret), GIF search (existing `/songs/gifs`),
+     and drawings: canvas → PNG → `POST /chat/conversations/{id}/drawings` (byte-sniffed like every
+     other upload) → `drawing` message. `MediaUrl::isSafeReference()` allows only `http(s)` and our
+     own `/storage/...`, rejecting `javascript:`, `data:`, `//host` and backslash tricks.
+   - [ ] Gallery wallpaper uploads and AI-generated wallpapers — deferred: needs a per-user
+     wallpaper asset table, upload quota, and moderation review before anything user-supplied
+     becomes a chat background.
+   - [x] Invite flows hardened on the client — two-step revoke confirm, expiry/creator line,
+     clipboard fallback for non-https origins, error banners with retry, and a join page that
+     handles missing codes, real API failures (429/403/5xx) and retries.
+
 7. **Blue Tick**
    - Request verification → pay ₹1/₹5 (UPI/Mock gateway v1) → admin review → badge.
    - Auto-renew + expiry. Cancellation removes tick.

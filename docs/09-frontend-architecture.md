@@ -17,7 +17,7 @@ and *animation* — never business logic.
 | Animation     | Framer Motion (+ custom canvas for liquid effects), reduced-motion honored |
 | HTTP          | fetch wrapper (typed client generated from OpenAPI) |
 | Realtime      | laravel-echo + Reverb |
-| Reels player  | HLS.js on <video> with custom UI |
+| Reels player  | native `<video>` on a progressive MP4/MOV/WebM file, custom UI; HLS.js only once adaptive streaming ships |
 | PWA           | vite-plugin-pwa (v1 later) |
 
 ## Folder layout

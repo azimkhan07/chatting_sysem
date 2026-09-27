@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Redis;
  *
  * Every method degrades to SQL if Redis is unavailable; call sites keep their
  * existing queries as the source of truth and only overlay these fast paths.
+ * The first failure latches for the rest of the request, so an outage costs one
+ * failed round trip instead of one per conversation.
  */
 final class ChatInboxCache
 {
@@ -27,12 +29,18 @@ final class ChatInboxCache
 
     private const LAST_TTL_SECONDS = 86_400;
 
+    private bool $unavailable = false;
+
     /**
      * Record a freshly sent message: refresh the last-message snapshot and
      * increment the unread counter for every member except the sender.
      */
     public function noteNewMessage(Conversation $conversation, ConversationMessage $message): void
     {
+        if ($this->unavailable) {
+            return;
+        }
+
         try {
             $redis = Redis::connection();
 
@@ -45,6 +53,7 @@ final class ChatInboxCache
             $this->setLast($redis, $conversation->id, $message);
         } catch (\Throwable) {
             // Redis unreachable: DB remains the source of truth.
+            $this->unavailable = true;
         }
     }
 
@@ -53,10 +62,15 @@ final class ChatInboxCache
      */
     public function markRead(int $userId, int $conversationId): void
     {
+        if ($this->unavailable) {
+            return;
+        }
+
         try {
             Redis::connection()->hdel(self::UNREAD_PREFIX.$userId, (string) $conversationId);
         } catch (\Throwable) {
             // Best effort.
+            $this->unavailable = true;
         }
     }
 
@@ -68,10 +82,16 @@ final class ChatInboxCache
      */
     public function unreadMap(int $userId): ?array
     {
+        if ($this->unavailable) {
+            return null;
+        }
+
         try {
             /** @var array<string, string> $raw */
             $raw = Redis::connection()->hgetall(self::UNREAD_PREFIX.$userId);
         } catch (\Throwable) {
+            $this->unavailable = true;
+
             return null;
         }
 
@@ -109,9 +129,15 @@ final class ChatInboxCache
      */
     public function lastSnapshot(int $conversationId): ?array
     {
+        if ($this->unavailable) {
+            return null;
+        }
+
         try {
             $json = Redis::connection()->get(self::LAST_PREFIX.$conversationId);
         } catch (\Throwable) {
+            $this->unavailable = true;
+
             return null;
         }
 
@@ -132,6 +158,10 @@ final class ChatInboxCache
      */
     public function warmUnread(int $userId, array $counts): void
     {
+        if ($this->unavailable || $counts === []) {
+            return;
+        }
+
         try {
             $redis = Redis::connection();
             $key = self::UNREAD_PREFIX.$userId;
@@ -141,6 +171,7 @@ final class ChatInboxCache
             }
         } catch (\Throwable) {
             // Best effort.
+            $this->unavailable = true;
         }
     }
 
@@ -149,10 +180,15 @@ final class ChatInboxCache
      */
     public function forgetLast(int $conversationId): void
     {
+        if ($this->unavailable) {
+            return;
+        }
+
         try {
             Redis::connection()->del(self::LAST_PREFIX.$conversationId);
         } catch (\Throwable) {
             // Best effort.
+            $this->unavailable = true;
         }
     }
 

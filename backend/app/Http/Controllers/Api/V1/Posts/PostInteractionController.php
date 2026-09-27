@@ -57,6 +57,7 @@ final class PostInteractionController extends Controller
             $request->user(),
             $post,
             $request->validated('body'),
+            $request->validated('parent_id'),
         );
 
         return ApiResponse::success(

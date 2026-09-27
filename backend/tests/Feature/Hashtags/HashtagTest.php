@@ -8,7 +8,6 @@ use App\Domain\Auth\Models\User;
 use App\Domain\Hashtags\Models\Hashtag;
 use App\Domain\Posts\Models\Post;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\FakeMedia;
 use Tests\TestCase;
@@ -109,7 +108,7 @@ final class HashtagTest extends TestCase
         $this->withToken($this->tokenFor($user))
             ->post('/api/v1/posts', [
                 'body' => 'a clip',
-                'media' => [UploadedFile::fake()->create('clip.mp4', 2048, 'video/mp4')],
+                'media' => [FakeMedia::mp4()],
             ])
             ->assertStatus(201);
 

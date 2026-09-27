@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom'
 import { Spinner } from '@/components/AuthLayout'
 import EditProfileModal from '@/components/EditProfileModal'
 import FollowButton from '@/components/FollowButton'
+import UserListModal from '@/components/UserListModal'
 import { usersApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { ProfileTile } from '@/pages/Profile'
@@ -16,6 +17,7 @@ export default function UserProfile() {
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const [loadMoreVisible, setLoadMoreVisible] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [listOpen, setListOpen] = useState<'followers' | 'following' | null>(null)
 
   const profileQuery = useQuery({
     queryKey: ['user', 'profile', username],
@@ -134,18 +136,28 @@ export default function UserProfile() {
             </p>
             <p className="text-xs text-slate-500">Posts</p>
           </div>
-          <div>
+          <button
+            type="button"
+            onClick={() => setListOpen('followers')}
+            className="rounded-xl py-1 transition hover:bg-white/5"
+            aria-label={`View ${user.followers_count ?? 0} followers`}
+          >
             <p className="text-lg font-extrabold text-white">
               {(user.followers_count ?? 0).toLocaleString()}
             </p>
             <p className="text-xs text-slate-500">Followers</p>
-          </div>
-          <div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setListOpen('following')}
+            className="rounded-xl py-1 transition hover:bg-white/5"
+            aria-label={`View ${user.following_count ?? 0} following`}
+          >
             <p className="text-lg font-extrabold text-white">
               {(user.following_count ?? 0).toLocaleString()}
             </p>
             <p className="text-xs text-slate-500">Following</p>
-          </div>
+          </button>
         </div>
 
         {isMe ? (
@@ -169,6 +181,13 @@ export default function UserProfile() {
       </header>
 
       {editModalOpen ? <EditProfileModal onClose={() => setEditModalOpen(false)} /> : null}
+      {listOpen ? (
+        <UserListModal
+          identifier={user.username}
+          kind={listOpen}
+          onClose={() => setListOpen(null)}
+        />
+      ) : null}
 
       <div className="space-y-1">
         <h2 className="px-1 text-sm font-bold text-slate-300">Posts</h2>

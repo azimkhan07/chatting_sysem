@@ -65,6 +65,22 @@ interface ChatRepository
 
     public function removeMember(Conversation $conversation, int $userId): void;
 
+    /**
+     * Remove a conversation and everything hanging off it. Only used when a
+     * message request is rejected, where keeping the thread would keep the
+     * spam on disk.
+     */
+    public function deleteConversation(Conversation $conversation): void;
+
+    /**
+     * Conversation membership rows for a set of users — the fan-out list used to
+     * reach everyone who should see a presence change.
+     *
+     * @param  list<int>  $userIds
+     * @return list<array{user_id: int, conversation_id: int, type: string}>
+     */
+    public function membershipsFor(array $userIds): array;
+
     public function validInviteFor(int $conversationId): ?GroupInvite;
 
     public function createInvite(Conversation $conversation, int $createdBy): GroupInvite;

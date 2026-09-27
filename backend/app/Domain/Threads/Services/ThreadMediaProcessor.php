@@ -5,26 +5,29 @@ declare(strict_types=1);
 namespace App\Domain\Threads\Services;
 
 use App\Domain\Posts\Exceptions\InvalidPostMediaException;
+use App\Support\Media\MediaInspector;
+use App\Support\Media\MediaKind;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
 final class ThreadMediaProcessor
 {
-    private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-
     private const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 
-    public function __construct(private readonly FilesystemFactory $filesystem) {}
+    public function __construct(
+        private readonly FilesystemFactory $filesystem,
+        private readonly MediaInspector $inspector,
+    ) {}
 
     /**
      * @return array{file_path: string, mime: string, type: string}
      */
     public function process(int $userId, UploadedFile $file): array
     {
-        $extension = strtolower($file->getClientOriginalExtension());
+        $media = $this->inspector->describe($file);
 
-        if (! in_array($extension, self::IMAGE_EXTENSIONS, true)) {
+        if ($media === null || $media['kind'] !== MediaKind::Image) {
             throw new InvalidPostMediaException(
                 'Unsupported file type. Use an image (jpg, png, webp, gif).',
             );
@@ -34,15 +37,10 @@ final class ThreadMediaProcessor
             throw new InvalidPostMediaException('The image is too large (max 8 MB).');
         }
 
-        $info = @getimagesize($file->getPathname());
-        if ($info === false) {
-            throw new InvalidPostMediaException('The image appears to be corrupted or invalid.');
-        }
-
         $path = $this->filesystem->disk('public')->putFileAs(
             "threads/{$userId}",
             $file,
-            Str::uuid()->toString().".{$extension}",
+            Str::uuid()->toString().'.'.$media['extension'],
         );
 
         if ($path === false) {
@@ -51,8 +49,8 @@ final class ThreadMediaProcessor
 
         return [
             'file_path' => $path,
-            'mime' => $file->getClientMimeType() ?: 'application/octet-stream',
-            'type' => 'image',
+            'mime' => $media['mime'],
+            'type' => MediaKind::Image->value,
         ];
     }
 }

@@ -7,6 +7,7 @@ namespace App\Http\Resources\Admin;
 use App\Domain\Auth\Models\User;
 use App\Domain\Billing\Enums\Plan;
 use App\Domain\Billing\Models\Subscription;
+use App\Support\Media\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -44,9 +45,7 @@ final class SubscriptionReviewResource extends JsonResource
                 'username' => $user->username,
                 'display_name' => $user->display_name,
                 'bio' => $user->bio,
-                'avatar_url' => $user->avatar_path !== null
-                    ? asset('storage/'.$user->avatar_path)
-                    : null,
+                'avatar_url' => MediaUrl::ofNullable($user->avatar_path),
                 'is_verified' => $user->is_verified,
                 'created_at' => $user->created_at?->toIso8601String(),
             ],

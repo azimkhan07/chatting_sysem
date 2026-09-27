@@ -6,6 +6,7 @@ namespace App\Domain\Posts\Actions;
 
 use App\Domain\Posts\Contracts\PostRepository;
 use App\Domain\Posts\Models\Post;
+use App\Support\PageSize;
 use Illuminate\Pagination\CursorPaginator;
 
 final class ListPostCommentsAction
@@ -14,6 +15,6 @@ final class ListPostCommentsAction
 
     public function handle(Post $post, int $limit, ?string $cursor): CursorPaginator
     {
-        return $this->repository->commentsFor($post, $limit, $cursor);
+        return $this->repository->commentsFor($post, PageSize::clamp($limit), $cursor);
     }
 }

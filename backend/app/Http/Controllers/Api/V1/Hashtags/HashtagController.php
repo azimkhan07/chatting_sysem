@@ -24,7 +24,7 @@ final class HashtagController extends Controller
     {
         $query = trim((string) $request->query('query', ''));
 
-        if ($query === '') {
+        if (mb_strlen(ltrim($query, '#')) < 2) {
             return ApiResponse::success(data: ['hashtags' => []]);
         }
 

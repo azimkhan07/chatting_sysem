@@ -14,7 +14,9 @@ use App\Domain\Billing\Contracts\SubscriptionRepository;
 use App\Domain\Billing\Repositories\EloquentSubscriptionRepository;
 use App\Domain\Chat\Contracts\ChatRepository;
 use App\Domain\Chat\Contracts\ChatService as ChatServiceContract;
+use App\Domain\Chat\Contracts\PresenceService as PresenceServiceContract;
 use App\Domain\Chat\Repositories\EloquentChatRepository;
+use App\Domain\Chat\Services\PresenceStore;
 use App\Domain\Hashtags\Contracts\HashtagRepository;
 use App\Domain\Hashtags\Repositories\EloquentHashtagRepository;
 use App\Domain\Posts\Contracts\PostRepository;
@@ -34,8 +36,11 @@ use App\Domain\Threads\Repositories\EloquentThreadRepository;
 use App\Services\AuthService;
 use App\Services\ChatService;
 use App\Services\PostService;
+use App\Services\PresenceService;
+use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -59,12 +64,41 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(ThreadRepository::class, EloquentThreadRepository::class);
         $this->app->bind(SubscriptionRepository::class, EloquentSubscriptionRepository::class);
         $this->app->bind(PasswordResetServiceContract::class, LaravelPasswordResetService::class);
+        $this->app->bind(PresenceServiceContract::class, PresenceService::class);
+
+        // One presence snapshot per request, so a 100+ conversation inbox reads
+        // the online set exactly once.
+        $this->app->singleton(PresenceStore::class);
     }
 
     public function boot(): void
     {
-        RateLimiter::for('auth', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
-        RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinutes(1, 60)->by($request->ip()));
+        // Any authenticated request is proof of life: hooking the auth event
+        // keeps presence correct without threading a middleware through every
+        // route group. The service throttles this to one write per 30s.
+        Event::listen(Authenticated::class, static function (Authenticated $event): void {
+            $user = $event->user;
+
+            if ($user instanceof User) {
+                app(PresenceServiceContract::class)->touch($user);
+            }
+        });
+
+        // Rate limits are keyed by account when there is one: an IP key punishes
+        // every user behind a single NAT/office egress with one shared bucket.
+        $byUser = static fn (Request $request): string => $request->user() !== null
+            ? 'u:'.$request->user()->getAuthIdentifier()
+            : 'ip:'.$request->ip();
+
+        // A returned array of limits is enforced cumulatively by ThrottleRequests,
+        // so auth is both per-minute and per-day capped.
+        RateLimiter::for('auth', fn (Request $request): array => [
+            Limit::perMinute(10)->by('auth:'.$request->ip()),
+            Limit::perDay(30)->by('auth:'.$request->ip()),
+        ]);
+        RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinutes(1, 60)->by($byUser($request)));
+        RateLimiter::for('feed', fn (Request $request): Limit => Limit::perMinutes(1, 120)->by($byUser($request)));
+        RateLimiter::for('search', fn (Request $request): Limit => Limit::perMinutes(1, 60)->by($byUser($request)));
         RateLimiter::for('password', fn (Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
         RateLimiter::for('notifications', fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('chat', function (Request $request): Limit {
@@ -75,10 +109,12 @@ final class AppServiceProvider extends ServiceProvider
         });
         RateLimiter::for('audio', fn (Request $request): Limit => Limit::perMinutes(1, 120)->by($request->ip()));
 
+        // A numeric segment is always an id; anything else is a username. Without
+        // this, a user whose username is "7" would shadow the account with id 7.
         Route::bind('user', function (string $value): User {
-            return User::whereKey($value)
-                ->orWhere('username', $value)
-                ->firstOrFail();
+            return ctype_digit($value)
+                ? User::whereKey((int) $value)->firstOrFail()
+                : User::where('username', $value)->firstOrFail();
         });
     }
 }

@@ -7,9 +7,12 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\ProfileController;
 use App\Http\Controllers\Api\V1\Billing\SubscriptionController;
+use App\Http\Controllers\Api\V1\Chat\ChatDrawingController;
+use App\Http\Controllers\Api\V1\Chat\ChatEntitlementController;
 use App\Http\Controllers\Api\V1\Chat\ChatInviteController;
 use App\Http\Controllers\Api\V1\Chat\ChatMemberController;
 use App\Http\Controllers\Api\V1\Chat\ChatMessageController;
+use App\Http\Controllers\Api\V1\Chat\ChatPresenceController;
 use App\Http\Controllers\Api\V1\Chat\ChatReactionController;
 use App\Http\Controllers\Api\V1\Chat\ChatUnreadController;
 use App\Http\Controllers\Api\V1\Chat\ConversationController;
@@ -21,6 +24,7 @@ use App\Http\Controllers\Api\V1\Story\StoryController;
 use App\Http\Controllers\Api\V1\Threads\ThreadController;
 use App\Http\Controllers\Api\V1\User\NotificationController;
 use App\Http\Controllers\Api\V1\Users\UserController;
+use App\Http\Controllers\Api\V1\Users\UserDiscoveryController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -34,18 +38,18 @@ Route::prefix('v1')->group(function (): void {
         Route::post('reset', [ForgotPasswordController::class, 'reset']);
     });
 
-    Route::prefix('auth')->middleware('auth:sanctum')->group(function (): void {
+    Route::prefix('auth')->middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
     });
 
-    Route::prefix('me')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    Route::prefix('me')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
         Route::patch('/', [ProfileController::class, 'update']);
         Route::post('avatar', [ProfileController::class, 'uploadAvatar']);
         Route::post('cover', [ProfileController::class, 'uploadCover']);
     });
 
-    Route::prefix('posts')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    Route::prefix('posts')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
         Route::get('/', [PostController::class, 'index']);
         Route::post('/', [PostController::class, 'store']);
         Route::get('me', [PostController::class, 'mine']);
@@ -60,8 +64,8 @@ Route::prefix('v1')->group(function (): void {
         Route::post('{post}/comments', [PostInteractionController::class, 'storeComment']);
     });
 
-    Route::prefix('hashtags')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
-        Route::get('search', [HashtagController::class, 'search']);
+    Route::prefix('hashtags')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
+        Route::get('search', [HashtagController::class, 'search'])->middleware('throttle:search');
         Route::get('{name}', [HashtagController::class, 'show']);
     });
 
@@ -71,24 +75,41 @@ Route::prefix('v1')->group(function (): void {
         Route::match(['get', 'head'], '{song}/stream', [SongController::class, 'stream'])->whereNumber('song');
     });
 
-    Route::prefix('songs')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    Route::prefix('songs')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
         Route::get('/', [SongController::class, 'index']);
         Route::get('search', [SongController::class, 'searchMusic']);
         Route::post('import', [SongController::class, 'importMusic']);
         Route::get('gifs', [SongController::class, 'searchGifs']);
     });
 
-    Route::prefix('chat')->middleware(['auth:sanctum', 'throttle:chat'])->group(function (): void {
+    Route::prefix('chat')->middleware(['auth:sanctum', 'active', 'throttle:chat'])->group(function (): void {
         Route::get('unread-total', [ChatUnreadController::class, 'total']);
+        Route::post('presence', [ChatPresenceController::class, 'heartbeat']);
+        Route::get('entitlements', [ChatEntitlementController::class, 'index']);
 
         Route::get('conversations', [ConversationController::class, 'index']);
+
+        // Not feature-gated at the route: creating a group, or a DM with
+        // someone you follow, must stay free. The entitlement is checked inside
+        // startDm, only on the branch that would create a request.
         Route::post('conversations', [ConversationController::class, 'store']);
         Route::get('conversations/{conversation}', [ConversationController::class, 'show'])->whereNumber('conversation');
         Route::patch('conversations/{conversation}', [ConversationController::class, 'update'])->whereNumber('conversation');
+        Route::patch('conversations/{conversation}/personalize', [ConversationController::class, 'personalize'])
+            ->middleware('chat.feature:chat_nickname')
+            ->whereNumber('conversation');
+
+        // Message requests: a DM from a non-follower waits here until the
+        // recipient accepts or deletes it.
+        Route::post('conversations/{conversation}/request/accept', [ConversationController::class, 'acceptRequest'])->whereNumber('conversation');
+        Route::delete('conversations/{conversation}/request', [ConversationController::class, 'destroyRequest'])->whereNumber('conversation');
 
         Route::get('conversations/{conversation}/messages', [ChatMessageController::class, 'index'])->whereNumber('conversation');
         Route::post('conversations/{conversation}/messages', [ChatMessageController::class, 'store'])->whereNumber('conversation');
         Route::delete('conversations/{conversation}/messages/{message}', [ChatMessageController::class, 'destroy'])->whereNumber(['conversation', 'message']);
+        Route::post('conversations/{conversation}/drawings', [ChatDrawingController::class, 'store'])
+            ->middleware('chat.feature:chat_drawing')
+            ->whereNumber('conversation');
         Route::post('conversations/{conversation}/messages/{message}/reactions', [ChatReactionController::class, 'store'])->whereNumber(['conversation', 'message']);
         Route::delete('conversations/{conversation}/messages/{message}/reactions', [ChatReactionController::class, 'destroy'])->whereNumber(['conversation', 'message']);
         Route::post('conversations/{conversation}/read', [ChatMessageController::class, 'read'])->whereNumber('conversation');
@@ -108,8 +129,12 @@ Route::prefix('v1')->group(function (): void {
         Route::post('groups/{conversation}/thread/entries/{entry}/reactions', [ThreadController::class, 'toggleReaction'])->whereNumber(['conversation', 'entry']);
     });
 
-    Route::prefix('users')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
-        Route::get('search', [UserController::class, 'search']);
+    Route::prefix('users')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
+        Route::get('search', [UserController::class, 'search'])->middleware('throttle:search');
+        // Static, reach-ordered discovery + opt-in phone matching. Declared
+        // before `{user}` so the literal paths are never captured as a user.
+        Route::get('top', [UserDiscoveryController::class, 'top'])->middleware('throttle:search');
+        Route::post('match-contacts', [UserDiscoveryController::class, 'matchContacts'])->middleware('throttle:search');
         Route::get('{user}', [UserController::class, 'show']);
         Route::get('{user}/posts', [UserController::class, 'posts']);
         Route::get('{user}/followers', [UserController::class, 'followers']);
@@ -118,19 +143,19 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('{user}/follow', [UserController::class, 'unfollow']);
     });
 
-    Route::prefix('notifications')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    Route::prefix('notifications')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
         Route::get('/', [NotificationController::class, 'index']);
         Route::get('unread-count', [NotificationController::class, 'unreadCount'])->middleware('throttle:notifications');
         Route::post('read', [NotificationController::class, 'markAllRead']);
     });
 
-    Route::prefix('stories')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    Route::prefix('stories')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
         Route::get('/', [StoryController::class, 'index']);
         Route::post('/', [StoryController::class, 'store']);
         Route::delete('{story}', [StoryController::class, 'destroy']);
     });
 
-    Route::prefix('subscriptions')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    Route::prefix('subscriptions')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
         Route::get('tiers', [SubscriptionController::class, 'tiers']);
         Route::post('verify', [SubscriptionController::class, 'verify']);
         Route::post('checkout', [SubscriptionController::class, 'checkout']);
@@ -141,7 +166,7 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('{subscription}', [SubscriptionController::class, 'destroy'])->whereNumber('subscription');
     });
 
-    Route::prefix('admin/subscriptions')->middleware(['auth:sanctum', 'admin', 'throttle:api'])->group(function (): void {
+    Route::prefix('admin/subscriptions')->middleware(['auth:sanctum', 'active', 'admin', 'throttle:api'])->group(function (): void {
         Route::get('stats', [SubscriptionAdminController::class, 'stats']);
         Route::get('/', [SubscriptionAdminController::class, 'index']);
         Route::post('{subscription}/approve', [SubscriptionAdminController::class, 'approve'])->whereNumber('subscription');

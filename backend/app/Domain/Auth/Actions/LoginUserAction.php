@@ -7,6 +7,8 @@ namespace App\Domain\Auth\Actions;
 use App\Domain\Auth\Contracts\AuthRepository;
 use App\Domain\Auth\Data\AuthUserResult;
 use App\Domain\Auth\Data\LoginData;
+use App\Domain\Auth\Enums\UserStatus;
+use App\Domain\Auth\Exceptions\AccountDisabledException;
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Domain\Auth\Models\User;
 use App\Domain\Auth\Services\TokenIssuer;
@@ -24,6 +26,12 @@ final class LoginUserAction
         $user = $this->repository->findByIdentifier($data->identifier);
 
         $this->assertCredentialsValid($user, $data->password);
+
+        // Suspended/banned accounts must not be able to mint a fresh token.
+        if ($user !== null && $user->status !== UserStatus::Active) {
+            $user->tokens()->delete();
+            throw new AccountDisabledException($user);
+        }
 
         $user->forceFill(['last_seen_at' => now()])->saveQuietly();
 

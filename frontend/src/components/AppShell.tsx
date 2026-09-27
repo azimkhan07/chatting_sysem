@@ -33,7 +33,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1">
-        <aside className="hidden w-60 shrink-0 flex-col border-r border-white/5 p-4 md:flex">
+        <aside className="no-scrollbar hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-white/5 p-4 md:flex">
           <div className="px-2">
             <BrandMark compact />
           </div>
@@ -92,7 +92,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
         <main
           className={
             isChat
-              ? 'flex min-w-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0'
+              ? 'chat-fill flex min-w-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0'
               : 'no-scrollbar min-w-0 flex-1 overflow-y-auto'
           }
         >
@@ -119,7 +119,7 @@ export default function AppShell({ nav, children }: AppShellProps) {
               transition={{ duration: 0.25, ease: 'easeOut' }}
               className={
                 isChat
-                  ? 'flex min-h-0 flex-1 flex-col'
+                  ? 'chat-fill flex min-h-0 flex-1 flex-col overflow-hidden'
                   : 'w-full px-4 pb-28 pt-4 md:px-6 md:pb-8'
               }
             >

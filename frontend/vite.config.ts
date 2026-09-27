@@ -18,6 +18,12 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+      // The API returns root-relative media URLs, so uploads stay reachable from
+      // the dev server without baking an API host into the response.
+      '/storage': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
     },
   },
 })

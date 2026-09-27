@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use App\Domain\Chat\Enums\MessageReactionType;
 use App\Domain\Chat\Models\ConversationMessage;
+use App\Support\Media\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -23,7 +24,7 @@ final class MessageResource extends JsonResource
                 'id' => $this->user->id,
                 'username' => $this->user->username,
                 'display_name' => $this->user->display_name,
-                'avatar_url' => $this->user->avatar_path !== null ? asset('storage/'.$this->user->avatar_path) : null,
+                'avatar_url' => MediaUrl::ofNullable($this->user->avatar_path),
                 'is_verified' => $this->user->is_verified,
             ] : null,
             'type' => $this->type->value,
@@ -119,9 +120,7 @@ final class MessageResource extends JsonResource
                 'id' => (int) $member->user->id,
                 'username' => $member->user->username,
                 'display_name' => $member->user->display_name,
-                'avatar_url' => $member->user->avatar_path !== null
-                    ? asset('storage/'.$member->user->avatar_path)
-                    : null,
+                'avatar_url' => MediaUrl::ofNullable($member->user->avatar_path),
             ])
             ->all();
     }

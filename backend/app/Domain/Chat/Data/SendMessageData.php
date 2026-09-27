@@ -12,5 +12,11 @@ final readonly class SendMessageData
         public MessageType $type,
         public ?string $body,
         public ?string $clientId,
+        /**
+         * Remote or CDN URL for image/video/gif/drawing payloads. Null for text.
+         * This used to be hard-coded to null in the service, which silently made
+         * every non-text message type unreachable.
+         */
+        public ?string $mediaUrl = null,
     ) {}
 }

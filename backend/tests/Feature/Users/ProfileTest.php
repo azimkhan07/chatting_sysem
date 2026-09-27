@@ -8,6 +8,7 @@ use App\Domain\Auth\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\FakeMedia;
 use Tests\TestCase;
 
 final class ProfileTest extends TestCase
@@ -77,7 +78,7 @@ final class ProfileTest extends TestCase
         [, $headers] = $this->authenticatedHeader();
 
         $response = $this->postJson('/api/v1/me/avatar', [
-            'image' => UploadedFile::fake()->create('avatar.jpg', 60, 'image/jpeg'),
+            'image' => FakeMedia::png(512, 512, 0, 'avatar.png'),
         ], $headers);
 
         $avatarUrl = $response->json('data.user.avatar_url');
@@ -96,7 +97,7 @@ final class ProfileTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $this->postJson('/api/v1/me/avatar', [
-            'image' => UploadedFile::fake()->create('avatar.jpg', 60, 'image/jpeg'),
+            'image' => FakeMedia::png(512, 512, 0, 'avatar.png'),
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk();
 
@@ -109,13 +110,29 @@ final class ProfileTest extends TestCase
         [$user, $headers] = $this->authenticatedHeader();
 
         $response = $this->postJson('/api/v1/me/cover', [
-            'image' => UploadedFile::fake()->create('cover.png', 120, 'image/png'),
+            'image' => FakeMedia::png(1200, 400, 0, 'cover.png'),
         ], $headers);
 
         $response->assertOk()
             ->assertJsonPath('data.user.cover_url', fn ($url) => is_string($url));
 
         $this->assertNotEmpty($user->refresh()->cover_path);
+    }
+
+    public function test_uploading_cover_replaces_the_previous_file(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('covers/old.png', 'old');
+
+        $user = User::factory()->create(['cover_path' => 'covers/old.png']);
+        $token = $user->createToken('test')->plainTextToken;
+
+        $this->postJson('/api/v1/me/cover', [
+            'image' => FakeMedia::png(1200, 400, 0, 'cover.png'),
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk();
+
+        Storage::disk('public')->assertMissing('covers/old.png');
     }
 
     public function test_image_upload_rejects_non_image_files(): void
@@ -128,5 +145,32 @@ final class ProfileTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('errors.0.code', 'VALIDATION_ERROR')
             ->assertJsonPath('errors.0.field', 'image');
+    }
+
+    public function test_image_upload_rejects_undersized_images(): void
+    {
+        [, $headers] = $this->authenticatedHeader();
+
+        $this->postJson('/api/v1/me/avatar', [
+            'image' => FakeMedia::png(32, 32, 0, 'tiny.png'),
+        ], $headers)
+            ->assertStatus(422)
+            ->assertJsonPath('errors.0.code', 'VALIDATION_ERROR')
+            ->assertJsonPath('errors.0.field', 'image');
+    }
+
+    public function test_image_upload_rejects_oversized_pixels(): void
+    {
+        Storage::fake('public');
+        [, $headers] = $this->authenticatedHeader();
+
+        $this->postJson('/api/v1/me/avatar', [
+            'image' => FakeMedia::png(9000, 9000, 0, 'huge.png'),
+        ], $headers)
+            ->assertStatus(422)
+            ->assertJsonPath('errors.0.code', 'VALIDATION_ERROR')
+            ->assertJsonPath('errors.0.field', 'image');
+
+        $this->assertEmpty(Storage::disk('public')->files('avatars'));
     }
 }

@@ -7,9 +7,9 @@ namespace App\Http\Resources;
 use App\Domain\Threads\Enums\ThreadReactionType;
 use App\Domain\Threads\Models\ThreadEntry;
 use App\Domain\Threads\Models\ThreadReaction;
+use App\Support\Media\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * @mixin ThreadEntry
@@ -44,14 +44,10 @@ final class ThreadEntryResource extends JsonResource
                 'id' => $this->author->id,
                 'username' => $this->author->username,
                 'display_name' => $this->author->display_name,
-                'avatar_url' => $this->author->avatar_path !== null
-                    ? asset('storage/'.$this->author->avatar_path)
-                    : null,
+                'avatar_url' => MediaUrl::ofNullable($this->author->avatar_path),
             ]),
             'body' => $this->body,
-            'media_url' => $this->media_path !== null
-                ? Storage::disk('public')->url($this->media_path)
-                : null,
+            'media_url' => MediaUrl::ofNullable($this->media_path),
             'media_type' => $this->media_type,
             'reactions' => $totals,
             'my_reaction' => $myReaction,

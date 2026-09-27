@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -10,13 +10,14 @@ import { commentsApi, postsApi } from '@/lib/api'
 import { userProfile } from '@/lib/paths'
 import { timeAgo } from '@/lib/time'
 import { useAuthStore } from '@/stores/authStore'
-import type { Post } from '@/types/post'
+import type { Comment, Post } from '@/types/post'
 
 const ACTION_BASE =
   'grid h-10 w-10 place-items-center rounded-full bg-black/40 text-[#fff] backdrop-blur transition active:scale-90'
 
 export default function ReelCard({ post }: { post: Post }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const sessionUser = useAuthStore((state) => state.user)
   const videoRef = useRef<HTMLVideoElement>(null)
   const cardRef = useRef<HTMLElement>(null)
@@ -24,9 +25,11 @@ export default function ReelCard({ post }: { post: Post }) {
   const [playing, setPlaying] = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [commentBody, setCommentBody] = useState('')
+  const [replyTo, setReplyTo] = useState<Comment | null>(null)
   const [copied, setCopied] = useState(false)
   const [liked, setLiked] = useState(post.liked_by_me)
   const [likesCount, setLikesCount] = useState(post.likes_count)
+  const [sharesCount, setSharesCount] = useState(post.shares_count)
 
   const video = post.media.find((item) => item.type === 'video')
 
@@ -60,8 +63,21 @@ export default function ReelCard({ post }: { post: Post }) {
   const toggleLike = useMutation({
     mutationFn: () => (liked ? postsApi.unlike(post.id) : postsApi.like(post.id)),
     onMutate: () => {
+      const previous = { liked, count: likesCount }
       setLiked((value) => !value)
       setLikesCount((count) => count + (liked ? -1 : 1))
+      return previous
+    },
+    // Snap to the server counters so a replayed request cannot inflate the badge.
+    onSuccess: (result) => {
+      setLiked(result.liked)
+      setLikesCount(result.likes_count)
+    },
+    onError: (_error, _vars, rollback) => {
+      if (rollback) {
+        setLiked(rollback.liked)
+        setLikesCount(rollback.count)
+      }
     },
   })
 
@@ -74,9 +90,48 @@ export default function ReelCard({ post }: { post: Post }) {
   const comments = commentsQuery.data?.comments ?? []
 
   const postComment = useMutation({
-    mutationFn: (body: string) => commentsApi.create(post.id, body),
-    onSuccess: (_result) => {
+    mutationFn: ({ body, parentId }: { body: string; parentId?: number }) =>
+      commentsApi.create(post.id, body, parentId),
+    onSuccess: (result, variables) => {
       setCommentBody('')
+      setReplyTo(null)
+      queryClient.setQueryData<{ comments: Comment[] }>(['comments', post.id], (current) => {
+        const comments = current?.comments ?? []
+
+        if (variables.parentId === undefined) {
+          return { comments: [result.comment, ...comments] }
+        }
+
+        return {
+          comments: comments.map((comment) =>
+            comment.id === variables.parentId
+              ? {
+                  ...comment,
+                  reply_count: comment.reply_count + 1,
+                  replies:
+                    comment.replies.length >= 3
+                      ? comment.replies
+                      : [...comment.replies, result.comment],
+                }
+              : comment,
+          ),
+        }
+      })
+    },
+  })
+
+  const share = useMutation({
+    mutationFn: () => postsApi.share(post.id),
+    onMutate: () => {
+      const previous = { count: sharesCount }
+      setSharesCount((count) => count + 1)
+      return previous
+    },
+    onSuccess: (result) => {
+      setSharesCount(result.shares_count)
+    },
+    onError: (_error, _vars, rollback) => {
+      if (rollback) setSharesCount(rollback.count)
     },
   })
 
@@ -85,6 +140,7 @@ export default function ReelCard({ post }: { post: Post }) {
     try {
       if (navigator.share) {
         await navigator.share({ title: 'amteCHAT reel', text: post.body, url })
+        share.mutate()
         return
       }
     } catch {
@@ -93,6 +149,7 @@ export default function ReelCard({ post }: { post: Post }) {
     await navigator.clipboard.writeText(url)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1500)
+    share.mutate()
   }
 
   return (
@@ -146,8 +203,11 @@ export default function ReelCard({ post }: { post: Post }) {
         <div className="absolute right-2 bottom-24 z-10 flex flex-col items-center gap-3">
           <button
             type="button"
-            onClick={() => toggleLike.mutate()}
-            className={ACTION_BASE}
+            onClick={() => {
+              if (!toggleLike.isPending) toggleLike.mutate()
+            }}
+            disabled={toggleLike.isPending}
+            className={`${ACTION_BASE} disabled:cursor-not-allowed disabled:opacity-60`}
             aria-label={liked ? 'Unlike reel' : 'Like reel'}
           >
             <HeartIcon
@@ -172,12 +232,18 @@ export default function ReelCard({ post }: { post: Post }) {
 
           <button
             type="button"
-            onClick={() => void handleShare()}
-            className={ACTION_BASE}
+            onClick={() => {
+              if (!share.isPending) void handleShare()
+            }}
+            disabled={share.isPending}
+            className={`${ACTION_BASE} disabled:cursor-not-allowed disabled:opacity-60`}
             aria-label="Share reel"
           >
             <ShareIcon className="h-5 w-5" />
           </button>
+          <span className="text-[10px] font-semibold text-[#fff]">
+            {sharesCount > 0 ? sharesCount.toLocaleString() : ''}
+          </span>
           {copied ? <span className="text-[9px] text-[#fff]">Copied!</span> : null}
         </div>
 
@@ -219,10 +285,14 @@ export default function ReelCard({ post }: { post: Post }) {
                     event.preventDefault()
                     const body = commentBody.trim()
                     if (!body || postComment.isPending) return
-                    postComment.mutate(body)
+                    postComment.mutate(
+                      replyTo === null ? { body } : { body, parentId: replyTo.id },
+                    )
                   }}
                   posting={postComment.isPending}
                   loading={commentsQuery.isPending}
+                  replyTo={replyTo}
+                  onReplyTo={setReplyTo}
                 />
               </motion.div>
             ) : null}

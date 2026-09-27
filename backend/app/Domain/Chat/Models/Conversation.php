@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Chat\Models;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Chat\Enums\ConversationState;
 use App\Domain\Chat\Enums\ConversationType;
 use Database\Factories\ConversationFactory;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,6 +19,8 @@ use Illuminate\Support\Carbon;
 /**
  * @property-read int $id
  * @property-read ConversationType $type
+ * @property ConversationState $state
+ * @property int|null $requested_by
  * @property-read string|null $name
  * @property-read int $created_by
  * @property-read Collection<int, ConversationMember> $members
@@ -39,12 +42,25 @@ final class Conversation extends Model
     }
 
     /**
+     * A new conversation is an active chat unless a caller explicitly opens it
+     * as a message request. Defaulting here means every creation path — service,
+     * factory, seeder — has a state without repeating it.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'state' => ConversationState::Active->value,
+    ];
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
         'type',
+        'state',
         'name',
         'created_by',
+        'requested_by',
     ];
 
     /**
@@ -54,6 +70,7 @@ final class Conversation extends Model
     {
         return [
             'type' => ConversationType::class,
+            'state' => ConversationState::class,
         ];
     }
 

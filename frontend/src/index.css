@@ -106,7 +106,13 @@ html {
 body {
   @apply bg-midnight-950 text-slate-100 antialiased;
   font-family: var(--font-sans);
-  height: 100svh;
+  /*
+   * `height: 100%` (not 100svh) on purpose: the app shell below is what pins
+   * itself to the viewport. svh on body clipped the app on desktop, and a
+   * fixed pixel min-height on the chat column is what forced the old
+   * `min-height: 550px` hack — this chain never needs one.
+   */
+  height: 100%;
   margin: 0;
   overflow: hidden;
 }
@@ -215,8 +221,24 @@ body {
   }
 
   .app-shell {
+    /*
+     * dvh tracks the real visible area, so the chat fills the screen on a
+     * desktop, a phone, and while the on-screen keyboard is open. vh is the
+     * fallback for browsers without dvh; svh is deliberately not used as the
+     * final value because it is the *smallest* viewport and would leave a gap.
+     */
     height: 100vh;
-    height: 100svh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /*
+   * Chat is the one screen that must never be sized by its content. Every
+   * flex level in the chain gets min-height: 0 so the only element that
+   * scrolls is the message list — no fixed min-height required.
+   */
+  .chat-fill {
+    min-height: 0;
   }
 
   .input-field {

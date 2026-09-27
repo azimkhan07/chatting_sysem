@@ -215,6 +215,42 @@ final class EloquentChatRepository implements ChatRepository
         $conversation->members()->where('user_id', $userId)->delete();
     }
 
+    public function deleteConversation(Conversation $conversation): void
+    {
+        // Children cascade in the database; this only clears the Redis
+        // projections that would otherwise outlive the row.
+        $this->inboxCache->forgetLast($conversation->id);
+        $conversation->delete();
+    }
+
+    /**
+     * @param  list<int>  $userIds
+     * @return list<array{user_id: int, conversation_id: int, type: string}>
+     */
+    public function membershipsFor(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('conversation_members as members')
+            ->join('conversations as conversations', 'conversations.id', '=', 'members.conversation_id')
+            ->whereIn('members.user_id', $userIds)
+            ->select('members.user_id', 'members.conversation_id', 'conversations.type')
+            ->get();
+
+        $memberships = [];
+        foreach ($rows as $row) {
+            $memberships[] = [
+                'user_id' => (int) $row->user_id,
+                'conversation_id' => (int) $row->conversation_id,
+                'type' => (string) $row->type,
+            ];
+        }
+
+        return $memberships;
+    }
+
     public function validInviteFor(int $conversationId): ?GroupInvite
     {
         return GroupInvite::query()

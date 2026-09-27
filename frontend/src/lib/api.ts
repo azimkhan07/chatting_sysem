@@ -1,10 +1,12 @@
 import type {
+  ChatEntitlements,
   ChatMessagesPage,
   ChatUnreadTotal,
   Conversation,
   ConversationMessage,
   MessageReactionName,
   MessageReactionResult,
+  PresenceHeartbeat,
 } from '@/types/chat'
 import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
@@ -26,20 +28,34 @@ const ADMIN_STORAGE_KEY = 'amtechat.admin'
 interface ApiEnvelope<T> {
   data: T | null
   meta: { request_id: string }
-  errors: { code: string; message: string; field?: string }[]
+  errors: {
+    code: string
+    message: string
+    field?: string
+    /** Structured context, e.g. which chat feature is locked. */
+    details?: Record<string, unknown>
+  }[]
 }
 
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
   readonly field?: string
+  readonly details?: Record<string, unknown>
 
-  constructor(status: number, code: string, message: string, field?: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    field?: string,
+    details?: Record<string, unknown>,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.field = field
+    this.details = details
   }
 }
 
@@ -80,6 +96,7 @@ function makeApi(readTokenFn: TokenReader) {
         error?.code ?? 'UNEXPECTED_ERROR',
         error?.message ?? 'Something went wrong. Please try again.',
         error?.field,
+        error?.details,
       )
     }
 
@@ -196,8 +213,11 @@ export const commentsApi = {
     api.get<CommentsPage>(
       `/posts/${postId}/comments?limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
     ),
-  create: (postId: number, body: string) =>
-    api.post<{ comment: Comment }>(`/posts/${postId}/comments`, { body }),
+  create: (postId: number, body: string, parentId?: number) =>
+    api.post<{ comment: Comment }>(`/posts/${postId}/comments`, {
+      body,
+      ...(parentId === undefined ? {} : { parent_id: parentId }),
+    }),
 }
 
 export const passwordApi = {
@@ -218,6 +238,15 @@ export const usersApi = {
   search: (query: string) =>
     api.get<{ users: User[] }>(
       `/users/search?query=${encodeURIComponent(query)}`,
+    ),
+  /** Reach-ordered accounts the viewer does not follow yet. */
+  top: (limit = 8) =>
+    api.get<{ users: User[] }>(`/users/top?limit=${limit}`),
+  /** Opt-in phone matching; nothing is stored server-side. */
+  matchContacts: (contacts: string[]) =>
+    api.post<{ users: User[]; matched: number; checked: number }>(
+      '/users/match-contacts',
+      { contacts },
     ),
   postsOf: (identifier: string | number, cursor?: string) =>
     api.get<FeedPage>(
@@ -348,6 +377,7 @@ export const subscriptionsApi = {
 
 export const chatApi = {
   conversations: () => api.get<{ conversations: Conversation[] }>('/chat/conversations'),
+  entitlements: () => api.get<ChatEntitlements>('/chat/entitlements'),
   show: (conversationId: number) =>
     api.get<{ conversation: Conversation }>(`/chat/conversations/${conversationId}`),
   startDm: (userId: number) =>
@@ -374,6 +404,31 @@ export const chatApi = {
       `/chat/conversations/${conversationId}/messages`,
       { type: 'text', body, client_id: clientId },
     ),
+  sendMedia: (conversationId: number, type: 'gif' | 'drawing', mediaUrl: string, body?: string) =>
+    api.post<{ message: ConversationMessage }>(
+      `/chat/conversations/${conversationId}/messages`,
+      { type, media_url: mediaUrl, body: body ?? null },
+    ),
+  uploadDrawing: (conversationId: number, blob: Blob) => {
+    const data = new FormData()
+    data.append('drawing', blob, 'drawing.png')
+    return api.postForm<{ media_url: string; mime: string }>(
+      `/chat/conversations/${conversationId}/drawings`,
+      data,
+    )
+  },
+  acceptRequest: (conversationId: number) =>
+    api.post<{ conversation: Conversation }>(
+      `/chat/conversations/${conversationId}/request/accept`,
+      {},
+    ),
+  deleteRequest: (conversationId: number) =>
+    api.delete<null>(`/chat/conversations/${conversationId}/request`),
+  personalize: (conversationId: number, personalization: { nickname?: string | null; wallpaper_key?: string | null }) =>
+    api.patch<{ conversation: Conversation }>(
+      `/chat/conversations/${conversationId}/personalize`,
+      personalization,
+    ),
   markRead: (conversationId: number, upToMessageId: number) =>
     api.post<{ read_up_to: number; unread: number }>(
       `/chat/conversations/${conversationId}/read`,
@@ -399,6 +454,7 @@ export const chatApi = {
   deleteMessage: (conversationId: number, messageId: number) =>
     api.delete<null>(`/chat/conversations/${conversationId}/messages/${messageId}`),
   unreadTotal: () => api.get<ChatUnreadTotal>('/chat/unread-total'),
+  presence: () => api.post<PresenceHeartbeat>('/chat/presence', {}),
 }
 
 export const threadsApi = {

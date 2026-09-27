@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Spinner } from '@/components/AuthLayout'
 import EditProfileModal from '@/components/EditProfileModal'
+import UserListModal from '@/components/UserListModal'
 import { postsApi, usersApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import type { Post } from '@/types/post'
@@ -12,6 +13,7 @@ export default function Profile() {
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const [loadMoreVisible, setLoadMoreVisible] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [listOpen, setListOpen] = useState<'followers' | 'following' | null>(null)
 
   const profileQuery = useQuery({
     queryKey: ['user', 'profile', user?.username],
@@ -113,18 +115,30 @@ export default function Profile() {
             </p>
             <p className="text-xs text-slate-500">Posts</p>
           </div>
-          <div>
+          <button
+            type="button"
+            onClick={() => setListOpen('followers')}
+            disabled={user === undefined}
+            className="rounded-xl py-1 transition hover:bg-white/5 disabled:opacity-60"
+            aria-label={`View ${counts?.followers_count ?? 0} followers`}
+          >
             <p className="text-lg font-extrabold text-white">
               {(counts?.followers_count ?? 0).toLocaleString()}
             </p>
             <p className="text-xs text-slate-500">Followers</p>
-          </div>
-          <div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setListOpen('following')}
+            disabled={user === undefined}
+            className="rounded-xl py-1 transition hover:bg-white/5 disabled:opacity-60"
+            aria-label={`View ${counts?.following_count ?? 0} following`}
+          >
             <p className="text-lg font-extrabold text-white">
               {(counts?.following_count ?? 0).toLocaleString()}
             </p>
             <p className="text-xs text-slate-500">Following</p>
-          </div>
+          </button>
         </div>
 
         <button
@@ -137,6 +151,13 @@ export default function Profile() {
       </header>
 
       {editModalOpen ? <EditProfileModal onClose={() => setEditModalOpen(false)} /> : null}
+      {listOpen && user ? (
+        <UserListModal
+          identifier={user.username}
+          kind={listOpen}
+          onClose={() => setListOpen(null)}
+        />
+      ) : null}
 
       <div className="space-y-1">
         <h2 className="px-1 text-sm font-bold text-slate-300">Your posts</h2>

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -37,10 +38,25 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+
+    /**
+     * New accounts are active and unverified. `status` and `is_verified` are
+     * not fillable, so this default is what keeps registration from needing to
+     * pass them — and what stops a request payload from setting them.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => UserStatus::Active->value,
+        'is_verified' => false,
+    ];
 
     /**
      * The attributes that are mass assignable.
+     *
+     * `is_verified` and `status` are deliberately absent: they are privilege
+     * columns driven by the subscription/admin flows, never by user input.
      *
      * @var list<string>
      */
@@ -53,8 +69,6 @@ class User extends Authenticatable
         'password',
         'avatar_path',
         'cover_path',
-        'is_verified',
-        'status',
         'last_seen_at',
     ];
 

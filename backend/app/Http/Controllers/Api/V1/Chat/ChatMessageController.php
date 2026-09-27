@@ -49,6 +49,7 @@ final class ChatMessageController extends Controller
                 type: MessageType::from($request->validated('type', 'text')),
                 body: $request->validated('body'),
                 clientId: $request->validated('client_id'),
+                mediaUrl: $request->validated('media_url'),
             ),
         );
 

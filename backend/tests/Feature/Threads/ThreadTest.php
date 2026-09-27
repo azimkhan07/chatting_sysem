@@ -15,15 +15,17 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\SubscribesUsers;
 use Tests\TestCase;
 
 final class ThreadTest extends TestCase
 {
     use RefreshDatabase;
+    use SubscribesUsers;
 
     private function asUser(User $user): static
     {
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($this->subscribe($user));
 
         return $this;
     }

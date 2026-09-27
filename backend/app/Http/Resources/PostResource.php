@@ -18,9 +18,13 @@ final class PostResource extends JsonResource
             'body' => $this->body,
             'author' => new UserResource($this->whenLoaded('user', $this->user)),
             'media' => PostMediaResource::collection($this->relationLoaded('media') ? $this->media : collect()),
-            'hashtags' => $this->relationLoaded('hashtags')
-                ? $this->hashtags->pluck('name')->values()->all()
-                : [],
+            // Only present when a caller explicitly eager loads them: feed
+            // queries skip the relation because it costs a query per page and
+            // no client reads it, so returning a fake empty list would lie.
+            'hashtags' => $this->whenLoaded(
+                'hashtags',
+                fn (): array => $this->hashtags->pluck('name')->values()->all(),
+            ),
             'likes_count' => (int) ($this->likes_count ?? 0),
             'comments_count' => (int) ($this->comments_count ?? 0),
             'shares_count' => (int) ($this->shares_count ?? 0),

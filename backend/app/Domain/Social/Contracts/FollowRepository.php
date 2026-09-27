@@ -25,4 +25,12 @@ interface FollowRepository
     public function followerCount(int $userId): int;
 
     public function followingCount(int $userId): int;
+
+    /**
+     * True when the two users share a follow edge in either direction.
+     *
+     * Chat uses this to decide whether a DM should open as a real conversation
+     * or land in the recipient's message requests.
+     */
+    public function connected(int $firstUserId, int $secondUserId): bool;
 }

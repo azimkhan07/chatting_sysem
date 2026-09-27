@@ -20,3 +20,11 @@ export function timeAgo(iso: string): string {
     month: 'short',
   })
 }
+
+/** Wall-clock time of day, for message and receipt timestamps. */
+export function clockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}

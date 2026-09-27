@@ -15,7 +15,7 @@ final class UserSearchTest extends TestCase
 
     public function test_search_returns_matching_users_by_username(): void
     {
-        $viewer = User::factory()->create();
+        $viewer = User::factory()->create(['username' => 'zz_viewer']);
         $alice = User::factory()->create(['username' => 'alice_wonder']);
         $mallory = User::factory()->create(['username' => 'mal_ice']);
 
@@ -29,7 +29,9 @@ final class UserSearchTest extends TestCase
 
     public function test_search_matches_display_name_and_prioritises_prefix_hits(): void
     {
-        $viewer = User::factory()->create();
+        // Usernames are pinned: a random factory name can contain "may" and
+        // would break the expected result count.
+        $viewer = User::factory()->create(['username' => 'zz_viewer']);
         $prefix = User::factory()->create(['username' => 'may', 'display_name' => 'Maya Rose']);
         $middle = User::factory()->create(['username' => 'mayra', 'display_name' => 'Amy Tan']);
 
@@ -50,7 +52,7 @@ final class UserSearchTest extends TestCase
 
         $this->getJson('/api/v1/users/search?query=friend')->assertStatus(401);
 
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['username' => 'zz_viewer']));
 
         $this->getJson('/api/v1/users/search?query=friend')
             ->assertOk()

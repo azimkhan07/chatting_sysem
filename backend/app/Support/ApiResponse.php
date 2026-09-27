@@ -18,7 +18,11 @@ final class ApiResponse
         ], $status);
     }
 
-    public static function error(string $code, string $message, int $status, ?string $field = null): JsonResponse
+    /**
+     * @param  array<string, mixed>  $details  machine-readable extras for the
+     *                                         client, e.g. the locked feature key
+     */
+    public static function error(string $code, string $message, int $status, ?string $field = null, array $details = []): JsonResponse
     {
         $error = [
             'code' => $code,
@@ -27,6 +31,10 @@ final class ApiResponse
 
         if ($field !== null) {
             $error['field'] = $field;
+        }
+
+        if ($details !== []) {
+            $error['details'] = $details;
         }
 
         return response()->json([

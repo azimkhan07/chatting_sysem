@@ -6,23 +6,24 @@ namespace App\Domain\Posts\Services;
 
 use App\Domain\Posts\Enums\PostMediaType;
 use App\Domain\Posts\Exceptions\InvalidPostMediaException;
+use App\Support\Media\MediaInspector;
+use App\Support\Media\MediaKind;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
 final class PostMediaProcessor
 {
-    private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-
-    private const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov'];
-
     private const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 
     private const VIDEO_MAX_BYTES = 100 * 1024 * 1024;
 
     private const MAX_ITEMS = 5;
 
-    public function __construct(private readonly FilesystemFactory $filesystem) {}
+    public function __construct(
+        private readonly FilesystemFactory $filesystem,
+        private readonly MediaInspector $inspector,
+    ) {}
 
     /**
      * Validates and stores every uploaded file, returning normalized media rows.
@@ -50,21 +51,26 @@ final class PostMediaProcessor
      */
     private function process(int $userId, UploadedFile $file, int $sortOrder): array
     {
-        $extension = strtolower($file->getClientOriginalExtension());
-        $type = $this->resolveType($extension);
+        $media = $this->inspector->describe($file);
 
-        if ($type === PostMediaType::Image) {
-            $this->assertWithinLimit($file, self::IMAGE_MAX_BYTES, 'image');
-            [$width, $height] = $this->readDimensions($file);
-        } else {
-            $this->assertWithinLimit($file, self::VIDEO_MAX_BYTES, 'video');
-            $width = $height = null;
+        if ($media === null) {
+            throw new InvalidPostMediaException(
+                'Unsupported file type. Use an image (jpg, png, webp, gif) or a video (mp4, webm, mov).',
+            );
         }
+
+        $type = $media['kind'] === MediaKind::Image ? PostMediaType::Image : PostMediaType::Video;
+
+        $this->assertWithinLimit(
+            $file,
+            $type === PostMediaType::Image ? self::IMAGE_MAX_BYTES : self::VIDEO_MAX_BYTES,
+            $type->value,
+        );
 
         $path = $this->filesystem->disk('public')->putFileAs(
             "posts/{$userId}",
             $file,
-            Str::uuid()->toString().".{$extension}",
+            Str::uuid()->toString().'.'.$media['extension'],
         );
 
         if ($path === false) {
@@ -74,28 +80,13 @@ final class PostMediaProcessor
         return [
             'type' => $type,
             'file_path' => $path,
-            'mime' => $file->getClientMimeType() ?: 'application/octet-stream',
+            'mime' => $media['mime'],
             'size' => $file->getSize(),
-            'width' => $width,
-            'height' => $height,
+            'width' => $media['width'],
+            'height' => $media['height'],
             'duration' => null,
             'sort_order' => $sortOrder,
         ];
-    }
-
-    private function resolveType(string $extension): PostMediaType
-    {
-        if (in_array($extension, self::IMAGE_EXTENSIONS, true)) {
-            return PostMediaType::Image;
-        }
-
-        if (in_array($extension, self::VIDEO_EXTENSIONS, true)) {
-            return PostMediaType::Video;
-        }
-
-        throw new InvalidPostMediaException(
-            'Unsupported file type. Use an image (jpg, png, webp, gif) or a video (mp4, webm, mov).',
-        );
     }
 
     private function assertWithinLimit(UploadedFile $file, int $maxBytes, string $label): void
@@ -105,19 +96,5 @@ final class PostMediaProcessor
                 "The {$label} is too large (max ".($maxBytes / 1024 / 1024).' MB).',
             );
         }
-    }
-
-    /**
-     * @return array{0: ?int, 1: ?int}
-     */
-    private function readDimensions(UploadedFile $file): array
-    {
-        $info = @getimagesize($file->getPathname());
-
-        if ($info === false) {
-            throw new InvalidPostMediaException('The image appears to be corrupted or invalid.');
-        }
-
-        return [$info[0], $info[1]];
     }
 }

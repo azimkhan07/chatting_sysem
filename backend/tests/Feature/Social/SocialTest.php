@@ -112,6 +112,32 @@ final class SocialTest extends TestCase
             ->assertJsonPath('data.users.0.username', $alice->username);
     }
 
+    public function test_follow_lists_report_whether_the_viewer_follows_each_user(): void
+    {
+        $owner = User::factory()->create();
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        Follow::query()->create(['follower_id' => $alice->id, 'following_id' => $owner->id]);
+        Follow::query()->create(['follower_id' => $bob->id, 'following_id' => $owner->id]);
+        // The viewer already follows alice but not bob.
+        Follow::query()->create(['follower_id' => $owner->id, 'following_id' => $alice->id]);
+
+        Sanctum::actingAs($owner);
+
+        $followers = $this->getJson("/api/v1/users/{$owner->id}/followers")
+            ->assertOk()
+            ->assertJsonCount(2, 'data.users')
+            ->json('data.users');
+
+        $states = collect($followers)->keyBy('username');
+        $this->assertTrue($states[$alice->username]['is_followed_by_me']);
+        $this->assertFalse($states[$bob->username]['is_followed_by_me']);
+
+        $this->getJson("/api/v1/users/{$owner->id}/following")
+            ->assertOk()
+            ->assertJsonPath('data.users.0.is_followed_by_me', true);
+    }
+
     public function test_actor_receives_follow_notification_and_can_read_it(): void
     {
         $follower = User::factory()->create();

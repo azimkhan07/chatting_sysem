@@ -8,6 +8,7 @@ use App\Domain\Chat\Contracts\ChatService;
 use App\Domain\Chat\Enums\ConversationType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Chat\CreateConversationRequest;
+use App\Http\Requests\Api\V1\Chat\PersonalizeConversationRequest;
 use App\Http\Requests\Api\V1\Chat\UpdateConversationRequest;
 use App\Http\Resources\ConversationResource;
 use App\Support\ApiResponse;
@@ -63,5 +64,43 @@ final class ConversationController extends Controller
         );
 
         return ApiResponse::success(data: ['conversation' => (new ConversationResource($conversation))->resolve()]);
+    }
+
+    /**
+     * Accept a pending message request.
+     */
+    public function acceptRequest(Request $request, int $conversation): JsonResponse
+    {
+        $accepted = $this->chatService->acceptRequest($request->user(), $conversation);
+        $accepted->setAttribute('unread_count', 0);
+
+        return ApiResponse::success(
+            data: ['conversation' => (new ConversationResource($accepted))->resolve()],
+        );
+    }
+
+    /**
+     * Reject a pending message request: accept or delete, nothing else.
+     */
+    public function destroyRequest(Request $request, int $conversation): JsonResponse
+    {
+        $this->chatService->deleteRequest($request->user(), $conversation);
+
+        return ApiResponse::success(data: []);
+    }
+
+    /**
+     * Set the viewer's private nickname and wallpaper for this conversation.
+     */
+    public function personalize(PersonalizeConversationRequest $request, int $conversation): JsonResponse
+    {
+        $updated = $this->chatService->personalize(
+            $request->user(),
+            $conversation,
+            $request->validated('nickname'),
+            $request->validated('wallpaper_key'),
+        );
+
+        return ApiResponse::success(data: ['conversation' => (new ConversationResource($updated))->resolve()]);
     }
 }

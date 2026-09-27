@@ -7,13 +7,14 @@ namespace App\Domain\Social\Repositories;
 use App\Domain\Social\Contracts\FollowRepository;
 use App\Domain\Social\Models\Follow;
 use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Database\Eloquent\Builder;
 
 final class EloquentFollowRepository implements FollowRepository
 {
     public function follow(int $followerId, int $followingId): bool
     {
         $follow = Follow::query()
-            ->firstOrCreate([
+            ->createOrFirst([
                 'follower_id' => $followerId,
                 'following_id' => $followingId,
             ]);
@@ -55,5 +56,20 @@ final class EloquentFollowRepository implements FollowRepository
     public function followingCount(int $userId): int
     {
         return (int) Follow::query()->where('follower_id', $userId)->count();
+    }
+
+    public function connected(int $firstUserId, int $secondUserId): bool
+    {
+        return Follow::query()
+            ->where(function (Builder $query) use ($firstUserId, $secondUserId): void {
+                $query
+                    ->where(fn (Builder $arm): Builder => $arm
+                        ->where('follower_id', $firstUserId)
+                        ->where('following_id', $secondUserId))
+                    ->orWhere(fn (Builder $arm): Builder => $arm
+                        ->where('follower_id', $secondUserId)
+                        ->where('following_id', $firstUserId));
+            })
+            ->exists();
     }
 }

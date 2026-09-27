@@ -1,16 +1,21 @@
 <?php
 
+use App\Domain\Auth\Exceptions\AccountDisabledException;
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Domain\Auth\Exceptions\UsernameTakenException;
 use App\Domain\Billing\Exceptions\SubscriptionNotAllowedException;
 use App\Domain\Chat\Exceptions\ConversationNotFoundException;
 use App\Domain\Chat\Exceptions\ConversationPermissionException;
+use App\Domain\Chat\Exceptions\FeatureLockedException;
 use App\Domain\Chat\Exceptions\InvalidConversationException;
+use App\Domain\Posts\Exceptions\InvalidCommentException;
 use App\Domain\Posts\Exceptions\InvalidPostMediaException;
 use App\Domain\Social\Exceptions\SelfFollowException;
 use App\Domain\Stories\Exceptions\StoryNotAuthorizedException;
 use App\Domain\Threads\Exceptions\ThreadExpiredException;
 use App\Domain\Threads\Exceptions\ThreadNotAuthorizedException;
+use App\Http\Middleware\EnsureChatFeature;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Support\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
@@ -40,6 +45,12 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
+            // Applied explicitly after `auth:sanctum` in routes/api.php: a
+            // suspended account must be rejected only once the token resolved to
+            // a user, and group middleware always runs before route middleware.
+            'active' => EnsureUserIsActive::class,
+            // Subscription-gated chat capabilities, e.g. `chat.feature:chat_wallpaper`.
+            'chat.feature' => EnsureChatFeature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -47,8 +58,16 @@ return Application::configure(basePath: dirname(__DIR__))
             return ApiResponse::error('INVALID_CREDENTIALS', $e->getMessage(), 401);
         });
 
+        $exceptions->render(static function (AccountDisabledException $e, Request $request): JsonResponse {
+            return ApiResponse::error('ACCOUNT_DISABLED', $e->getMessage(), 403);
+        });
+
         $exceptions->render(static function (InvalidPostMediaException $e, Request $request): JsonResponse {
             return ApiResponse::error('INVALID_MEDIA', $e->getMessage(), 422, 'media');
+        });
+
+        $exceptions->render(static function (InvalidCommentException $e, Request $request): JsonResponse {
+            return ApiResponse::error('INVALID_COMMENT', $e->getMessage(), 422, 'parent_id');
         });
 
         $exceptions->render(static function (UsernameTakenException $e, Request $request): JsonResponse {
@@ -69,6 +88,18 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(static function (ConversationPermissionException $e, Request $request): JsonResponse {
             return ApiResponse::error('FORBIDDEN', $e->getMessage(), 403);
+        });
+
+        // 403 + the feature key: the client shows the crown on that exact
+        // control instead of a generic "something went wrong".
+        $exceptions->render(static function (FeatureLockedException $e, Request $request): JsonResponse {
+            return ApiResponse::error(
+                'FEATURE_LOCKED',
+                $e->getMessage(),
+                403,
+                'feature',
+                ['feature' => $e->feature->value, 'blurb' => $e->feature->blurb()],
+            );
         });
 
         $exceptions->render(static function (SubscriptionNotAllowedException $e, Request $request): JsonResponse {

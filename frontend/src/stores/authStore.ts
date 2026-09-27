@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { api } from '@/lib/api'
+import { usePresenceStore } from '@/stores/presenceStore'
 import type { LoginInput, RegisterInput, User } from '@/types/user'
 
 type AuthStatus = 'idle' | 'loading' | 'guest' | 'authenticated'
@@ -67,6 +68,7 @@ export const useAuthStore = create<AuthState>()(
           // Local state is cleared regardless of network outcome.
         } finally {
           set({ token: null, user: null, status: 'guest' })
+          usePresenceStore.getState().reset()
         }
       },
 

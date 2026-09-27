@@ -140,13 +140,74 @@ final class PostTest extends TestCase
 
         $this->withToken($this->tokenFor($user))
             ->post('/api/v1/posts', [
-                'media' => [UploadedFile::fake()->create('clip.mp4', 2048, 'video/mp4')],
+                'media' => [FakeMedia::mp4()],
             ])
             ->assertStatus(201)
             ->assertJsonPath('data.post.body', '')
-            ->assertJsonPath('data.post.media.0.type', 'video');
+            ->assertJsonPath('data.post.media.0.type', 'video')
+            ->assertJsonPath('data.post.media.0.mime', 'video/mp4');
 
-        $this->assertDatabaseHas('post_media', ['type' => 'video']);
+        $this->assertDatabaseHas('post_media', ['type' => 'video', 'mime' => 'video/mp4']);
+        $this->assertCount(1, Storage::disk('public')->files('posts/'.$user->id));
+    }
+
+    public function test_post_with_webm_media_is_stored(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/posts', [
+                'media' => [FakeMedia::webm()],
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.post.media.0.type', 'video')
+            ->assertJsonPath('data.post.media.0.mime', 'video/webm');
+    }
+
+    public function test_media_renamed_to_a_video_extension_is_rejected(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/posts', [
+                'media' => [UploadedFile::fake()->create('payload.mp4', 2048, 'video/mp4')],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.0.code', 'INVALID_MEDIA')
+            ->assertJsonPath('errors.0.field', 'media');
+
+        $this->assertEmpty(Storage::disk('public')->files('posts/'.$user->id));
+    }
+
+    public function test_video_uploaded_with_a_misleading_extension_is_normalized(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/posts', [
+                'media' => [FakeMedia::mp4('sneaky.png')],
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.post.media.0.type', 'video')
+            ->assertJsonPath('data.post.media.0.mime', 'video/mp4')
+            ->assertJsonPath('data.post.media.0.url', fn ($url) => is_string($url) && str_ends_with($url, '.mp4'));
+    }
+
+    public function test_oversized_video_is_rejected(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/posts', [
+                'media' => [FakeMedia::mp4('big.mp4', 101 * 1024 * 1024)],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.0.code', 'INVALID_MEDIA')
+            ->assertJsonPath('errors.0.field', 'media');
     }
 
     public function test_post_without_text_or_media_is_rejected(): void
@@ -224,6 +285,6 @@ final class PostTest extends TestCase
             ->getJson('/api/v1/posts')
             ->assertOk()
             ->assertJsonPath('data.posts.0.media.0.type', 'image')
-            ->assertJsonPath('data.posts.0.media.0.url', url('/storage/posts/'.$user->id.'/demo.png'));
+            ->assertJsonPath('data.posts.0.media.0.url', '/storage/posts/'.$user->id.'/demo.png');
     }
 }

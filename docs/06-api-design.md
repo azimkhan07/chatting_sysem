@@ -93,25 +93,29 @@ GET  /users/{username}/media?cursor    → their posts/reels
 
 ### Feed `/feed`
 ```
-GET /feed?cursor                 → ranked mix of posts+reels
+GET /feed?cursor                 → cursor feed: own posts + followed authors' posts
 POST /posts                      → create post (multipart media) [Idempotency-Key]
 GET  /posts/{post}               → single post detail
 PATCH /posts/{post}              → edit caption
 DELETE /posts/{post}
 POST /posts/{post}/like          → idempotent
 DELETE /posts/{post}/like
-GET  /posts/{post}/comments?cursor
-POST /posts/{post}/comments
+GET  /posts/{post}/comments?cursor   → root comments only; each carries `replies` (max 3) + `reply_count`
+POST /posts/{post}/comments      → {body, parent_id?} — `parent_id` must reference a
+                                    root comment on the same post (replies-to-replies → 422)
 POST /posts/{post}/share         {to:"conversation_id"|null} → group/DM/feed share
 ```
 
 ### Reels `/reels`
 ```
-POST /reels                     → upload video (multipart, chunked) [Idempotency-Key]
-GET  /reels/{reel}              → playback manifest+poster
+POST /reels                     → upload video (multipart) [Idempotency-Key]
+GET  /reels/{reel}              → the stored file's playback URL
 GET  /reels/trending?cursor
-GET  /reels/feed?cursor         → ranked vertical stream
+GET  /reels/feed?cursor         → vertical stream
 ```
+v1 has no transcode stage: `POST /reels` stores the content-sniffed upload and returns it
+ready to play (progressive file). There is no `status: processing` poll and no manifest/poster
+response yet — see `08-media-pipeline.md`.
 
 ### Explorer `/explore`
 ```
@@ -125,12 +129,36 @@ GET /hashtags/{tag}
 GET  /chat/conversations?cursor        → with last_message + unread_count (server-computed)
 POST /chat/conversations               {type:"dm",user_id} | {type:"group",name,member_ids[]}
 GET  /chat/conversations/{c}/messages?cursor
-POST /chat/conversations/{c}/messages  {type,body|media} [Idempotency-Key]
+POST /chat/conversations/{c}/messages  {type,body|media_url} [Idempotency-Key]
 POST /chat/conversations/{c}/read      {up_to_message_id}   → recompute unread server-side
 PATCH /chat/conversations/{c}          {muted}
+PATCH /chat/conversations/{c}/personalize {nickname?,wallpaper_key?}  → viewer's own copy only
+POST /chat/conversations/{c}/drawings  multipart drawing                → {media_url,mime}
 POST /chat/conversations/{c}/members   (group)
 DELETE /chat/conversations/{c}/members/{user} (group)
+POST /chat/presence                    → heartbeat; {is_online,last_seen_at}
+GET  /chat/entitlements                → {features[{key,label,blurb,unlocked}],unlocked[],wallpapers[]}
+POST /chat/conversations/{c}/request/accept   → recipient only; requested → active
+DELETE /chat/conversations/{c}/request        → recipient only; deletes the spam thread
+GET  /chat/groups/{c}/invite           → active invite or null
+POST /chat/groups/{c}/invite           → create (idempotent: reuses a live link)
+DELETE /chat/groups/{c}/invite         → revoke
+POST /chat/invites/{code}/join         → conversation (idempotent for members)
 ```
+`ConversationResource` also carries `state` (`active|requested`), `is_request_actionable` (true
+only for the recipient), and the viewer's private `my_nickname` / `my_wallpaper_key`.
+
+### Subscription-gated chat
+Locked capabilities return `403` with code `FEATURE_LOCKED` and
+`details.feature = <key>`, so the client can put the crown on that exact control:
+```
+{ "code":"FEATURE_LOCKED", "message":"GIF messages needs an active subscription.",
+  "details": { "feature":"chat_gif", "blurb":"..." } }
+```
+Gated routes: `PATCH /conversations/{c}/personalize` (`chat_nickname`),
+`POST /conversations/{c}/drawings` (`chat_drawing`). `chat_gif` and `chat_drawing` are enforced
+in the service when a message is sent; `message_requests` is enforced inside `startDm` only on the
+branch that would create a request, so following someone and messaging them stays free.
 
 ### Blue tick `/subscriptions`
 ```
@@ -155,9 +183,12 @@ GET  /notifications/unread-total      → Redis-backed counter
   - private-user.{user_id}  → notifications, presence tells
   - private-dm.{conv_id}    → DM messages
   - private-group.{conv_id} → group messages/typing
-  - presence-{group_id}     → online members in a group
+  - presence-dm.{conv_id} / presence-group.{conv_id} → online members in a thread
 - WS is **best-effort**: DB is truth. Client must re-sync via REST on reconnect/resume
   (e.g. fetch `/chat/conversations`, `/messages` after cursor, `/unread-total`).
+- Presence is also polled: `ConversationResource` carries `online_count`,
+  `peer_presence` and `members[].user.is_online`, so a client with a dead socket
+  still renders correct dots on the next inbox fetch.
 
 ## Pagination rules (enforced)
 
@@ -176,10 +207,12 @@ GET  /notifications/unread-total      → Redis-backed counter
 
 ## Media upload contract
 
-- Two-step for video (reels): `POST /uploads` → obtain upload session + presigned
-  destination → chunked PUT → `POST /reels {upload_token}` → server transcodes (queue),
-  returns `status: processing`; client polls `GET /reels/{id}` until `ready`.
-- Images (< 8 MB) upload directly multipart with magic-byte validation.
+- **Shipped (v1):** single-request multipart upload. The server sniffs the real content type,
+  enforces the size/type limits and stores the file on the `public` disk; the response already
+  carries a playable `/storage/...` URL. Video limit is 100 MB, image 8 MB, ≤ 5 files per post.
+- **Target:** two-step for video (reels) — `POST /uploads` → presigned destination → chunked PUT →
+  `POST /reels {upload_token}` → server transcodes on the `media` queue, returns
+  `status: processing`; client polls `GET /reels/{id}` until `ready`. Not implemented.
 
 ## OpenAPI
 

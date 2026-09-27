@@ -45,15 +45,17 @@ interface PostRepository
 
     public function likeCount(Post $post): int;
 
-    public function addComment(Post $post, int $userId, string $body): Comment;
+    public function addComment(Post $post, int $userId, string $body, ?int $parentId = null): Comment;
 
     public function commentsFor(Post $post, int $limit, ?string $cursor): CursorPaginator;
 
     /**
      * Records a share of a post by a user. Idempotent per (post, user).
-     * Returns the total unique share count for the post.
+     *
+     * @return array{count: int, created: bool} Total unique share count and
+     *                                          whether this call created the share.
      */
-    public function share(Post $post, int $userId): int;
+    public function share(Post $post, int $userId): array;
 
     /**
      * Top posts of the last ranking window by engagement, database-ranked

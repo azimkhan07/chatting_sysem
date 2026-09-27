@@ -197,3 +197,57 @@ export function CheckIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function CrownIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M4 17h16M4.5 7.5l3.6 3L12 5l3.9 5.5 3.6-3-1.4 7.5H5.9z" />
+    </svg>
+  )
+}
+
+export function LockIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <rect x="5" y="10.5" width="14" height="9.5" rx="2" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+    </svg>
+  )
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z" />
+      <path d="m14.5 6.5 3 3" />
+    </svg>
+  )
+}
+
+export function BrushIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M15.5 4.5 19 8 10 17H6.5v-3.5z" />
+      <path d="M13.5 6.5 16.5 9.5" />
+    </svg>
+  )
+}
+
+export function SmileIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9 14.5a4 4 0 0 0 6 0" />
+      <path d="M9 9.5h.01M15 9.5h.01" />
+    </svg>
+  )
+}
+
+export function ImageStackIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <rect x="3.5" y="6" width="14" height="12" rx="2" />
+      <path d="M7 3.5h12a1.5 1.5 0 0 1 1.5 1.5v10" />
+    </svg>
+  )
+}

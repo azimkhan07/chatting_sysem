@@ -8,6 +8,7 @@ use App\Domain\Auth\Models\User;
 use App\Domain\Stories\Contracts\StoryRepository;
 use App\Domain\Stories\Models\Story;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 
 final class EloquentStoryRepository implements StoryRepository
 {
@@ -49,6 +50,14 @@ final class EloquentStoryRepository implements StoryRepository
 
     public function destroy(Story $story): void
     {
+        $mediaPath = $story->media_path;
+
         $story->delete();
+
+        // Uploaded media is not garbage collected, so the row delete is the only
+        // chance to reclaim the file.
+        if (is_string($mediaPath) && $mediaPath !== '') {
+            Storage::disk('public')->delete($mediaPath);
+        }
     }
 }

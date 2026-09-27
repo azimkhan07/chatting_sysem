@@ -15,7 +15,7 @@ export interface Post {
   body: string
   author: User
   media: PostMedia[]
-  hashtags: string[]
+  hashtags?: string[]
   likes_count: number
   comments_count: number
   shares_count: number
@@ -27,6 +27,8 @@ export interface Comment {
   id: number
   body: string
   author: User
+  reply_count: number
+  replies: Comment[]
   created_at: string
 }
 

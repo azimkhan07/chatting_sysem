@@ -22,6 +22,16 @@ interface ChatService
 
     public function startDm(User $user, int $targetUserId): Conversation;
 
+    /**
+     * Promote a pending DM request to a normal conversation. Recipient only.
+     */
+    public function acceptRequest(User $user, int $conversationId): Conversation;
+
+    /**
+     * Reject a pending DM request and drop the thread. Recipient only.
+     */
+    public function deleteRequest(User $user, int $conversationId): void;
+
     public function createGroup(User $user, string $name, array $memberIds): Conversation;
 
     /**
@@ -44,6 +54,17 @@ interface ChatService
     public function unreadTotal(User $user): int;
 
     public function setMuted(User $user, int $conversationId, bool $muted): Conversation;
+
+    /**
+     * Set the viewer's private nickname and/or wallpaper for a conversation.
+     * Either may be null to clear it. Premium: enforced via {@see ChatEntitlements}.
+     */
+    public function personalize(
+        User $user,
+        int $conversationId,
+        ?string $nickname,
+        ?string $wallpaperKey,
+    ): Conversation;
 
     public function addMember(User $user, int $conversationId, int $newUserId): Conversation;
 

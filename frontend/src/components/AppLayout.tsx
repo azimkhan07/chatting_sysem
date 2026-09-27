@@ -14,6 +14,7 @@ import {
 import { api, ApiError, chatApi, notificationsApi } from '@/lib/api'
 import { echoInstance } from '@/lib/echo'
 import { path } from '@/lib/paths'
+import { usePresenceHeartbeat } from '@/hooks/usePresence'
 import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types/user'
 
@@ -62,6 +63,8 @@ export default function AppLayout() {
     enabled: token !== null,
     retry: false,
   })
+
+  usePresenceHeartbeat(meQuery.data?.user.id)
 
   useEffect(() => {
     if (meQuery.data?.user) {

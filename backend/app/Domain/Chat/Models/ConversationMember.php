@@ -31,6 +31,8 @@ final class ConversationMember extends Model
         'conversation_id',
         'user_id',
         'role',
+        'nickname',
+        'wallpaper_key',
         'last_read_message_id',
         'muted',
     ];

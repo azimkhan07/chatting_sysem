@@ -14,13 +14,20 @@ never hang any user. Realtime only accelerates delivery; Postgres is the source 
 | Channel                     | Who can join        | Payload |
 | --------------------------- | ------------------- | ------- |
 | `private-user.{user_id}`    | that user           | notifications, billing, presence hints |
-| `private-dm.{conv_id}`      | 2 members           | messages, read receipts, typing |
-| `private-group.{conv_id}`   | group members       | messages, typing, member join/leave (system msg) |
-| `presence-{group_id}`       | group members       | online roster per group |
+| `private-dm.{conv_id}`      | 2 members           | messages, read receipts, typing, presence changes |
+| `private-group.{conv_id}`   | group members       | messages, typing, member join/leave (system msg), presence changes |
+| `presence-dm.{conv_id}`     | 2 members           | live roster for the open DM |
+| `presence-group.{conv_id}`  | group members       | live roster for the open group |
 
 > **Implemented:** `NotificationCreated` (ShouldBroadcastNow) publishes on the
 > `private-user.{user_id}` channel after every persisted notification (follow, like,
 > comment, verified). Channel auth is enforced server-side by `App\Broadcasting\UserChannel`.
+>
+> `UserPresenceChanged` publishes as `presence.changed` on the DM/group private
+> channels. The `presence-*` channels are authorised by
+> `App\Broadcasting\ConversationPresenceChannel`, which returns
+> `id / username / display_name` per member so Echo's `here/joining/leaving`
+> callbacks can key on the user id.
 
 ## Message lifecycle
 
@@ -65,9 +72,24 @@ Why this never hangs:
 
 ## Presence
 
-- Reverb `PresenceChannel` gives join/leave atomically.
-- Redis `presence:online` set mirrors it for non-group availability dots.
-- `last_seen_at` in DB is the fallback for profile view (no WS).
+- Redis sorted set `presence:online` (score = last activity timestamp) is the source of
+  truth for online state; a member counts as online while their score is newer than
+  90 seconds. `PresenceStore` is the only writer and memoises per request.
+- `last_seen_at` (DB) is the durable fallback: a user is treated as online for 60s
+  after their last write, so a Redis outage degrades to a 60s-stale dot instead of
+  showing everyone offline.
+- Clients heartbeat with `POST /chat/presence` every 30s while the tab is visible;
+  the server throttles recorded activity to one write per 30s per user
+  (`Authenticated` listener), and logout signs out immediately.
+- `chat:presence-sweep` runs every 30s, trims stale zset entries, and flips
+  offline anyone who crossed the window — broadcasting `presence.changed` to each
+  DM/group they belong to.
+- API surface: `ConversationResource` adds `online_count` (members other than the
+  viewer), `peer_presence` (DM) and `members[].user.is_online`.
+- Client: `stores/presenceStore.ts` is seeded from conversation payloads and kept
+  live by `presence.changed`; `hooks/usePresence.ts` runs the heartbeat and joins
+  and leaves the `presence-*` channel of the open thread. Dots render in the inbox
+  row and the thread header, with "Last seen …" text for offline DMs.
 
 ## Reconnect/resync contract
 

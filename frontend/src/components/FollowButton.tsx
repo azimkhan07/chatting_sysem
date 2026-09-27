@@ -2,10 +2,10 @@ import { useState } from 'react'
 
 import { usersApi } from '@/lib/api'
 import type { User } from '@/types/user'
-
 interface FollowButtonProps {
   user: User
   onChanged?: (result: { following: boolean; followers_count: number }) => void
+  compact?: boolean
 }
 
 export default function FollowButton({ user, onChanged }: FollowButtonProps) {

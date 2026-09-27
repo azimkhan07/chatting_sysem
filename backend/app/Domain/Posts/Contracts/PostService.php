@@ -55,7 +55,7 @@ interface PostService
 
     public function unlike(User $user, Post $post): int;
 
-    public function addComment(User $user, Post $post, string $body): Comment;
+    public function addComment(User $user, Post $post, string $body, ?int $parentId = null): Comment;
 
     /**
      * Latest comments on a post, newest first.

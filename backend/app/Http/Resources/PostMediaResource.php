@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Domain\Posts\Models\PostMedia;
+use App\Support\Media\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,7 +17,7 @@ final class PostMediaResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $this->type->value,
-            'url' => asset('storage/'.$this->file_path),
+            'url' => MediaUrl::ofNullable($this->file_path),
             'mime' => $this->mime,
             'width' => $this->width,
             'height' => $this->height,

@@ -41,7 +41,10 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            // Root-relative by default so the URL keeps working on whichever
+            // host serves the API (Vite dev proxy, nginx, artisan serve).
+            // Set ASSET_URL to an absolute CDN/origin to override it.
+            'url' => env('ASSET_URL', '/storage'),
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

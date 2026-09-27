@@ -16,7 +16,7 @@ any feature. If something is not documented here, decide → document → implem
 | 05 | [Data Model](05-data-model.md) | Full domain schema (users, posts, reels, groups, chat, billing) |
 | 06 | [API Design](06-api-design.md) | REST rules, response envelope, pagination, errors, auth |
 | 07 | [Realtime Chat](07-realtime-chat.md) | WebSockets (Reverb), presence, unread strategy |
-| 08 | [Media Pipeline](08-media-pipeline.md) | Post/reel upload → processing → delivery (HLS/thumbs) |
+| 08 | [Media Pipeline](08-media-pipeline.md) | Post/reel upload → validation → delivery. **Start with the v1-vs-target status table** — HLS/thumbs are design, not shipped |
 | 09 | [Frontend Architecture](09-frontend-architecture.md) | React structure, state, animations, UI direction |
 | 10 | [Performance & Caching](10-performance-and-caching.md) | Eager loading, Redis, queues, the no-hang guarantee |
 | 11 | [DevOps & CI/CD](11-devops-cicd.md) | GitHub Actions, Docker, environments, deployment |
@@ -58,8 +58,8 @@ Major decisions get recorded here so we never forget *why*.
 ## Progress tracker
 
 Latest status of the active build. Updated whenever a task finishes. All checks below
-are green on the machine that built them: `phpunit` (166), `pint`, `phpstan` (level 5),
-`tsc -b`, `vite build`, `oxlint` (warnings only, none blocking).
+are green on the machine that built them: `phpunit` (176 passing + 1 Redis-gated skip),
+`pint`, `phpstan` (level 5), `tsc -b`, `vite build`, `oxlint` (warnings only, none blocking).
 
 ### Completed
 
@@ -84,13 +84,13 @@ are green on the machine that built them: `phpunit` (166), `pint`, `phpstan` (le
 | Subscription switch plan (downgrade/upgrade) in place | `POST subscriptions/switch` + `GET subscriptions/active`; pending switch links old active subscription (`switch_from_subscription_id`); approval supersedes the old plan and keeps the badge continuous; rejection leaves the current plan untouched; admin review shows "Plan switch from…" | phpunit/8 tests + phpstan + build ✅ |
 | Light theme: pure-white canvas | Light mode canvas unified to `#ffffff` (was `#f2f4fb`) so the page reads as one full white surface; dark theme unchanged | build ✅ |
 | Password show/hide toggle | Eye toggle on every password field: Login, Register (both), ResetPassword, Admin console — via shared `AuthField` + exported `EyeIcon`/`EyeOffIcon` | build ✅ |
+| Chat: presence (online status) | Redis zset `presence:online` (90s window) + `last_seen_at` DB fallback (60s), `POST chat/presence` heartbeat, `UserPresenceChanged` (`presence.changed`) on DM/group private channels, presence channels `presence-dm|group.{id}`, `chat:presence-sweep` every 30s, sign-out on logout, `online_count`/`peer_presence`/`members[].user.is_online` in `ConversationResource`; client = `presenceStore` + 30s heartbeat + presence channel + dots/last-seen in inbox & thread | phpunit/11 tests + phpstan + build ✅ |
+| Group invite UX polish | Revoke is now two-step confirm with pending state, expiry/creator line, clipboard fallback for non-https origins, load/create/revoke error banners + retry, Esc/backdrop close; join page handles missing code, real API error titles (429/403/5xx) and retry instead of a blank card | build ✅ |
 
 ### Pending / next
 
 | Item | Notes |
 | ---- | ----- |
-| Group invite flows hardening (member add via invite already live API-side) | Join UX polish |
-| Chat presence (online status indicator) | Roadmap item 6 leftover; typing + read receipts shipped, presence still open |
-| Full suite re-run against real MySQL + Reverb in Docker | CI covers it via GitHub Actions |
+| Full suite re-run against real MySQL + Reverb in Docker | CI covers it via GitHub Actions; Redis-backed presence sweep path still only covered in CI |
 
 See [02 — Roadmap](02-roadmap.md) for the phased plan; ticked items are shipped plus tests.

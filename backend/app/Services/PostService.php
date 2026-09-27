@@ -76,9 +76,9 @@ final class PostService implements PostServiceContract
         return $this->unlikePostAction->handle($post, $user->id);
     }
 
-    public function addComment(User $user, Post $post, string $body): Comment
+    public function addComment(User $user, Post $post, string $body, ?int $parentId = null): Comment
     {
-        return $this->commentOnPostAction->handle($post, $user->id, $body);
+        return $this->commentOnPostAction->handle($post, $user->id, $body, $parentId);
     }
 
     public function commentsFor(Post $post, int $limit = 20, ?string $cursor = null): CursorPaginator
@@ -95,7 +95,9 @@ final class PostService implements PostServiceContract
     {
         $ids = $this->trending->topIds($limit);
 
-        if ($ids !== []) {
+        // A thin ranked set (fresh install, low engagement) would otherwise show
+        // a 2-post "Trending" tab while the database has plenty of candidates.
+        if (count($ids) >= $limit) {
             return $this->repository->byIdsInOrder($ids, (int) $user->id);
         }
 

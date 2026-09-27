@@ -26,7 +26,10 @@ final class RegisterRequest extends FormRequest
                 'string',
                 'min:3',
                 'max:30',
-                'regex:/^[a-zA-Z0-9._]+$/',
+                // All-numeric usernames are rejected: a numeric URL segment is
+                // always resolved as an account id, so "7" would be unreachable.
+                'regex:/^(?!\d+$)[a-zA-Z0-9._]+$/',
+                'not_regex:/^\d+$/',
             ],
             'display_name' => ['required', 'string', 'min:2', 'max:60'],
             // NOTE: deliberately NOT unique — a public can own several accounts

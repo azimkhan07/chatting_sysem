@@ -95,7 +95,7 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
             'expires_at' => $now->copy()->addDays(Plan::RENEWAL_DAYS),
         ]);
 
-        $subscription->user()->update(['is_verified' => true]);
+        self::setVerified($subscription, true);
 
         if ($subscription->switch_from_subscription_id !== null) {
             Subscription::query()
@@ -130,7 +130,7 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
             ->exists();
 
         if (! $stillVerified) {
-            $subscription->user()->update(['is_verified' => false]);
+            self::setVerified($subscription, false);
         }
 
         return $subscription->fresh();
@@ -173,7 +173,7 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
             ->exists();
 
         if (! $stillVerified) {
-            $subscription->user()->update(['is_verified' => false]);
+            self::setVerified($subscription, false);
         }
 
         return $subscription->fresh();
@@ -221,5 +221,21 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
             'counts' => $counts,
             'revenue_paisa' => (int) $revenue,
         ];
+    }
+
+    /**
+     * The badge is a privilege column, so it is written explicitly rather than
+     * through mass assignment — a non-fillable `is_verified` means no request or
+     * payload can ever flip it.
+     */
+    private static function setVerified(Subscription $subscription, bool $verified): void
+    {
+        $user = $subscription->user()->first();
+
+        if ($user === null) {
+            return;
+        }
+
+        $user->forceFill(['is_verified' => $verified])->save();
     }
 }

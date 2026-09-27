@@ -23,6 +23,7 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
   const sessionUser = useAuthStore((state) => state.user)
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [commentBody, setCommentBody] = useState('')
+  const [replyTo, setReplyTo] = useState<Comment | null>(null)
   const [copied, setCopied] = useState(false)
 
   const media = post.media
@@ -63,6 +64,15 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
     onError: (_error, _vars, rollback) => {
       if (rollback !== undefined) queryClient.setQueryData(cacheKey, rollback)
     },
+    // The optimistic bump is only a guess: settle on the server counters so a
+    // failed or replayed request can never leave the badge drifting.
+    onSuccess: (result) => {
+      patchPost(post.id, (p) => ({
+        ...p,
+        liked_by_me: result.liked,
+        likes_count: result.likes_count,
+      }))
+    },
   })
 
   const commentsQuery = useQuery({
@@ -74,12 +84,34 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
   const comments = commentsQuery.data?.comments ?? []
 
   const postComment = useMutation({
-    mutationFn: (body: string) => commentsApi.create(post.id, body),
-    onSuccess: (result) => {
+    mutationFn: ({ body, parentId }: { body: string; parentId?: number }) =>
+      commentsApi.create(post.id, body, parentId),
+    onSuccess: (result, variables) => {
       setCommentBody('')
-      queryClient.setQueryData<{ comments: Comment[] }>(['comments', post.id], (current) => ({
-        comments: [result.comment, ...(current?.comments ?? [])],
-      }))
+      setReplyTo(null)
+      queryClient.setQueryData<{ comments: Comment[] }>(['comments', post.id], (current) => {
+        const comments = current?.comments ?? []
+
+        if (variables.parentId === undefined) {
+          return { comments: [result.comment, ...comments] }
+        }
+
+        // A reply belongs under its root comment, not at the top level.
+        return {
+          comments: comments.map((comment) =>
+            comment.id === variables.parentId
+              ? {
+                  ...comment,
+                  reply_count: comment.reply_count + 1,
+                  replies:
+                    comment.replies.length >= 3
+                      ? comment.replies
+                      : [...comment.replies, result.comment],
+                }
+              : comment,
+          ),
+        }
+      })
       patchPost(post.id, (p) => ({ ...p, comments_count: p.comments_count + 1 }))
     },
   })
@@ -93,6 +125,9 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
     },
     onError: (_error, _vars, rollback) => {
       if (rollback !== undefined) queryClient.setQueryData(cacheKey, rollback)
+    },
+    onSuccess: (result) => {
+      patchPost(post.id, (p) => ({ ...p, shares_count: result.shares_count }))
     },
   })
 
@@ -117,7 +152,9 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
     event.preventDefault()
     const body = commentBody.trim()
     if (!body || postComment.isPending) return
-    postComment.mutate(body)
+    postComment.mutate(
+      replyTo === null ? { body } : { body, parentId: replyTo.id },
+    )
   }
 
   return (
@@ -163,7 +200,10 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
             <ActionButton
               active={post.liked_by_me}
               activeClass="text-rose-400"
-              onClick={() => toggleLike.mutate()}
+              onClick={() => {
+                if (!toggleLike.isPending) toggleLike.mutate()
+              }}
+              disabled={toggleLike.isPending}
               label={post.liked_by_me ? 'Unlike post' : 'Like post'}
               icon={<HeartIcon className={`h-[18px] w-[18px] ${post.liked_by_me ? 'fill-rose-500 text-rose-500' : ''}`} />}
               count={post.likes_count}
@@ -179,7 +219,10 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
             <ActionButton
               active={copied}
               activeClass="text-brand-300"
-              onClick={() => void handleShare()}
+              onClick={() => {
+                if (!share.isPending) void handleShare()
+              }}
+              disabled={share.isPending}
               label="Share post"
               icon={<ShareIcon className="h-[18px] w-[18px]" />}
               count={copied ? 0 : post.shares_count}
@@ -198,6 +241,8 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
               onPostComment={handleCommentSubmit}
               posting={postComment.isPending}
               loading={commentsQuery.isPending}
+              replyTo={replyTo}
+              onReplyTo={setReplyTo}
             />
           ) : null}
         </div>
@@ -213,6 +258,7 @@ function ActionButton({
   label,
   icon,
   count,
+  disabled = false,
 }: {
   active: boolean
   activeClass: string
@@ -220,12 +266,14 @@ function ActionButton({
   label: string
   icon: React.ReactNode
   count: number
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+      disabled={disabled}
+      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
         active ? activeClass : 'text-slate-400 hover:text-slate-200'
       }`}
       aria-label={label}
@@ -245,6 +293,8 @@ export function CommentsPanel({
   onPostComment,
   posting,
   loading,
+  replyTo,
+  onReplyTo,
 }: {
   comments: Comment[]
   sessionUser: { display_name: string } | null
@@ -253,6 +303,8 @@ export function CommentsPanel({
   onPostComment: (event: React.FormEvent) => void
   posting: boolean
   loading: boolean
+  replyTo: Comment | null
+  onReplyTo: (comment: Comment | null) => void
 }) {
   return (
     <div className="mt-3 space-y-3 border-t border-white/5 pt-3">
@@ -261,21 +313,23 @@ export function CommentsPanel({
       ) : (
         <ul className="space-y-2.5">
           {comments.map((comment) => (
-            <li key={comment.id} className="flex gap-2">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-500/20 text-[10px] font-bold text-brand-200">
-                {comment.author.display_name.charAt(0).toUpperCase()}
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs leading-relaxed text-slate-300">
-                  <span className="font-semibold text-slate-200">
-                    {comment.author.display_name}
-                  </span>{' '}
-                  <RichText text={comment.body} />
+            <li key={comment.id}>
+              <CommentRow comment={comment} onReply={onReplyTo} />
+              {comment.replies.length > 0 ? (
+                <ul className="mt-2 space-y-2 border-l border-white/10 pl-3">
+                  {comment.replies.map((reply) => (
+                    <li key={reply.id}>
+                      <CommentRow comment={reply} />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {comment.reply_count > comment.replies.length ? (
+                <p className="mt-1 pl-1 text-[10px] text-slate-500">
+                  {comment.reply_count - comment.replies.length} more
+                  {comment.reply_count - comment.replies.length === 1 ? ' reply' : ' replies'}
                 </p>
-                <p className="mt-0.5 text-[10px] text-slate-500">
-                  @{comment.author.username} · {timeAgo(comment.created_at)}
-                </p>
-              </div>
+              ) : null}
             </li>
           ))}
           {comments.length === 0 ? (
@@ -293,19 +347,69 @@ export function CommentsPanel({
         <input
           value={commentBody}
           onChange={(event) => onBodyChange(event.target.value)}
-          placeholder="Add a comment…"
+          placeholder={
+            replyTo ? `Replying to @${replyTo.author.username}` : 'Add a comment…'
+          }
           maxLength={2000}
           className="input-field flex-1 !py-2 text-xs"
           aria-label="Comment body"
         />
+        {replyTo ? (
+          <button
+            type="button"
+            onClick={() => onReplyTo(null)}
+            className="btn-quiet w-auto !px-2 !py-2 text-[11px]"
+            aria-label="Cancel reply"
+          >
+            ✕
+          </button>
+        ) : null}
         <button
           type="submit"
           disabled={!commentBody.trim() || posting}
           className="btn-primary w-auto !px-3 !py-2 text-xs disabled:opacity-50"
         >
-          Post
+          {posting ? '…' : 'Post'}
         </button>
       </form>
+    </div>
+  )
+}
+
+function CommentRow({
+  comment,
+  onReply,
+}: {
+  comment: Comment
+  onReply?: (comment: Comment) => void
+}) {
+  return (
+    <div className="flex gap-2">
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-500/20 text-[10px] font-bold text-brand-200">
+        {comment.author.display_name.charAt(0).toUpperCase()}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs leading-relaxed text-slate-300">
+          <span className="font-semibold text-slate-200">
+            {comment.author.display_name}
+          </span>{' '}
+          <RichText text={comment.body} />
+        </p>
+        <p className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-500">
+          <span>
+            @{comment.author.username} · {timeAgo(comment.created_at)}
+          </span>
+          {onReply ? (
+            <button
+              type="button"
+              onClick={() => onReply(comment)}
+              className="font-semibold text-slate-400 transition hover:text-brand-300"
+            >
+              Reply
+            </button>
+          ) : null}
+        </p>
+      </div>
     </div>
   )
 }

@@ -10,15 +10,17 @@ use App\Events\MemberJoined;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\SubscribesUsers;
 use Tests\TestCase;
 
 final class InviteTest extends TestCase
 {
     use RefreshDatabase;
+    use SubscribesUsers;
 
     private function asUser(User $user): static
     {
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($this->subscribe($user));
 
         return $this;
     }

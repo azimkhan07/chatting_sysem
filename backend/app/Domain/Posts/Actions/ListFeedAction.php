@@ -6,6 +6,7 @@ namespace App\Domain\Posts\Actions;
 
 use App\Domain\Hashtags\Models\Hashtag;
 use App\Domain\Posts\Contracts\PostRepository;
+use App\Support\PageSize;
 use Illuminate\Pagination\CursorPaginator;
 
 final class ListFeedAction
@@ -41,6 +42,6 @@ final class ListFeedAction
 
     private function sanitizeLimit(int $limit): int
     {
-        return max(1, min($limit, self::MAX_LIMIT));
+        return PageSize::clamp($limit, self::MAX_LIMIT);
     }
 }
