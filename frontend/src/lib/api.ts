@@ -19,7 +19,7 @@ import type {
   ThreadReactionName,
   ThreadReactionResult,
 } from '@/types/thread'
-import type { FollowResult, PublicUser, User, UserPage } from '@/types/user'
+import type { AccountType, FollowResult, PublicUser, User, UserPage } from '@/types/user'
 
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
@@ -267,8 +267,14 @@ export const usersApi = {
 }
 
 export const profileApi = {
-  update: (data: { display_name?: string; bio?: string | null }) =>
-    api.patch<{ user: User }>('/me', data),
+  update: (data: {
+    display_name?: string
+    bio?: string | null
+    account_type?: AccountType
+    contact_email?: string | null
+    contact_phone?: string | null
+    show_contact?: boolean
+  }) => api.patch<{ user: User }>('/me', data),
   uploadAvatar: (file: File) => {
     const data = new FormData()
     data.append('image', file)
@@ -433,6 +439,19 @@ export const chatApi = {
     api.post<{ read_up_to: number; unread: number }>(
       `/chat/conversations/${conversationId}/read`,
       { up_to_message_id: upToMessageId },
+    ),
+  pins: (conversationId: number) =>
+    api.get<{ messages: ConversationMessage[] }>(
+      `/chat/conversations/${conversationId}/pins`,
+    ),
+  pin: (conversationId: number, messageId: number) =>
+    api.post<{ message: ConversationMessage }>(
+      `/chat/conversations/${conversationId}/messages/${messageId}/pin`,
+      {},
+    ),
+  unpin: (conversationId: number, messageId: number) =>
+    api.delete<{ message: ConversationMessage }>(
+      `/chat/conversations/${conversationId}/messages/${messageId}/pin`,
     ),
   typing: (conversationId: number) =>
     api.post<null>(`/chat/conversations/${conversationId}/typing`, {}),

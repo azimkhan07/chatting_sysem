@@ -300,6 +300,27 @@ body {
     @apply hover:border-rose-500/50 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-70;
   }
 
+  /*
+   * The outlined half of a primary pair. Every two-button row (Follow +
+   * Message, Follow + Contact) renders exactly one filled `btn-primary` and one
+   * `btn-outline`, so the primary action is never ambiguous.
+   */
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-semibold transition;
+    @apply border-brand-500/60 bg-transparent text-brand-200;
+    @apply hover:border-brand-500 hover:bg-brand-500/10 active:scale-[0.99];
+    @apply focus-visible:ring-4 focus-visible:ring-brand-500/30 focus-visible:outline-none;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  /* A full-width pair side by side, wrapping on a narrow phone. */
+  .action-pair {
+    @apply flex flex-col gap-2 sm:flex-row;
+  }
+  .action-pair > * {
+    @apply flex-1;
+  }
+
   .btn-quiet {
     @apply inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 text-slate-300 transition;
     @apply hover:border-brand-400/40 hover:text-brand-200 disabled:cursor-not-allowed disabled:opacity-50;

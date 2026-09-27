@@ -1,5 +1,12 @@
 export type UserStatus = 'active' | 'suspended' | 'blocked'
 
+/**
+ * Personal accounts are message + follow only. Professional and business
+ * accounts may publish a WhatsApp number or an email that a visitor can use
+ * instead of opening a chat.
+ */
+export type AccountType = 'personal' | 'professional' | 'business'
+
 export interface User {
   id: number
   username: string
@@ -12,6 +19,13 @@ export interface User {
   is_verified: boolean
   status: UserStatus
   created_at: string
+  account_type?: AccountType
+  account_type_label?: string
+  /** Only the owner ever sees these unless they are published. */
+  contact_email?: string | null
+  contact_phone?: string | null
+  show_contact?: boolean
+  is_contact_visible?: boolean
   posts_count?: number
   followers_count?: number
   following_count?: number

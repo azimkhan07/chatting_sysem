@@ -408,6 +408,7 @@ function ThreadPane({
   const { isUnlocked, wallpapers } = useChatEntitlements()
   const isGifUnlocked = isUnlocked('chat_gif')
   const isDrawingUnlocked = isUnlocked('chat_drawing')
+  const isPinUnlocked = isUnlocked('chat_pinned_messages')
 
   useEffect(() => {
     const timers = typingTimeoutsRef.current
@@ -435,6 +436,33 @@ function ThreadPane({
     () => buildChronological(messagePages.data?.pages ?? []).filter((message) => message.id > 0),
     [messagePages.data],
   )
+
+  // Pins live in their own query so a pin/unpin never disturbs the (polling)
+  // message pages, and the bar survives loading older history.
+  const pinsQuery = useQuery({
+    queryKey: ['chat', 'pins', conversationId],
+    queryFn: () => chatApi.pins(conversationId),
+    refetchInterval: THREAD_POLL_MS,
+    refetchIntervalInBackground: true,
+  })
+
+  const pinMutation = useMutation({
+    mutationFn: (input: { messageId: number; pinned: boolean }) =>
+      input.pinned
+        ? chatApi.pin(conversationId, input.messageId)
+        : chatApi.unpin(conversationId, input.messageId),
+    // The message pages also carry pinned_at, so refresh both or the bubble
+    // and the bar would disagree for one poll cycle.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['chat', 'pins', conversationId] })
+      void queryClient.invalidateQueries({ queryKey: ['chat', 'messages', conversationId] })
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.code === 'FEATURE_LOCKED') {
+        onLocked('chat_pinned_messages')
+      }
+    },
+  })
 
   const myReadWatermarkId = useMemo(() => {
     let watermark = 0
@@ -655,6 +683,9 @@ function ThreadPane({
           read_by: [],
           reactions: emptyReactions(),
           my_reaction: null,
+          pinned_at: null,
+          pinned_by: null,
+          can_pin: false,
           created_at: new Date().toISOString(),
           client_id: variables.clientId,
         },
@@ -950,6 +981,14 @@ function ThreadPane({
 
       {conversation && !conversationQuery.isPending ? (
         <>
+          <PinnedBar
+            // Re-keying on the newest pin re-opens a collapsed bar when someone
+            // pins something, without an effect that would re-render the thread.
+            key={pinsQuery.data?.messages[0]?.id ?? 'none'}
+            messages={pinsQuery.data?.messages ?? []}
+            loading={pinsQuery.isPending}
+          />
+
           <div
             ref={scrollRef}
             onScroll={() => {
@@ -996,6 +1035,10 @@ function ThreadPane({
                       ((message.sender?.id ?? 0) === me?.id ||
                         (conversation.type === 'group' && isModerator))
                     }
+                    canPin={message.id > 0 && message.can_pin}
+                    pinsUnlocked={isPinUnlocked}
+                    onPin={(pinned) => pinMutation.mutate({ messageId: message.id, pinned })}
+                    onPinLocked={() => onLocked('chat_pinned_messages')}
                     readReceipts={
                       message.id === myReadWatermarkId ? (message.read_by ?? []) : []
                     }
@@ -1219,15 +1262,98 @@ function PaginationSentinel({
   return <div ref={ref} aria-hidden="true" />
 }
 
+/**
+ * The thread's pinned strip.
+ *
+ * Pins are shared state, so this is a plain strip above the messages rather
+ * than per-member UI. It collapses to nothing when there is nothing pinned, so
+ * a normal chat does not pay for the row.
+ */
+function PinnedBar({
+  messages,
+  loading,
+}: {
+  messages: ConversationMessage[]
+  loading: boolean
+}) {
+  const [open, setOpen] = useState(true)
+  const latest = messages[0] ?? null
+
+  if (loading || !latest) return null
+
+  const preview =
+    latest.type === 'text'
+      ? (latest.body ?? '')
+      : latest.type === 'gif'
+        ? 'GIF'
+        : latest.type === 'drawing'
+          ? 'Drawing'
+          : latest.media_url
+            ? 'Photo'
+            : ''
+
+  return (
+    <div className="shrink-0 border-b border-white/5 bg-white/[0.03]">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 px-3 py-2 text-left"
+      >
+        <PinGlyph className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[10px] font-bold tracking-wider text-amber-300/90 uppercase">
+            Pinned
+            {messages.length > 1 ? ` · ${messages.length}` : ''}
+          </span>
+          <span className="block truncate text-xs text-slate-300">{preview}</span>
+        </span>
+        <span className="shrink-0 text-[10px] text-slate-500">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && messages.length > 1 ? (
+        <ul className="max-h-32 overflow-y-auto border-t border-white/5 px-3 py-1.5">
+          {messages.slice(1).map((message) => (
+            <li key={message.id} className="flex items-center gap-2 py-0.5">
+              <PinGlyph className="h-3 w-3 shrink-0 text-amber-300/60" />
+              <span className="truncate text-xs text-slate-400">
+                {message.type === 'text'
+                  ? (message.body ?? '')
+                  : message.type === 'gif'
+                    ? 'GIF'
+                    : message.type === 'drawing'
+                      ? 'Drawing'
+                      : 'Photo'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
+function PinGlyph({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M14.5 2.5 21.5 9.5l-2.4 1.2-1.1 5.3-4.6-4.6-4.9 6.2-1.3-1.3 6.2-4.9-4.6-4.6 5.3-1.1L15.3 3.6a1.7 1.7 0 0 0-.8-1.1Z" />
+    </svg>
+  )
+}
+
 function MessageBubble({
   message,
   mine,
   showSender,
   actionable,
   canDelete,
+  canPin,
+  pinsUnlocked,
   readReceipts,
   onReact,
   onDelete,
+  onPin,
+  onPinLocked,
   onSeenBy,
 }: {
   message: ConversationMessage
@@ -1235,9 +1361,13 @@ function MessageBubble({
   showSender: boolean
   actionable: boolean
   canDelete: boolean
+  canPin: boolean
+  pinsUnlocked: boolean
   readReceipts: ReadReceipt[]
   onReact: (reaction: ReactionName) => void
   onDelete: () => void
+  onPin: (pinned: boolean) => void
+  onPinLocked: () => void
   onSeenBy: (receipts: ReadReceipt[]) => void
 }) {
   const kind: MessageKind = message.type ?? 'text'
@@ -1371,6 +1501,31 @@ function MessageBubble({
                   className="grid h-6 w-6 place-items-center rounded-full bg-white/5 text-[10px] transition hover:bg-rose-500/20 hover:text-rose-300"
                 >
                   🗑
+                </button>
+              ) : null}
+              {canPin || message.pinned_at ? (
+                <button
+                  type="button"
+                  onClick={() => (pinsUnlocked ? onPin(!message.pinned_at) : onPinLocked())}
+                  aria-label={message.pinned_at ? 'Unpin message' : 'Pin message'}
+                  aria-pressed={Boolean(message.pinned_at)}
+                  title={
+                    pinsUnlocked
+                      ? message.pinned_at
+                        ? 'Unpin from this chat'
+                        : 'Pin to the top of this chat'
+                      : 'Pinned messages are a premium feature'
+                  }
+                  className={[
+                    'grid h-6 w-6 place-items-center rounded-full transition',
+                    message.pinned_at
+                      ? 'bg-amber-400/20 text-amber-300'
+                      : pinsUnlocked
+                        ? 'bg-white/5 hover:bg-amber-400/15 hover:text-amber-200'
+                        : 'bg-amber-400/10 text-amber-300/70',
+                  ].join(' ')}
+                >
+                  <PinGlyph className="h-3 w-3" />
                 </button>
               ) : null}
             </div>

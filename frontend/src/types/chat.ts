@@ -12,6 +12,7 @@ export type ChatFeatureKey =
   | 'chat_wallpaper'
   | 'chat_gif'
   | 'chat_drawing'
+  | 'chat_pinned_messages'
 
 export interface ChatFeature {
   key: ChatFeatureKey
@@ -74,6 +75,11 @@ export interface ConversationMessage {
   reactions: Record<ReactionName, number>
   my_reaction: ReactionName | null
   created_at: string
+  /** Shared state, so every member sees the same pin - not per-member. */
+  pinned_at: string | null
+  pinned_by: number | null
+  /** Server-side permission: own message, or owner/admin in a group. */
+  can_pin: boolean
   /** Present on locally-created, not-yet-persisted messages. */
   client_id?: string
 }

@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom'
 
 import { Spinner } from '@/components/AuthLayout'
 import EditProfileModal from '@/components/EditProfileModal'
-import FollowButton from '@/components/FollowButton'
+import ProfileActions from '@/components/profile/ProfileActions'
 import UserListModal from '@/components/UserListModal'
 import { usersApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -122,6 +122,11 @@ export default function UserProfile() {
               ) : null}
             </h1>
             <p className="text-sm text-slate-400">@{user.username}</p>
+            {user.account_type && user.account_type !== 'personal' ? (
+              <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-brand-200 uppercase ring-1 ring-brand-400/30">
+                {user.account_type_label ?? user.account_type}
+              </span>
+            ) : null}
             {user.bio ? (
               <p className="mt-1 text-sm leading-snug text-slate-300">{user.bio}</p>
             ) : null}
@@ -169,14 +174,12 @@ export default function UserProfile() {
             Edit profile
           </button>
         ) : (
-          <div className="mt-4">
-            <FollowButton
-              user={user}
-              onChanged={() => {
-                void queryClient.invalidateQueries({ queryKey: ['user', 'profile'] })
-              }}
-            />
-          </div>
+          <ProfileActions
+            user={user}
+            onChanged={() => {
+              void queryClient.invalidateQueries({ queryKey: ['user', 'profile'] })
+            }}
+          />
         )}
       </header>
 

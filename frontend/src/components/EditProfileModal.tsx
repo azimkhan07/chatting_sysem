@@ -5,10 +5,32 @@ import { useEffect, useRef, useState } from 'react'
 import { Spinner } from '@/components/AuthLayout'
 import { profileApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
-import type { User } from '@/types/user'
+import type { AccountType, User } from '@/types/user'
 
 const MAX_BIO_LENGTH = 160
 const ACCEPTED_MIME = ['image/jpeg', 'image/png', 'image/webp']
+
+/**
+ * Personal is message + follow only. The other two unlock the published
+ * contact block, mirroring `AccountType::offersContact()` on the backend.
+ */
+const ACCOUNT_TYPES = [
+  {
+    value: 'personal',
+    label: 'Personal',
+    hint: 'Follow and message only. No contact details shown.',
+  },
+  {
+    value: 'professional',
+    label: 'Professional',
+    hint: 'Let visitors reach you on WhatsApp or email.',
+  },
+  {
+    value: 'business',
+    label: 'Business',
+    hint: 'Same contact options, labelled as a business.',
+  },
+] as const
 
 interface EditProfileModalProps {
   onClose: () => void
@@ -24,9 +46,20 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
 
   const [displayName, setDisplayName] = useState(sessionUser?.display_name ?? '')
   const [bio, setBio] = useState(sessionUser?.bio ?? '')
+  const [accountType, setAccountType] = useState<AccountType>(
+    sessionUser?.account_type ?? 'personal',
+  )
+  const [contactEmail, setContactEmail] = useState(sessionUser?.contact_email ?? '')
+  const [contactPhone, setContactPhone] = useState(sessionUser?.contact_phone ?? '')
+  const [showContact, setShowContact] = useState(sessionUser?.show_contact ?? false)
   const [avatar, setAvatar] = useState<{ file: File; previewUrl: string } | null>(null)
   const [cover, setCover] = useState<{ file: File; previewUrl: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const offersContact = accountType !== 'personal'
+  const trimmedEmail = contactEmail.trim()
+  const trimmedPhone = contactPhone.trim()
+  const hasContact = trimmedEmail.length > 0 || trimmedPhone.length > 0
 
   const avatarPreview = avatar?.previewUrl ?? sessionUser?.avatar_url
   const coverPreview = cover?.previewUrl ?? sessionUser?.cover_url
@@ -39,7 +72,14 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
   }, [avatar, cover])
 
   const updateProfile = useMutation({
-    mutationFn: (data: { display_name: string; bio: string }) => profileApi.update(data),
+    mutationFn: (data: {
+      display_name: string
+      bio: string
+      account_type: AccountType
+      contact_email: string | null
+      contact_phone: string | null
+      show_contact: boolean
+    }) => profileApi.update(data),
   })
   const uploadAvatar = useMutation({
     mutationFn: (file: File) => profileApi.uploadAvatar(file),
@@ -68,6 +108,12 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
         await updateProfile.mutateAsync({
           display_name: displayName.trim(),
           bio: bio.trim(),
+          account_type: accountType,
+          // Sending null rather than an empty string: the backend treats a
+          // blank as "remove this", and personal accounts wipe the block.
+          contact_email: offersContact && trimmedEmail ? trimmedEmail : null,
+          contact_phone: offersContact && trimmedPhone ? trimmedPhone : null,
+          show_contact: offersContact && showContact,
         })
       ).user
 
@@ -95,7 +141,7 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-3xl glass-card overflow-hidden"
+        className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-3xl glass-card"
       >
         {/* Cover */}
         <div className="relative h-28 bg-gradient-to-br from-brand-500/20 to-fuchsia-500/20">
@@ -168,6 +214,98 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
               {bio.length}/{MAX_BIO_LENGTH}
             </span>
           </label>
+
+          {/* Account type + public contact */}
+          <fieldset className="mt-4 rounded-2xl bg-white/[0.03] p-3 ring-1 ring-white/10">
+            <legend className="px-1 text-xs font-bold text-slate-300">Account type</legend>
+            <div className="mt-1.5 grid gap-1.5" role="radiogroup">
+              {ACCOUNT_TYPES.map((option) => {
+                const active = accountType === option.value
+                return (
+                  <label
+                    key={option.value}
+                    className={`flex cursor-pointer items-start gap-2.5 rounded-xl px-2.5 py-2 transition ${
+                      active ? 'bg-brand-500/15 ring-1 ring-brand-400/50' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="account_type"
+                      value={option.value}
+                      checked={active}
+                      onChange={() => setAccountType(option.value)}
+                      className="mt-0.5 h-4 w-4 accent-brand-500"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-slate-100">
+                        {option.label}
+                      </span>
+                      <span className="block text-[11px] leading-snug text-slate-400">
+                        {option.hint}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+
+            {offersContact ? (
+              <div className="mt-3 space-y-2.5">
+                <label className="block text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                  WhatsApp number
+                  <input
+                    value={contactPhone}
+                    onChange={(event) => setContactPhone(event.target.value)}
+                    inputMode="tel"
+                    placeholder="+91 98765 43210"
+                    className="mt-1 w-full rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none ring-1 ring-white/10 focus:ring-brand-400/60"
+                  />
+                </label>
+
+                <label className="block text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                  Email
+                  <input
+                    value={contactEmail}
+                    onChange={(event) => setContactEmail(event.target.value)}
+                    type="email"
+                    placeholder="hello@studio.com"
+                    className="mt-1 w-full rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none ring-1 ring-white/10 focus:ring-brand-400/60"
+                  />
+                </label>
+
+                <label
+                  className={`flex items-start gap-2.5 rounded-xl px-2.5 py-2 transition ${
+                    hasContact
+                      ? 'cursor-pointer hover:bg-white/5'
+                      : 'cursor-not-allowed opacity-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showContact && hasContact}
+                    disabled={!hasContact}
+                    onChange={(event) => setShowContact(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-brand-500"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-slate-100">
+                      Show contact on my profile
+                    </span>
+                    <span className="block text-[11px] leading-snug text-slate-400">
+                      {hasContact
+                        ? 'Visitors get a Contact button and pick WhatsApp or email. Your login email and mobile are never shared.'
+                        : 'Add a number or an email first.'}
+                    </span>
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                Personal accounts show a Message button only. Switch to Professional or Business to
+                publish a contact.
+              </p>
+            )}
+          </fieldset>
 
           {error ? <p className="mt-2 text-xs text-rose-400">{error}</p> : null}
 
