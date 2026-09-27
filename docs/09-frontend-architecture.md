@@ -96,8 +96,24 @@ frontend/src/
 - Reduced-motion toggle; all animations have static fallbacks.
 - Keyboard-usable (focus rings visible); semantic HTML; aria-labels on icon buttons.
 - Contrast AA on all palettes (light + dark).
+- `:focus-visible` is defined once in `@layer base` (`index.css`), not per component — a
+  component that forgets it no longer loses the focus ring.
+- `@media (pointer: coarse)` bumps buttons/links to a 44px minimum touch target.
+- `@media (prefers-reduced-motion: reduce)` clamps every animation and transition, so the
+  ambient orbs, theme cross-fade and skeleton shimmer all stop when the OS asks.
+- Shared `.empty-state` / `.empty-state-title` / `.empty-state-hint` and `.skeleton`
+  utilities keep empty and loading states identical across pages.
 
 ## Theming
 
 - Design tokens in `styles/tokens.css` (colors, radii, motion, spacing).
 - Dark default + light optional; brand accent tokens ready before visual identity final.
+- **Menu-driven remap:** a theme is expressed by remapping the palette (`white`, `slate-*`,
+  `midnight-*`) per `data-theme`, so component classes do not change between themes.
+- **Surface tokens are separate** (`--surface-card`, `--surface-raised`, `--surface-sunken`,
+  `--surface-border`, `--surface-ring`). A card must not be built from `bg-slate-900/60`:
+  in the light theme `slate-900` is `#ffffff`, so the card renders white-on-white and loses
+  its edge. `.glass-card` and `.surface-raised` consume the tokens instead and keep their
+  separation plus shadow in both themes.
+- Full-height screens (chat) use the `.chat-fill` min-height chain on top of
+  `.app-shell { height: 100dvh }` — see `AppShell.tsx`. Never a fixed `min-height` in px.

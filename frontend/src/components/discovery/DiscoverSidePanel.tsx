@@ -106,7 +106,7 @@ export function DiscoverSidePanel({ onOpenDm, onSearch }: DiscoverSidePanelProps
         </button>
       </div>
 
-      <div className="mx-3 mb-3 rounded-xl border border-white/5 bg-white/[0.03] p-3">
+      <div className="mx-3 mb-3 rounded-xl border border-[var(--surface-border)] bg-[var(--surface-sunken)] p-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-semibold text-slate-300">Contact sync</p>
           <button
@@ -143,7 +143,7 @@ export function DiscoverSidePanel({ onOpenDm, onSearch }: DiscoverSidePanelProps
       </div>
 
       {notice ? (
-        <p className="mx-3 mb-2 rounded-lg bg-white/[0.04] px-3 py-2 text-[11px] text-slate-400">
+        <p className="mx-3 mb-2 rounded-lg bg-[var(--surface-sunken)] px-3 py-2 text-[11px] text-slate-400">
           {notice}
         </p>
       ) : null}
@@ -155,22 +155,25 @@ export function DiscoverSidePanel({ onOpenDm, onSearch }: DiscoverSidePanelProps
       {top.isLoading ? (
         <div className="space-y-1 px-3">
           {[0, 1, 2, 3].map((index) => (
-            <div key={index} className="h-14 animate-pulse rounded-xl bg-white/[0.04]" />
+            <div key={index} className="skeleton h-14" />
           ))}
         </div>
       ) : null}
 
       {!top.isLoading && people.length === 0 ? (
-        <p className="px-4 text-xs text-slate-500">
-          You already follow everyone we would suggest.
-        </p>
+        <div className="empty-state !py-8">
+          <p className="empty-state-title">Nothing new here</p>
+          <p className="empty-state-hint">
+            You already follow everyone we would suggest. Search for people by name or username.
+          </p>
+        </div>
       ) : null}
 
       <div className="space-y-1 px-2 pb-6">
         {people.map((user) => (
           <div
             key={user.id}
-            className="flex items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[0.04]"
+            className="flex items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-[var(--surface-sunken)]"
           >
             <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-xs font-bold text-white">
               {user.avatar_url ? (

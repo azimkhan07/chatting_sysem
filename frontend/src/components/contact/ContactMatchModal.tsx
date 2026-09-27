@@ -86,7 +86,9 @@ export function ContactMatchModal({ open, onClose, onMatch, busy }: ContactMatch
               }}
             />
           </label>
-          <span className="text-[11px] text-slate-500">{raw.trim() ? raw.split(/[\n,;]+/).filter((v) => v.trim()).length : 0} numbers</span>
+          <span className="text-[11px] text-slate-500">
+            {raw.trim() ? raw.split(/[\n,;]+/).filter((v) => v.trim()).length : 0} numbers
+          </span>
         </div>
 
         {error ? <p className="mt-2 text-xs text-rose-400">{error}</p> : null}

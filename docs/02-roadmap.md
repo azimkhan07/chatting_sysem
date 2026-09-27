@@ -50,7 +50,9 @@ Ordered by dependency, each item shipped with its own tests + docs update:
    - [ ] Server transcodes (rotation) + HLS + poster. **Not built.** v1 stores and plays the
      uploaded file progressively; see the v1/target table in `08-media-pipeline.md`.
 5. **Explore**
-   - Search users/hashtags; trending grid (Redis-ranked).
+   - [x] Search users/hashtags — `GET /users/search` (prefix-then-contains, LIKE wildcards
+      escaped, 8 results) and `GET /hashtags/search`; Explore switches tabs and falls back to
+      the trending grid when the query is empty.
    - [x] Trending grid — Redis sorted set `posts:trending` (like=1/comment=2/share=4), bumped in realtime, `posts:refresh-trending` every 5 min, DB-ranked fallback, `GET posts/trending`, Explore tab toggle.
 6. **Chat (1:1 + Groups)**
    - Reverb WebSockets: messages, typing, presence, read receipts.
@@ -113,6 +115,21 @@ Ordered by dependency, each item shipped with its own tests + docs update:
      (composer + image attach + reaction bar + live Echo sync + ended recap view).
    - [x] Tests: 14 feature tests (auth, membership, idempotent start, expiry, reactions, recap,
      broadcast events).
+10. **Discovery** (added during the Phase 1 polish pass)
+   - [x] `GET /users/top` — reach-ordered accounts the viewer does not follow yet, so a new
+     user has somewhere to follow from before they know anyone.
+   - [x] `POST /users/match-contacts` — opt-in phone matching on the last 10 digits, capped at
+     500 numbers, nothing stored, suspended/banned accounts and self excluded.
+
+**Phase 1 status: complete.** Everything above is shipped except four items that are
+deliberately v2+ work, listed here so the deferral is a decision and not an omission:
+
+| Deferred item | Why it is not v1 | Lands in |
+| ------------- | ----------------- | -------- |
+| Image resize + thumbnail variants | Uploads store the original; feeds serve it directly. Needs an image pipeline (Imagick/queue workers) and a storage policy before we re-encode user bytes. | `08-media-pipeline.md` v2 |
+| Server-ranked feed ordering | v1 is a cursor feed (own posts + followed authors). Ranking needs a fan-out table and Redis that only pay off at scale. | Phase 3 |
+| Server transcode + HLS + poster | v1 plays progressive uploads. Transcoding is a queue + storage cost before there is traffic to justify it. | `08-media-pipeline.md` v2 |
+| Gallery wallpaper uploads + AI wallpapers | Needs a per-user wallpaper asset table, upload quota and moderation review before user-supplied bytes can become a chat background. | Phase 2 |
 
 **Exit criteria:** Public beta. Anonymous visitor → sign-up → follow someone → post →
 reel → chat in a group → buy blue tick → see notifications, all with no hangs.

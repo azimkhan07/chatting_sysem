@@ -54,6 +54,20 @@
 
   --grad-a: #6d28d9;
   --grad-b: #a21caf;
+
+  /*
+   * Surface tokens.
+   *
+   * Pages are themed by remapping the palette, so a card cannot be built from
+   * `bg-slate-900/60`: in light mode slate-900 is #ffffff and the card becomes
+   * white on white with no edge. Surfaces are their own tokens instead, so a
+   * card keeps its separation and its shadow in both themes.
+   */
+  --surface-card: rgb(255 255 255 / 0.78);
+  --surface-raised: rgb(255 255 255 / 0.94);
+  --surface-sunken: #f1f4fa;
+  --surface-border: rgb(15 23 42 / 0.09);
+  --surface-ring: rgb(15 23 42 / 0.06);
 }
 
 [data-theme='dark'] {
@@ -83,6 +97,12 @@
 
   --grad-a: #c4b5fd;
   --grad-b: #f0abfc;
+
+  --surface-card: rgb(255 255 255 / 0.06);
+  --surface-raised: rgb(30 41 59 / 0.72);
+  --surface-sunken: rgb(2 6 23 / 0.5);
+  --surface-border: rgb(255 255 255 / 0.08);
+  --surface-ring: rgb(0 0 0 / 0.35);
 }
 
 /* Smooth cross-fade while a theme swap is in flight. */
@@ -216,8 +236,21 @@ body {
     animation: orb-drift 18s ease-in-out infinite;
   }
 
-.glass-card {
-    @apply rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl;
+  /* A raised card. Uses the surface tokens, not slate-900, so it keeps its
+     edge in the light theme instead of dissolving into a white canvas. */
+  .glass-card {
+    @apply rounded-3xl border backdrop-blur-xl;
+    background: var(--surface-card);
+    border-color: var(--surface-border);
+    box-shadow:
+      0 1px 2px var(--surface-ring),
+      0 12px 32px -12px var(--surface-ring);
+  }
+
+  /* Flat variant for rows and sheets that sit on top of a card. */
+  .surface-raised {
+    background: var(--surface-raised);
+    border-color: var(--surface-border);
   }
 
   .app-shell {
@@ -283,6 +316,107 @@ body {
 
   .bubble {
     animation: bubble-float 6s ease-in-out infinite;
+  }
+
+  /* Empty states: one title, one line of help, so no page invents its own. */
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-2 px-6 py-14 text-center;
+  }
+  .empty-state-title {
+    @apply text-sm font-semibold text-slate-200;
+  }
+  .empty-state-hint {
+    @apply max-w-[16rem] text-xs leading-relaxed text-slate-500;
+  }
+
+  /* Loading placeholder. A shimmer reads as "loading" where a flat pulse
+     reads as "broken". */
+  .skeleton {
+    @apply rounded-xl;
+    background: linear-gradient(
+      90deg,
+      var(--surface-sunken) 0%,
+      color-mix(in srgb, var(--surface-sunken) 55%, var(--surface-card)) 50%,
+      var(--surface-sunken) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-sweep 1.4s ease-in-out infinite;
+  }
+}
+
+/*
+ * Keyboard focus, app-wide. Components used to opt in one by one, so a tab
+ * through the app could lose the cursor entirely.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+}
+
+/* Touch targets: 44px is the smallest that is comfortable on a phone. */
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  a {
+    min-height: 44px;
+  }
+  .chat-bubble-action {
+    min-height: 40px;
+  }
+}
+
+/*
+ * Motion is decoration. When the OS asks for less, it stops — the theme swap
+ * cross-fade and the ambient orbs are the worst offenders.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Theme-aware slim scrollbars; the default chunky bar breaks the layout. */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-border) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--surface-border);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--color-slate-500) 55%, transparent);
+    background-clip: content-box;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-brand-500) 30%, transparent);
+  }
+}
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
   }
 }
 
