@@ -1,9 +1,14 @@
 import { motion } from 'framer-motion'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
-import { useAuthStore } from '@/stores/authStore'
-import { useThemeStore } from '@/stores/themeStore'
+import { AccountCenterSection } from '@/components/settings/AccountCenterSection'
+import { FamilySection } from '@/components/settings/FamilySection'
+import { HelpSection } from '@/components/settings/HelpSection'
+import { Panel } from '@/components/settings/SettingsUI'
+import { PreferencesSection } from '@/components/settings/PreferencesSection'
+import { SecuritySection } from '@/components/settings/SecuritySection'
 import type { ThemeMode } from '@/lib/theme'
+import { useThemeStore } from '@/stores/themeStore'
 
 interface ThemeOption {
   mode: ThemeMode
@@ -42,7 +47,7 @@ const OPTIONS: ThemeOption[] = [
     label: 'Automatic',
     caption: 'Match your device',
     preview: (
-      <div className="grid h-[3.25rem] w-16 place-items-center rounded-lg bg-gradient-to-br from-[#f2f4fb] to-[#070812] py-3 ring-1 ring-black/10">
+      <div className="grid w-[3.25rem] place-items-center rounded-lg bg-gradient-to-br from-[#f2f4fb] to-[#070812] py-3 ring-1 ring-black/10">
         <span className="h-1.5 w-10 rounded-full bg-white/40" />
         <span className="mt-1.5 h-3 w-10 rounded-sm bg-white/25" />
         <span className="mt-1 h-1 w-10 rounded-full bg-[#8b5cf6]" />
@@ -51,42 +56,35 @@ const OPTIONS: ThemeOption[] = [
   },
 ]
 
+/**
+ * Only one section is open at a time.
+ *
+ * The page grew to six groups, four of which are full screens of controls. One
+ * long scroll would mean a person hunting for Appearance had to page past the
+ * "Delete account" button, which is both tedious and the wrong thing to put in
+ * their way.
+ */
 export default function Settings() {
-  const user = useAuthStore((state) => state.user)
   const mode = useThemeStore((state) => state.mode)
   const setMode = useThemeStore((state) => state.setMode)
+  const [open, setOpen] = useState<string | null>('appearance')
 
-  const initials = (user?.display_name ?? '?').charAt(0).toUpperCase()
-  const joined = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-    : '—'
+  const toggle = (id: string) => () => setOpen((current) => (current === id ? null : id))
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-2xl space-y-4 pb-24">
       <header className="space-y-1">
         <h1 className="text-2xl font-extrabold tracking-tight text-white">Settings</h1>
-        <p className="text-sm text-slate-400">
-          Make amteCHAT feel like yours.
-        </p>
+        <p className="text-sm text-slate-400">Make amteCHAT feel like yours.</p>
       </header>
 
-      <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="glass-card p-4 sm:p-5"
+      <Panel
+        title="Appearance"
+        caption="Theme"
+        open={open === 'appearance'}
+        onToggle={toggle('appearance')}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-bold text-slate-200">Appearance</h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Your choice is saved on this device — the web and mobile app each
-              remember their own look.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {OPTIONS.map((option) => {
             const selected = mode === option.mode
             return (
@@ -126,51 +124,24 @@ export default function Settings() {
             )
           })}
         </div>
-      </motion.section>
+        <p className="mt-3 text-[11px] text-slate-500">
+          Your choice is saved on this device. The web and mobile app each remember their own look.
+        </p>
+      </Panel>
 
-      <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05, ease: 'easeOut' }}
-        className="glass-card p-4 sm:p-5"
-      >
-        <h2 className="text-sm font-bold text-slate-200">Your account</h2>
-        <div className="mt-3 flex items-center gap-3">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-base font-bold text-[#fff]">
-            {initials}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-100">
-              {user?.display_name ?? '…'}
-            </p>
-            <p className="truncate text-xs text-slate-500">@{user?.username ?? '…'}</p>
-          </div>
-        </div>
-
-        <dl className="mt-4 space-y-2.5 border-t border-white/5 pt-4">
-          <Row label="Display name" value={user?.display_name ?? '—'} />
-          <Row label="Username" value={user ? `@${user.username}` : '—'} />
-          <Row label="Member since" value={joined} />
-        </dl>
-      </motion.section>
+      <AccountCenterSection open={open === 'account'} onToggle={toggle('account')} />
+      <PreferencesSection open={open === 'preferences'} onToggle={toggle('preferences')} />
+      <SecuritySection open={open === 'security'} onToggle={toggle('security')} />
+      <FamilySection open={open === 'family'} onToggle={toggle('family')} />
+      <HelpSection open={open === 'help'} onToggle={toggle('help')} />
 
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="px-1 text-xs text-slate-500"
+        className="px-1 pt-1 text-center text-xs text-slate-500"
       >
-        amteCHAT · a social hub in the making
+        amteCHAT · v1 · a social hub in the making
       </motion.p>
-    </div>
-  )
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="truncate text-sm font-medium text-slate-100">{value}</dd>
     </div>
   )
 }

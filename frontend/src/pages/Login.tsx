@@ -6,13 +6,25 @@ import { AuthField, AuthLayout, FormError, Spinner } from '@/components/AuthLayo
 import { ApiError } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 
+/**
+ * `ACCOUNT_DEACTIVATED` is the one sign-in failure that is not the end of the
+ * road, so the form switches into a reactivation mode instead of just showing
+ * the error. The identifier and password stay filled in, because the user has
+ * already typed and proven them.
+ */
+type Mode = 'sign-in' | 'reactivate'
+
 export default function Login() {
   const navigate = useNavigate()
   const login = useAuthStore((state) => state.login)
+  const reactivate = useAuthStore((state) => state.reactivate)
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [mode, setMode] = useState<Mode>('sign-in')
+
+  const reactivating = mode === 'reactivate'
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -21,15 +33,27 @@ export default function Login() {
     setSubmitting(true)
     setFormError(null)
     try {
-      await login({ identifier, password })
+      if (reactivating) {
+        await reactivate({ identifier, password })
+      } else {
+        await login({ identifier, password })
+      }
       navigate('/', { replace: true })
     } catch (error) {
-      setFormError(
-        error instanceof ApiError ? error.message : 'Unable to sign in.',
-      )
+      if (!reactivating && error instanceof ApiError && error.code === 'ACCOUNT_DEACTIVATED') {
+        setMode('reactivate')
+        setFormError(null)
+      } else {
+        setFormError(error instanceof ApiError ? error.message : 'Unable to sign in.')
+      }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function switchMode(next: Mode) {
+    setMode(next)
+    setFormError(null)
   }
 
   return (
@@ -42,10 +66,12 @@ export default function Login() {
       >
         <div className="space-y-1">
           <h2 className="text-2xl font-extrabold tracking-tight text-white">
-            Welcome back
+            {reactivating ? 'Your account is waiting' : 'Welcome back'}
           </h2>
           <p className="text-sm text-slate-400">
-            Sign in to continue to your world.
+            {reactivating
+              ? 'This account is deactivated. Reactivate it to pick up where you left off.'
+              : 'Sign in to continue to your world.'}
           </p>
         </div>
 
@@ -55,6 +81,13 @@ export default function Login() {
           noValidate
         >
           {formError ? <FormError message={formError} /> : null}
+
+          {reactivating ? (
+            <p className="rounded-xl bg-amber-500/10 px-3 py-2.5 text-xs leading-relaxed text-amber-200 ring-1 ring-amber-500/30">
+              Your posts, chats and profile are exactly where you left them. Reactivate to sign back
+              in on this device.
+            </p>
+          ) : null}
 
           <AuthField
             label="Username, email or mobile"
@@ -75,18 +108,20 @@ export default function Login() {
               autoComplete="current-password"
               onChange={setPassword}
             />
-            <div className="text-right">
-              <Link
-                to="/forgot-password"
-                className="text-xs text-slate-500 transition hover:text-brand-300"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            {reactivating ? null : (
+              <div className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-slate-500 transition hover:text-brand-300"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
           </div>
 
           <button type="submit" disabled={submitting} className="btn-primary">
-            {submitting ? <Spinner /> : 'Sign in'}
+            {submitting ? <Spinner /> : reactivating ? 'Reactivate account' : 'Sign in'}
             {submitting ? null : (
               <svg
                 viewBox="0 0 24 24"
@@ -104,6 +139,17 @@ export default function Login() {
               </svg>
             )}
           </button>
+
+          {reactivating ? (
+            <button
+              type="button"
+              onClick={() => switchMode('sign-in')}
+              disabled={submitting}
+              className="w-full rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/5 disabled:opacity-60"
+            >
+              This is not my account
+            </button>
+          ) : null}
         </form>
 
         <p className="text-center text-sm text-slate-400">

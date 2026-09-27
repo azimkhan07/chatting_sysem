@@ -19,7 +19,22 @@ import type {
   ThreadReactionName,
   ThreadReactionResult,
 } from '@/types/thread'
-import type { AccountType, FollowResult, PublicUser, User, UserPage } from '@/types/user'
+import type {
+  AccountType,
+  AuthPayload,
+  FollowResult,
+  PublicUser,
+  User,
+  UserPage,
+} from '@/types/user'
+import type {
+  AccountOverview,
+  Family,
+  FamilyRole,
+  Session,
+  SettingsPatch,
+  UserSettings,
+} from '@/types/settings'
 
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
@@ -128,8 +143,57 @@ function makeApi(readTokenFn: TokenReader) {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
-    delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+    // A body is optional but required in practice for DELETE endpoints that
+    // re-confirm a password - omitting it would silently send no re-check.
+    delete: <T>(path: string, data?: unknown) =>
+      request<T>(path, {
+        method: 'DELETE',
+        ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+      }),
+    /**
+     * Fetches a file instead of an envelope.
+     *
+     * A plain `<a download href>` cannot work here: the API authenticates with
+     * a bearer token held in storage, and a navigation request sends no
+     * `Authorization` header, so the download would 401. This keeps the header
+     * and hands back a blob plus the server's filename.
+     */
+    download: async (path: string): Promise<{ blob: Blob; filename: string }> => {
+      const token = readTokenFn()
+      const headers = new Headers()
+      headers.set('Accept', 'application/octet-stream, application/json')
+      headers.set('X-Request-Id', crypto.randomUUID())
+      if (token) headers.set('Authorization', `Bearer ${token}`)
+
+      const response = await fetch(`${API_BASE}${path}`, { headers })
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as ApiEnvelope<never> | null
+        const error = body?.errors?.[0]
+        throw new ApiError(
+          response.status,
+          error?.code ?? 'UNEXPECTED_ERROR',
+          error?.message ?? 'The download could not be prepared.',
+        )
+      }
+
+      return {
+        blob: await response.blob(),
+        filename: filenameFrom(response.headers.get('Content-Disposition')),
+      }
+    },
   }
+}
+
+/** Reads the filename out of a `Content-Disposition` header. */
+function filenameFrom(header: string | null): string {
+  if (!header) return 'amtechat-export.json'
+
+  const quoted = header.match(/filename="([^"]+)"/)
+  if (quoted?.[1]) return quoted[1]
+
+  const bare = header.match(/filename=([^;]+)/)
+  return bare?.[1]?.trim() ?? 'amtechat-export.json'
 }
 
 export const api = makeApi(readToken)
@@ -264,6 +328,47 @@ export const usersApi = {
     api.post<FollowResult>(`/users/${encodeURIComponent(String(identifier))}/follow`, {}),
   unfollow: (identifier: string | number) =>
     api.delete<FollowResult>(`/users/${encodeURIComponent(String(identifier))}/follow`),
+}
+
+export const settingsApi = {
+  show: () => api.get<{ settings: UserSettings }>('/me/settings'),
+  update: (preferences: SettingsPatch) =>
+    api.patch<{ settings: UserSettings }>('/me/settings', preferences),
+  account: () => api.get<{ account: AccountOverview }>('/me/account'),
+  changePassword: (data: {
+    current_password: string
+    new_password: string
+    new_password_confirmation: string
+  }) =>
+    api.post<{ password_changed: boolean; other_sessions_revoked: number }>(
+      '/me/account/password',
+      data,
+    ),
+  sessions: () => api.get<{ sessions: Session[] }>('/me/sessions'),
+  revokeSession: (id: number) => api.delete<{ revoked: boolean }>(`/me/sessions/${id}`),
+  revokeOtherSessions: () =>
+    api.delete<{ revoked: boolean; other_sessions_revoked: number }>('/me/sessions'),
+  deactivate: (password: string) => api.post<{ deactivated: boolean }>('/me/account/deactivate', { password }),
+  deleteAccount: (password: string) => api.delete<{ deleted: boolean }>('/me/account', { password }),
+  // Goes through `api.download`, not a bare link: the endpoint needs the
+  // bearer token, which a navigation request cannot send.
+  exportData: () => api.download('/me/account/export'),
+  reactivate: (data: { identifier: string; password: string }) =>
+    api.post<AuthPayload>('/auth/reactivate', data),
+}
+
+export const familyApi = {
+  show: () => api.get<{ family: Family | null }>('/me/family'),
+  create: (name: string) => api.post<{ family: Family }>('/me/family', { name }),
+  rename: (name: string) => api.patch<{ family: Family }>('/me/family', { name }),
+  dissolve: () => api.delete<{ dissolved: boolean }>('/me/family'),
+  addMember: (username: string, role: FamilyRole) =>
+    api.post<{ family: Family }>('/me/family/members', { username, role }),
+  changeRole: (memberId: number, role: FamilyRole) =>
+    api.patch<{ family: Family }>(`/me/family/members/${memberId}`, { role }),
+  removeMember: (memberId: number) =>
+    api.delete<{ removed: boolean; family: Family }>(`/me/family/members/${memberId}`),
+  leave: () => api.post<{ left: boolean; family: null }>('/me/family/leave', {}),
 }
 
 export const profileApi = {

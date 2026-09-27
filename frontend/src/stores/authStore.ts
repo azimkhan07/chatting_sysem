@@ -12,6 +12,13 @@ interface AuthState {
   user: User | null
   status: AuthStatus
   login: (input: LoginInput) => Promise<void>
+  /**
+   * Wakes a self-deactivated account and signs in, in one round trip.
+   *
+   * The backend reactivation endpoint issues a token like sign-in does, so
+   * there is no second login call to make afterwards.
+   */
+  reactivate: (input: LoginInput) => Promise<void>
   register: (input: RegisterInput) => Promise<void>
   logout: () => Promise<void>
   setUser: (user: User | null) => void
@@ -35,6 +42,21 @@ export const useAuthStore = create<AuthState>()(
         set({ status: 'loading' })
         try {
           const data = await api.post<AuthResponseData>('/auth/login', input)
+          set({
+            token: data.access_token,
+            user: data.user,
+            status: 'authenticated',
+          })
+        } catch (error) {
+          set({ status: 'guest' })
+          throw error
+        }
+      },
+
+      async reactivate(input) {
+        set({ status: 'loading' })
+        try {
+          const data = await api.post<AuthResponseData>('/auth/reactivate', input)
           set({
             token: data.access_token,
             user: data.user,
