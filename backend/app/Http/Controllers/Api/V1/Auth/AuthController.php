@@ -38,6 +38,7 @@ final class AuthController extends Controller
         $result = $this->authService->login(new LoginData(
             identifier: $request->validated('identifier'),
             password: $request->validated('password'),
+            device: $request->userAgent(),
         ));
 
         return ApiResponse::success($this->authPayload($result));

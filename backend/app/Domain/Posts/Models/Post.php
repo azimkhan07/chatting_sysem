@@ -52,6 +52,9 @@ final class Post extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return HasMany<PostMedia, $this>
+     */
     public function media(): HasMany
     {
         return $this->hasMany(PostMedia::class)->orderBy('sort_order');

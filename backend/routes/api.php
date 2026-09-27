@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\ProfileController;
+use App\Http\Controllers\Api\V1\Auth\ReactivateAccountController;
 use App\Http\Controllers\Api\V1\Billing\SubscriptionController;
 use App\Http\Controllers\Api\V1\Chat\ChatDrawingController;
 use App\Http\Controllers\Api\V1\Chat\ChatEntitlementController;
@@ -21,6 +22,9 @@ use App\Http\Controllers\Api\V1\Hashtags\HashtagController;
 use App\Http\Controllers\Api\V1\Music\SongController;
 use App\Http\Controllers\Api\V1\Posts\PostController;
 use App\Http\Controllers\Api\V1\Posts\PostInteractionController;
+use App\Http\Controllers\Api\V1\Settings\AccountController;
+use App\Http\Controllers\Api\V1\Settings\SessionController;
+use App\Http\Controllers\Api\V1\Settings\SettingsController;
 use App\Http\Controllers\Api\V1\Story\StoryController;
 use App\Http\Controllers\Api\V1\Threads\ThreadController;
 use App\Http\Controllers\Api\V1\User\NotificationController;
@@ -32,6 +36,8 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('auth')->middleware('throttle:auth')->group(function (): void {
         Route::post('register', [AuthController::class, 'register']);
         Route::post('login', [AuthController::class, 'login']);
+        // Unauthenticated by necessity: deactivation revoked every token.
+        Route::post('reactivate', ReactivateAccountController::class);
     });
 
     Route::prefix('password')->middleware('throttle:password')->group(function (): void {
@@ -48,6 +54,23 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('/', [ProfileController::class, 'update']);
         Route::post('avatar', [ProfileController::class, 'uploadAvatar']);
         Route::post('cover', [ProfileController::class, 'uploadCover']);
+
+        // Account Center
+        Route::get('account', [AccountController::class, 'show']);
+        Route::post('account/password', [AccountController::class, 'changePassword']);
+        Route::post('account/deactivate', [AccountController::class, 'deactivate']);
+        Route::get('account/export', [AccountController::class, 'export']);
+        Route::delete('account', [AccountController::class, 'destroy']);
+
+        // Security: signed-in devices
+        Route::get('sessions', [SessionController::class, 'index']);
+        Route::delete('sessions', [SessionController::class, 'destroyOthers']);
+        Route::delete('sessions/{session}', [SessionController::class, 'destroy'])
+            ->whereNumber('session');
+
+        // Privacy + notification preferences
+        Route::get('settings', [SettingsController::class, 'show']);
+        Route::patch('settings', [SettingsController::class, 'update']);
     });
 
     Route::prefix('posts')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {

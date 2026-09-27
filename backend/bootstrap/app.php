@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Auth\Exceptions\AccountDeactivatedException;
 use App\Domain\Auth\Exceptions\AccountDisabledException;
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Domain\Auth\Exceptions\UsernameTakenException;
@@ -60,6 +61,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(static function (AccountDisabledException $e, Request $request): JsonResponse {
             return ApiResponse::error('ACCOUNT_DISABLED', $e->getMessage(), 403);
+        });
+
+        $exceptions->render(static function (AccountDeactivatedException $e, Request $request): JsonResponse {
+            return ApiResponse::error(
+                'ACCOUNT_DEACTIVATED',
+                'This account is deactivated. Reactivate it to sign back in.',
+                403,
+            );
         });
 
         $exceptions->render(static function (InvalidPostMediaException $e, Request $request): JsonResponse {

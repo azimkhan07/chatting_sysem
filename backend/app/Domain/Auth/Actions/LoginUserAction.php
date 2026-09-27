@@ -8,6 +8,7 @@ use App\Domain\Auth\Contracts\AuthRepository;
 use App\Domain\Auth\Data\AuthUserResult;
 use App\Domain\Auth\Data\LoginData;
 use App\Domain\Auth\Enums\UserStatus;
+use App\Domain\Auth\Exceptions\AccountDeactivatedException;
 use App\Domain\Auth\Exceptions\AccountDisabledException;
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Domain\Auth\Models\User;
@@ -33,11 +34,19 @@ final class LoginUserAction
             throw new AccountDisabledException($user);
         }
 
+        // A sleeping account is not banned - it is a reversible choice the
+        // owner made, so the client is told to offer reactivation instead of
+        // treating it as a dead end.
+        if ($user !== null && $user->isDeactivated()) {
+            $user->tokens()->delete();
+            throw new AccountDeactivatedException;
+        }
+
         $user->forceFill(['last_seen_at' => now()])->saveQuietly();
 
         return new AuthUserResult(
             user: $user,
-            accessToken: $this->tokenIssuer->issueFor($user),
+            accessToken: $this->tokenIssuer->issueFor($user, $data->device),
             expiresInSeconds: $this->tokenIssuer->ttlSeconds(),
         );
     }
