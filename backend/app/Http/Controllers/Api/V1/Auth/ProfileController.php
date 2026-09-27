@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Auth;
 
+use App\Domain\Auth\Enums\AccountType;
 use App\Domain\Auth\Models\User;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateProfileRequest;
@@ -27,6 +28,43 @@ final class ProfileController extends Controller
 
         if ($request->exists('bio')) {
             $user->bio = $request->filled('bio') ? trim((string) $request->input('bio')) : null;
+        }
+
+        if ($request->exists('account_type')) {
+            $accountType = AccountType::from((string) $request->input('account_type'));
+
+            // Switching back to Personal must not leave a published contact
+            // block behind that a later toggle would re-expose.
+            if ($accountType === AccountType::Personal) {
+                $user->show_contact = false;
+                $user->contact_email = null;
+                $user->contact_phone = null;
+            }
+
+            $user->account_type = $accountType;
+        }
+
+        if ($request->exists('contact_email')) {
+            $user->contact_email = $request->filled('contact_email')
+                ? mb_strtolower(trim((string) $request->input('contact_email')))
+                : null;
+        }
+
+        if ($request->exists('contact_phone')) {
+            $user->contact_phone = $request->filled('contact_phone')
+                ? trim((string) $request->input('contact_phone'))
+                : null;
+        }
+
+        if ($request->exists('show_contact')) {
+            // There is nothing to show without a contact method, so a toggle
+            // alone can never publish an empty block.
+            $hasContact = is_string($user->contact_email) && $user->contact_email !== ''
+                || is_string($user->contact_phone) && $user->contact_phone !== '';
+
+            $user->show_contact = $request->boolean('show_contact')
+                && $hasContact
+                && $user->account_type->offersContact();
         }
 
         $user->save();

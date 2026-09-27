@@ -23,6 +23,8 @@ use Illuminate\Support\Carbon;
  * @property-read string $body
  * @property-read string|null $media_url
  * @property-read string|null $client_id
+ * @property Carbon|null $pinned_at
+ * @property int|null $pinned_by
  * @property-read Carbon $created_at
  * @property-read Carbon $updated_at
  */
@@ -47,6 +49,7 @@ final class ConversationMessage extends Model
     {
         return [
             'type' => MessageType::class,
+            'pinned_at' => 'datetime',
         ];
     }
 
@@ -58,6 +61,16 @@ final class ConversationMessage extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function pinner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pinned_by');
+    }
+
+    public function isPinned(): bool
+    {
+        return $this->pinned_at !== null;
     }
 
     public function reactions(): HasMany

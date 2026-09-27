@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Domain\Chat\Enums\ConversationType;
 use App\Domain\Chat\Enums\MessageReactionType;
 use App\Domain\Chat\Models\ConversationMessage;
 use App\Support\Media\MediaUrl;
@@ -34,6 +35,11 @@ final class MessageResource extends JsonResource
             'read_by' => $this->readBy($viewerId),
             'reactions' => $this->reactionSummary(),
             'my_reaction' => $this->viewerReaction($viewerId),
+            // Shared pin state: the whole conversation sees it, so unlike a
+            // nickname this is not per-viewer.
+            'pinned_at' => $this->pinned_at?->toIso8601String(),
+            'pinned_by' => $this->pinned_by,
+            'can_pin' => $this->canPin($viewerId),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }
@@ -66,6 +72,33 @@ final class MessageResource extends JsonResource
         $mine = $this->reactions->firstWhere('user_id', $viewerId);
 
         return $mine === null ? null : $mine->reaction->value;
+    }
+
+    /**
+     * Whether this viewer may pin *this* message. The client uses it to decide
+     * between a plain pin action and a crown, but the pin route re-checks both
+     * this and the subscription, so it is affordance, not enforcement.
+     */
+    private function canPin(?int $viewerId): bool
+    {
+        if ($viewerId === null) {
+            return false;
+        }
+
+        if ((int) $this->user_id === $viewerId) {
+            return true;
+        }
+
+        if (! $this->relationLoaded('conversation') || $this->conversation === null) {
+            return false;
+        }
+
+        return $this->conversation->type === ConversationType::Group
+            && $this->conversation->relationLoaded('members')
+            && $this->conversation->members->contains(
+                fn ($member): bool => (int) $member->user_id === $viewerId
+                    && in_array($member->role->value, ['owner', 'admin'], true)
+            );
     }
 
     /**

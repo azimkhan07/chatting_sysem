@@ -45,6 +45,7 @@ final class ChatEntitlementTest extends TestCase
             'chat_drawing',
             'chat_gif',
             'chat_nickname',
+            'chat_pinned_messages',
             'chat_wallpaper',
             'message_requests',
         ], $keys);
@@ -57,7 +58,7 @@ final class ChatEntitlementTest extends TestCase
         $this->actingAs($user)
             ->getJson('/api/v1/chat/entitlements')
             ->assertOk()
-            ->assertJsonCount(5, 'data.unlocked');
+            ->assertJsonCount(6, 'data.unlocked');
     }
 
     public function test_personalising_a_chat_is_locked_without_a_subscription(): void

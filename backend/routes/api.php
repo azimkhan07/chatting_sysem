@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Chat\ChatEntitlementController;
 use App\Http\Controllers\Api\V1\Chat\ChatInviteController;
 use App\Http\Controllers\Api\V1\Chat\ChatMemberController;
 use App\Http\Controllers\Api\V1\Chat\ChatMessageController;
+use App\Http\Controllers\Api\V1\Chat\ChatPinController;
 use App\Http\Controllers\Api\V1\Chat\ChatPresenceController;
 use App\Http\Controllers\Api\V1\Chat\ChatReactionController;
 use App\Http\Controllers\Api\V1\Chat\ChatUnreadController;
@@ -107,6 +108,9 @@ Route::prefix('v1')->group(function (): void {
         Route::get('conversations/{conversation}/messages', [ChatMessageController::class, 'index'])->whereNumber('conversation');
         Route::post('conversations/{conversation}/messages', [ChatMessageController::class, 'store'])->whereNumber('conversation');
         Route::delete('conversations/{conversation}/messages/{message}', [ChatMessageController::class, 'destroy'])->whereNumber(['conversation', 'message']);
+        Route::get('conversations/{conversation}/pins', [ChatPinController::class, 'index'])->whereNumber('conversation');
+        Route::post('conversations/{conversation}/messages/{message}/pin', [ChatPinController::class, 'store'])->whereNumber(['conversation', 'message']);
+        Route::delete('conversations/{conversation}/messages/{message}/pin', [ChatPinController::class, 'destroy'])->whereNumber(['conversation', 'message']);
         Route::post('conversations/{conversation}/drawings', [ChatDrawingController::class, 'store'])
             ->middleware('chat.feature:chat_drawing')
             ->whereNumber('conversation');

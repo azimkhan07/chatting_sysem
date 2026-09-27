@@ -28,6 +28,9 @@ enum ChatFeature: string
     /** Freehand drawing messages rendered to an image. */
     case Drawing = 'chat_drawing';
 
+    /** Pinning a message to the top of a conversation for everyone in it. */
+    case PinnedMessages = 'chat_pinned_messages';
+
     public function label(): string
     {
         return match ($this) {
@@ -36,6 +39,7 @@ enum ChatFeature: string
             self::Wallpaper => 'Chat wallpapers',
             self::Gif => 'GIF messages',
             self::Drawing => 'Drawing messages',
+            self::PinnedMessages => 'Pinned messages',
         };
     }
 
@@ -48,6 +52,7 @@ enum ChatFeature: string
             self::Wallpaper => 'Built-in and gallery wallpapers for every conversation.',
             self::Gif => 'Search and send GIFs straight from the composer.',
             self::Drawing => 'Sketch a message and send it as an image.',
+            self::PinnedMessages => 'Pin the messages that matter to the top of the chat for everyone.',
         };
     }
 

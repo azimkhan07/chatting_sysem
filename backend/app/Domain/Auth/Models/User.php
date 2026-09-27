@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Auth\Models;
 
 use App\Domain\Admin\Models\Role;
+use App\Domain\Auth\Enums\AccountType;
 use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Posts\Models\Post;
 use App\Domain\Social\Models\Follow;
@@ -31,6 +32,10 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read string|null $cover_path
  * @property-read bool $is_verified
  * @property-read UserStatus $status
+ * @property AccountType $account_type
+ * @property string|null $contact_email
+ * @property string|null $contact_phone
+ * @property bool $show_contact
  * @property-read Carbon|null $last_seen_at
  * @property-read Carbon $created_at
  * @property-read Carbon $updated_at
@@ -70,6 +75,10 @@ class User extends Authenticatable
         'avatar_path',
         'cover_path',
         'last_seen_at',
+        'account_type',
+        'contact_email',
+        'contact_phone',
+        'show_contact',
     ];
 
     /**
@@ -93,6 +102,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_verified' => 'boolean',
             'status' => UserStatus::class,
+            'account_type' => AccountType::class,
+            'show_contact' => 'boolean',
             'last_seen_at' => 'datetime',
         ];
     }
