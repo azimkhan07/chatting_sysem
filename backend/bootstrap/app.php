@@ -9,6 +9,9 @@ use App\Domain\Chat\Exceptions\ConversationNotFoundException;
 use App\Domain\Chat\Exceptions\ConversationPermissionException;
 use App\Domain\Chat\Exceptions\FeatureLockedException;
 use App\Domain\Chat\Exceptions\InvalidConversationException;
+use App\Domain\Family\Exceptions\FamilyNotAllowedException;
+use App\Domain\Family\Exceptions\FamilyNotFoundException;
+use App\Domain\Family\Exceptions\FamilyPermissionException;
 use App\Domain\Posts\Exceptions\InvalidCommentException;
 use App\Domain\Posts\Exceptions\InvalidPostMediaException;
 use App\Domain\Social\Exceptions\SelfFollowException;
@@ -125,6 +128,21 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(static function (ThreadExpiredException $e, Request $request): JsonResponse {
             return ApiResponse::error('THREAD_EXPIRED', $e->getMessage(), 422);
+        });
+
+        // Family Center. A missing family and someone else's family share one
+        // 404 on purpose, so the endpoint cannot be used to discover that a
+        // given household exists.
+        $exceptions->render(static function (FamilyNotFoundException $e, Request $request): JsonResponse {
+            return ApiResponse::error('NOT_FOUND', $e->getMessage(), 404);
+        });
+
+        $exceptions->render(static function (FamilyPermissionException $e, Request $request): JsonResponse {
+            return ApiResponse::error('FORBIDDEN', $e->getMessage(), 403);
+        });
+
+        $exceptions->render(static function (FamilyNotAllowedException $e, Request $request): JsonResponse {
+            return ApiResponse::error('INVALID_OPERATION', $e->getMessage(), 422);
         });
 
         $exceptions->render(static function (ValidationException $e, Request $request): JsonResponse {

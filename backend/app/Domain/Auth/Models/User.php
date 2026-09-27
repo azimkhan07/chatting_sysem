@@ -9,6 +9,7 @@ use App\Domain\Auth\Enums\AccountType;
 use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Billing\Models\Subscription;
 use App\Domain\Chat\Models\Conversation;
+use App\Domain\Family\Models\FamilyMember;
 use App\Domain\Posts\Models\Post;
 use App\Domain\Settings\Models\UserSettings;
 use App\Domain\Social\Models\Follow;
@@ -232,6 +233,17 @@ class User extends Authenticatable
     public function settings(): HasOne
     {
         return $this->hasOne(UserSettings::class);
+    }
+
+    /**
+     * This user's place in their family, if any.
+     *
+     * `family_members.user_id` is unique, so this is always a HasOne and
+     * `relationLoaded` is never a lie.
+     */
+    public function familyMembership(): HasOne
+    {
+        return $this->hasOne(FamilyMember::class);
     }
 
     public function hasRole(string $role): bool

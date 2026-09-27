@@ -7,6 +7,7 @@ namespace App\Domain\Settings\Services;
 use App\Domain\Auth\Contracts\AuthRepository;
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Domain\Auth\Models\User;
+use App\Domain\Family\Models\FamilyMember;
 use App\Domain\Social\Models\Follow;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -115,6 +116,22 @@ final class AccountService
                 ->orWhere('following_id', $user->id)
                 ->delete();
 
+            // A soft-deleted user keeps their `users` row, so the FK cascade
+            // never fires and the membership would survive as a ghost in
+            // someone else's roster. An owner deletion takes the whole family
+            // with it: leaving a household headless would leave the remaining
+            // members with nobody who can manage them.
+            $membership = FamilyMember::query()->with('family')->where('user_id', $user->id)->first();
+
+            if ($membership !== null) {
+                if ($membership->isOwner()) {
+                    $membership->family->members()->delete();
+                    $membership->family->delete();
+                } else {
+                    $membership->delete();
+                }
+            }
+
             $user->forceFill([
                 'username' => $anonymised,
                 'display_name' => 'Deleted user',
@@ -160,6 +177,35 @@ final class AccountService
                 'followers' => $user->followers()->count(),
                 'following' => $user->following()->count(),
             ],
+            'family' => $this->familySummary($user),
+        ];
+    }
+
+    /**
+     * A one-line family badge for the Account Center. The full roster lives
+     * behind `/me/family`, so this stays cheap: one membership lookup, no
+     * member list.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function familySummary(User $user): ?array
+    {
+        $membership = FamilyMember::query()
+            ->with('family')
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($membership === null) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $membership->family->id,
+            'name' => (string) $membership->family->name,
+            'role' => $membership->role->value,
+            'role_label' => $membership->role->label(),
+            'is_owner' => $membership->isOwner(),
+            'members' => (int) $membership->family->members()->count(),
         ];
     }
 

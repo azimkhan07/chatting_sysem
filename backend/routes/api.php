@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\Music\SongController;
 use App\Http\Controllers\Api\V1\Posts\PostController;
 use App\Http\Controllers\Api\V1\Posts\PostInteractionController;
 use App\Http\Controllers\Api\V1\Settings\AccountController;
+use App\Http\Controllers\Api\V1\Settings\FamilyController;
 use App\Http\Controllers\Api\V1\Settings\SessionController;
 use App\Http\Controllers\Api\V1\Settings\SettingsController;
 use App\Http\Controllers\Api\V1\Story\StoryController;
@@ -71,6 +72,20 @@ Route::prefix('v1')->group(function (): void {
         // Privacy + notification preferences
         Route::get('settings', [SettingsController::class, 'show']);
         Route::patch('settings', [SettingsController::class, 'update']);
+
+        // Family Center. `family/leave` is a distinct verb rather than a DELETE
+        // on the member row, because the caller's own intent ("I am leaving")
+        // should not be expressible as "remove member 7" from the client.
+        Route::get('family', [FamilyController::class, 'show']);
+        Route::post('family', [FamilyController::class, 'store']);
+        Route::patch('family', [FamilyController::class, 'update']);
+        Route::delete('family', [FamilyController::class, 'destroy']);
+        Route::post('family/leave', [FamilyController::class, 'leave']);
+        Route::post('family/members', [FamilyController::class, 'addMember']);
+        Route::patch('family/members/{member}', [FamilyController::class, 'updateMember'])
+            ->whereNumber('member');
+        Route::delete('family/members/{member}', [FamilyController::class, 'destroyMember'])
+            ->whereNumber('member');
     });
 
     Route::prefix('posts')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
