@@ -251,3 +251,80 @@ export function ImageStackIcon(props: IconProps) {
     </svg>
   )
 }
+
+// --- Settings categories -----------------------------------------------------
+// One icon per settings rail entry, all on the same 24px grid and the same
+// 1.8 stroke as the primary nav, so the two rails read as one system.
+
+/** Appearance - a half-filled circle, the classic light/dark glyph. */
+export function AppearanceIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 3.5a8.5 8.5 0 0 0 0 17Z" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** Account Center - a person inside a rounded card. */
+export function AccountIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <rect x="3" y="4.5" width="18" height="15" rx="3" />
+      <circle cx="12" cy="10.5" r="2.4" />
+      <path d="M7.5 16.5a4.5 4.5 0 0 1 9 0" />
+    </svg>
+  )
+}
+
+/** Family Center - two people, so the household reads as more than one. */
+export function FamilyIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <circle cx="9" cy="9" r="3" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+      <path d="M15.5 6.5a3 3 0 0 1 0 5.5" />
+      <path d="M16.5 14.5a5.5 5.5 0 0 1 4 4.5" />
+    </svg>
+  )
+}
+
+/** Privacy - a hand over an eye. */
+export function PrivacyIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+      <path d="M4 19.5 20 4.5" />
+    </svg>
+  )
+}
+
+/** Security - a shield with a check. */
+export function SecurityIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M12 3.2 19 6v5.5c0 4-2.8 7.6-7 9.3-4.2-1.7-7-5.3-7-9.3V6Z" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </svg>
+  )
+}
+
+/** Help - a speech bubble with a question mark. */
+export function HelpIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M20.5 12.5c0 3.9-3.8 7-8.5 7-1 0-2-.15-2.9-.43L4 20.5l1.4-3.7A6.7 6.7 0 0 1 3.5 12.5c0-3.9 3.8-7 8.5-7s8.5 3.1 8.5 7Z" />
+      <path d="M10.2 10.2a1.9 1.9 0 0 1 3.7.6c0 1.3-1.9 1.9-1.9 3" />
+      <path d="M12 16.6h.01" />
+    </svg>
+  )
+}
+
+/** Right-pointing chevron, for "this row goes somewhere". */
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />
+    </svg>
+  )
+}

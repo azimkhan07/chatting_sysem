@@ -94,7 +94,7 @@ export function ContactMatchModal({ open, onClose, onMatch, busy }: ContactMatch
         {error ? <p className="mt-2 text-xs text-rose-400">{error}</p> : null}
 
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="btn-ghost">
+          <button type="button" onClick={onClose} className="btn-quiet">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={busy} className="btn-primary w-auto px-5">

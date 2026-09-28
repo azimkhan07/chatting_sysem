@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { Spinner } from '@/components/AuthLayout'
-import { FIELD, Panel } from '@/components/settings/SettingsUI'
+import { SettingCard } from '@/components/settings/SettingCard'
+import { Divider, FIELD, SubHeading } from '@/components/settings/SettingsUI'
 import { settingsApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -12,7 +13,7 @@ import { useAuthStore } from '@/stores/authStore'
  * A sessions list is only useful if it says *which* device, so the backend
  * stores the user agent in the token name and this reads it back out.
  */
-export function SecuritySection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+export function SecuritySection() {
   const queryClient = useQueryClient()
   const logout = useAuthStore((state) => state.logout)
   const [editing, setEditing] = useState(false)
@@ -22,10 +23,11 @@ export function SecuritySection({ open, onToggle }: { open: boolean; onToggle: (
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
 
+  // No `enabled` gate: the rail decides which screen is mounted, so by the time
+  // this renders the user is already looking at it.
   const sessions = useQuery({
     queryKey: ['settings', 'sessions'],
     queryFn: settingsApi.sessions,
-    enabled: open,
   })
 
   const changePassword = useMutation({
@@ -84,13 +86,16 @@ export function SecuritySection({ open, onToggle }: { open: boolean; onToggle: (
   const others = rows.filter((session) => !session.is_current)
 
   return (
-    <Panel title="Security" caption="Password and signed-in devices" open={open} onToggle={onToggle}>
+    <SettingCard
+      title="Security"
+      description="Your password, and every device that is currently signed in as you."
+    >
       {done ? (
         <p className="mb-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">{done}</p>
       ) : null}
 
       {editing ? (
-        <form onSubmit={submit} className="space-y-2.5">
+        <form onSubmit={submit} className="space-y-2 sm:space-y-2.5">
           <input
             type="password"
             value={current}
@@ -124,14 +129,14 @@ export function SecuritySection({ open, onToggle }: { open: boolean; onToggle: (
                 setError(null)
               }}
               disabled={changePassword.isPending}
-              className="flex-1 rounded-xl px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/5 disabled:opacity-60"
+              className="flex-1 rounded-xl px-3 py-1.5 text-[13px] sm:px-4 sm:py-2 sm:text-sm font-semibold text-slate-300 transition hover:bg-white/5 disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={changePassword.isPending || next.length < 8 || next !== confirm}
-              className="flex-1 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-[#fff] transition hover:bg-brand-400 disabled:opacity-60"
+              className="flex-1 rounded-xl bg-brand-500 px-3 py-1.5 text-[13px] sm:px-4 sm:py-2 sm:text-sm font-semibold text-[#fff] transition hover:bg-brand-400 disabled:opacity-60"
             >
               {changePassword.isPending ? <Spinner className="mx-auto h-4 w-4" /> : 'Change password'}
             </button>
@@ -144,17 +149,15 @@ export function SecuritySection({ open, onToggle }: { open: boolean; onToggle: (
             setEditing(true)
             setDone(null)
           }}
-          className="w-full rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-brand-400/50 hover:text-brand-200"
+          className="w-full rounded-xl border border-white/10 px-3 py-2 text-[13px] sm:px-4 sm:py-2.5 sm:text-sm font-semibold text-slate-200 transition hover:border-brand-400/50 hover:text-brand-200"
         >
           Change password
         </button>
       )}
 
-      <div className="mt-5 border-t border-white/5 pt-4">
+      <Divider>
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-            Where you are signed in
-          </h3>
+          <SubHeading>Where you are signed in</SubHeading>
           {others.length > 0 ? (
             <button
               type="button"
@@ -166,18 +169,20 @@ export function SecuritySection({ open, onToggle }: { open: boolean; onToggle: (
             </button>
           ) : null}
         </div>
+      </Divider>
 
-        {sessions.isPending ? (
-          <div className="grid place-items-center py-5">
-            <Spinner className="h-4 w-4" />
-          </div>
-        ) : null}
+      {sessions.isPending ? (
+        <div className="grid place-items-center py-5">
+          <Spinner className="h-4 w-4" />
+        </div>
+      ) : null}
 
-        <ul className="mt-2 divide-y divide-white/5">
+      {rows.length > 0 ? (
+        <ul className="mt-1 divide-y divide-white/5">
           {rows.map((session) => (
             <li key={session.id} className="flex items-center gap-3 py-2.5">
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 text-sm font-medium text-slate-100">
+                <span className="flex items-center gap-1.5 text-[13px] sm:text-sm font-medium text-slate-100">
                   {session.device}
                   {session.is_current ? (
                     <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-emerald-300 uppercase">
@@ -212,7 +217,11 @@ export function SecuritySection({ open, onToggle }: { open: boolean; onToggle: (
             </li>
           ))}
         </ul>
-      </div>
-    </Panel>
+      ) : null}
+
+      {!sessions.isPending && rows.length === 0 ? (
+        <p className="py-4 text-[13px] sm:text-sm text-slate-400">No signed-in devices found.</p>
+      ) : null}
+    </SettingCard>
   )
 }

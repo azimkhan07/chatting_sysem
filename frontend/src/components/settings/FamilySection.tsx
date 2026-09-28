@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { Spinner } from '@/components/AuthLayout'
-import { FIELD, Panel } from '@/components/settings/SettingsUI'
+import { SettingCard } from '@/components/settings/SettingCard'
+import { Divider, FIELD, SubHeading } from '@/components/settings/SettingsUI'
 import { familyApi } from '@/lib/api'
 import type { Family, FamilyMember, FamilyRole, FamilyRoleOption } from '@/types/settings'
 
@@ -14,14 +15,13 @@ import type { Family, FamilyMember, FamilyRole, FamilyRoleOption } from '@/types
  * comparing the viewer's role against the target's here - one source of truth
  * means the buttons cannot disagree with the server about what is allowed.
  */
-export function FamilySection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+export function FamilySection() {
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
 
   const query = useQuery({
     queryKey: ['family'],
     queryFn: familyApi.show,
-    enabled: open,
   })
 
   // Every family mutation returns the whole family, so one invalidation
@@ -76,15 +76,15 @@ export function FamilySection({ open, onToggle }: { open: boolean; onToggle: () 
   const family = query.data?.family ?? null
 
   return (
-    <Panel
+    <SettingCard
       title="Family Center"
-      caption={
+      description={
         family
-          ? `${family.counts.members} ${family.counts.members === 1 ? 'member' : 'members'}`
-          : 'Share one account with the people you trust'
+          ? `${family.counts.members} ${
+              family.counts.members === 1 ? 'member' : 'members'
+            } on one shared supervision policy.`
+          : 'Share one supervision policy with the people you look after.'
       }
-      open={open}
-      onToggle={onToggle}
     >
       {error ? <ErrorNote message={error} onDismiss={() => setError(null)} /> : null}
 
@@ -95,7 +95,7 @@ export function FamilySection({ open, onToggle }: { open: boolean; onToggle: () 
       ) : null}
 
       {query.isError && !query.isPending ? (
-        <p className="text-sm text-rose-300">Could not load your family.</p>
+        <p className="text-[13px] sm:text-sm text-rose-300">Could not load your family.</p>
       ) : null}
 
       {!query.isPending && !family ? (
@@ -115,7 +115,7 @@ export function FamilySection({ open, onToggle }: { open: boolean; onToggle: () 
           onDissolve={() => dissolve.mutate()}
         />
       ) : null}
-    </Panel>
+    </SettingCard>
   )
 }
 
@@ -124,7 +124,7 @@ function CreateForm({ busy, onCreate }: { busy: boolean; onCreate: (name: string
 
   return (
     <div>
-      <p className="text-sm leading-relaxed text-slate-400">
+      <p className="text-[13px] sm:text-sm leading-relaxed text-slate-400">
         A family shares one supervision policy. You become the owner and a guardian, and you can
         add the people you look after.
       </p>
@@ -148,7 +148,7 @@ function CreateForm({ busy, onCreate }: { busy: boolean; onCreate: (name: string
         <button
           type="submit"
           disabled={busy || name.trim().length < 2}
-          className="w-full rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-[#fff] transition hover:bg-brand-400 disabled:opacity-60"
+          className="w-full rounded-xl bg-brand-500 px-3 py-2 text-[13px] sm:px-4 sm:py-2.5 sm:text-sm font-semibold text-[#fff] transition hover:bg-brand-400 disabled:opacity-60"
         >
           {busy ? <Spinner className="mx-auto h-4 w-4" /> : 'Create family'}
         </button>
@@ -230,10 +230,12 @@ function Roster({
       <p className="-mt-2 text-[11px] text-slate-500">
         You are {family.viewer.role_label?.toLowerCase()}
         {family.viewer.is_owner ? ' and the owner' : ''}.
-        {family.viewer.can_approve_spending
-          ? ' Paid plans for teens need your approval.'
-          : ''}
+        {family.viewer.can_approve_spending ? ' Paid plans for teens need your approval.' : ''}
       </p>
+
+      <Divider>
+        <SubHeading>Members</SubHeading>
+      </Divider>
 
       <ul className="divide-y divide-white/5">
         {family.members.map((member) => (
@@ -262,7 +264,11 @@ function Roster({
         </p>
       )}
 
-      <div className="space-y-2 border-t border-white/5 pt-4">
+      <Divider>
+        <SubHeading>Leave or end this family</SubHeading>
+      </Divider>
+
+      <div className="space-y-2">
         {family.viewer.can_leave ? (
           confirming === 'leave' ? (
             <Confirm
@@ -280,7 +286,7 @@ function Roster({
               type="button"
               onClick={() => setConfirming('leave')}
               disabled={busy}
-              className="w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-amber-400/50 hover:text-amber-200 disabled:opacity-60"
+              className="w-full rounded-xl border border-white/15 px-3 py-2 text-[13px] sm:px-4 sm:py-2.5 sm:text-sm font-semibold text-slate-300 transition hover:border-amber-400/50 hover:text-amber-200 disabled:opacity-60"
             >
               Leave family
             </button>
@@ -304,7 +310,7 @@ function Roster({
               type="button"
               onClick={() => setConfirming('dissolve')}
               disabled={busy}
-              className="w-full rounded-xl border border-rose-500/40 px-4 py-2.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-60"
+              className="w-full rounded-xl border border-rose-500/40 px-3 py-2 text-[13px] sm:px-4 sm:py-2.5 sm:text-sm font-semibold text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-60"
             >
               Dissolve family
             </button>
@@ -339,7 +345,7 @@ function MemberRow({
         {initials}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-sm font-medium text-slate-100">
+        <span className="flex items-center gap-1.5 text-[13px] sm:text-sm font-medium text-slate-100">
           <span className="truncate">
             {member.user.display_name}
             {member.is_self ? ' (you)' : ''}
@@ -432,7 +438,7 @@ function AddMemberForm({
         onAdd(username.trim(), role)
         setUsername('')
       }}
-      className="space-y-2 rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/10"
+      className="space-y-2 rounded-xl bg-white/[0.03] p-2.5 ring-1 sm:p-3 ring-white/10"
     >
       <label className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
         Add someone
@@ -448,7 +454,7 @@ function AddMemberForm({
         <select
           value={role}
           onChange={(event) => setRole(event.target.value as FamilyRole)}
-          className="flex-1 rounded-xl bg-white/5 px-3 py-2.5 text-sm text-slate-100 ring-1 ring-white/10 outline-none"
+          className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-[13px] ring-1 ring-white/10 outline-none sm:py-2.5 sm:text-sm text-slate-100 ring-1 ring-white/10 outline-none"
         >
           {available.map((option) => (
             <option key={option.value} value={option.value}>
@@ -459,7 +465,7 @@ function AddMemberForm({
         <button
           type="submit"
           disabled={busy || username.trim().length < 3}
-          className="shrink-0 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-[#fff] transition hover:bg-brand-400 disabled:opacity-60"
+          className="shrink-0 rounded-xl bg-brand-500 px-3 py-2 text-[13px] sm:px-4 sm:py-2.5 sm:text-sm font-semibold text-[#fff] transition hover:bg-brand-400 disabled:opacity-60"
         >
           {busy ? <Spinner className="h-4 w-4" /> : 'Add'}
         </button>
@@ -486,20 +492,20 @@ function Confirm({
 }) {
   return (
     <div className="rounded-xl bg-amber-500/[0.07] p-3.5 ring-1 ring-amber-500/30">
-      <p className="text-sm font-semibold text-amber-200">{title}</p>
+      <p className="text-[13px] sm:text-sm font-semibold text-amber-200">{title}</p>
       <p className="mt-1 text-xs leading-relaxed text-slate-300">{body}</p>
       <div className="mt-3 flex gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-xl px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/5"
+          className="flex-1 rounded-xl px-3 py-1.5 text-[13px] sm:px-4 sm:py-2 sm:text-sm font-semibold text-slate-300 transition hover:bg-white/5"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className="flex-1 rounded-xl bg-amber-500/90 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-500"
+          className="flex-1 rounded-xl bg-amber-500/90 px-3 py-1.5 text-[13px] sm:px-4 sm:py-2 sm:text-sm font-semibold text-slate-900 transition hover:bg-amber-500"
         >
           {confirmLabel}
         </button>

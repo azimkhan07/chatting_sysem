@@ -42,26 +42,54 @@ frontend/src/
 
 ### Settings composition
 
-`pages/Settings.tsx` is a thin accordion shell. Each group is its own component under
-`components/settings/`, and the shared pieces — `Panel`, `Row`, `Toggle`, `FIELD` — live in
-`components/settings/SettingsUI.tsx`.
+`pages/Settings.tsx` is a **catalogue plus one screen**. It owns a `CATEGORIES` array where each
+entry carries its id, label, blurb, icon and a `render()` for its screen. Everything else — the
+mobile list, the desktop rail, the URL handling, the back behaviour — reads from that one array.
+Adding a category is one entry plus one screen component.
 
-That split is not cosmetic. Every section needs `Panel`, `Row` and `FIELD`, and `Settings.tsx`
+The two widths are decided in **JS, not CSS**, from the same `768px` breakpoint:
+
+- **Mobile** is a list of categories. Tapping one *pushes* a screen with a back arrow, because a
+  phone has no room for a rail beside the content and a list that swaps in place gives the back
+  arrow nothing to go back to. The list is a real destination in the history stack.
+- **Desktop** is a sticky rail beside the content, and always shows a screen — Appearance by
+  default, so the rail is never pointing at nothing.
+
+This could not be done with CSS alone. Hiding a rail is styling; deciding that "no selection yet"
+means *show Appearance* on desktop but *show the list* on mobile is behaviour. `useMediaQuery`
+(`hooks/useMediaQuery.ts`) is built on `useSyncExternalStore` so the very first frame is already
+the right shape — a `useState` + `useEffect` version would paint the phone layout on a desktop for
+one frame before correcting itself, and that frame decides which navigation is on screen.
+
+The selection lives in the query string (`/settings?section=security`), so a screen is linkable,
+survives a refresh, and the browser back button walks out of it. The back arrow uses `replace`, so
+arriving on a deep link does not trap the reader with a history entry they cannot leave.
+
+Sizes step up at `sm`. Everything in a card — heading, description, padding, row height, button
+height, field height, even the toggle track — is smaller on a phone, because a settings screen has
+to fit a heading, a hint and a control inside one screen's worth of height.
+
+`SettingCard` is its own file because it is the *page's* primitive: the page shows exactly one
+card at a time and therefore cannot know its title, so the card owns the heading.
+
+That split is not cosmetic. Every section needs `SettingCard`, `Row` and `FIELD`, and `Settings.tsx`
 imports every section; if the primitives lived in the page, each section would have to import
 the page that renders it. That is a cycle, and it fails in a way that is hard to read — a
 `const` in the cycle body is in its temporal dead zone when the cycle runs.
 
 ```
 components/settings/
-├─ SettingsUI.tsx            # Panel, Row, Toggle, FIELD — no domain knowledge
+├─ SettingCard.tsx           # the one-pane shell: title, description, footer
+├─ SettingsUI.tsx            # Row, Toggle, FIELD, SubHeading, Divider — no domain knowledge
 ├─ AccountCenterSection.tsx  # profile facts, export, deactivate, delete
-├─ PreferencesSection.tsx    # privacy + notification toggles (optimistic)
+├─ PreferencesSection.tsx    # PrivacySection + NotificationsSection (one query, two screens)
 ├─ SecuritySection.tsx       # password change, per-device sessions
 ├─ FamilySection.tsx         # roster, roles, add/remove/leave/dissolve
+├─ ContactSyncSection.tsx    # opt-in, paste-or-upload matching, results
 └─ HelpSection.tsx           # support links, about, privacy requests
 ```
 
-Two rules the sections follow:
+Four rules the sections follow:
 
 - **Permissions come from the server.** `FamilyMemberResource` returns a per-viewer
   `permissions` block, so the client never re-derives "may this viewer remove that member"
@@ -70,6 +98,17 @@ Two rules the sections follow:
   the client as well as the server, because a hijacked token that can also wipe the account is
   the worst possible combination. The data export goes through `api.download()` rather than an
   `<a download>`: a navigation request cannot send the bearer token, so a plain link 401s.
+  Deactivate and delete differ in colour by an explicit `tone` prop, not by their label text, so
+  a copy change to "Delete" cannot quietly downgrade a destructive action to the amber one.
+- **The opt-in stays on the device.** The contact-sync flag is `localStorage`, not a
+  `user_settings` column, and both the chat Discover rail and the Settings screen read it
+  through `lib/contactSync.ts`. A server-side copy of that flag would be a server-side copy of
+  the thing the flag exists to avoid.
+- **Only the visible screen mounts.** A list showing one screen at a time means each query
+  drops its `enabled` gate. Leaving `enabled: open` behind would fetch every screen's data on
+  first paint and then render the one you happened to be looking at.
+
+
 
 
 ## State rules

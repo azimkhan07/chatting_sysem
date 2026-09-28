@@ -1,23 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { PremiumBadge, PremiumLock } from '@/components/chat/PremiumLock'
 import { ContactMatchModal } from '@/components/contact/ContactMatchModal'
 import { useAuthStore } from '@/stores/authStore'
 import { ApiError, usersApi } from '@/lib/api'
+import { getContactSync, setContactSync, watchContactSync } from '@/lib/contactSync'
 import type { User } from '@/types/user'
 import { useChatEntitlements } from '@/hooks/useChatEntitlements'
 import type { ChatFeatureKey } from '@/types/chat'
 
-const CONTACTS_STORAGE_KEY = 'amtech:contact-sync'
-
 interface DiscoverSidePanelProps {
   onOpenDm: (user: User) => void
   onSearch: () => void
-}
-
-function contactsEnabled(): boolean {
-  return localStorage.getItem(CONTACTS_STORAGE_KEY) === 'on'
 }
 
 /**
@@ -32,7 +27,7 @@ export function DiscoverSidePanel({ onOpenDm, onSearch }: DiscoverSidePanelProps
   const { isUnlocked } = useChatEntitlements()
   const canRequest = isUnlocked('message_requests')
 
-  const [contactsOn, setContactsOn] = useState(contactsEnabled)
+  const [contactsOn, setContactsOn] = useState(getContactSync)
   const [contactsOpen, setContactsOpen] = useState(false)
   const [matched, setMatched] = useState<User[] | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -79,10 +74,13 @@ export function DiscoverSidePanel({ onOpenDm, onSearch }: DiscoverSidePanelProps
     })
   }, [top.data?.users, matched, me?.id])
 
+  // Settings owns the same opt-in, so the switch here has to follow a change
+  // made over there rather than keeping its own copy of the answer.
+  useEffect(() => watchContactSync(setContactsOn), [])
+
   function toggleContacts() {
-    const next = !contactsOn
+    const next = setContactSync(!contactsOn)
     setContactsOn(next)
-    localStorage.setItem(CONTACTS_STORAGE_KEY, next ? 'on' : 'off')
     if (!next) {
       setMatched(null)
       setNotice(null)

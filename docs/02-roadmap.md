@@ -153,9 +153,14 @@ Ordered by dependency, each item shipped with its own tests + docs update:
       guardian and can never be removed; only the owner may grant guardianship; a teen cannot
       manage the roster. Someone else's family returns `404`, not `403`, so the endpoint cannot
       be used to discover a household. 23 feature tests.
-    - [x] Settings page as a one-open-at-a-time accordion (Appearance, Account Center,
-      Preferences, Security, Family Center, Help & about) so a person looking for Appearance does
-      not page past the "Delete account" button.
+    - [x] Settings page as a catalogue plus one screen, split by width in JS rather than CSS:
+      a phone gets a list of categories that push a screen with a back arrow, a desktop gets a
+      sticky rail beside the content. The selection lives in `?section=`, so it is linkable and
+      the back button works. Everything steps up at `sm` — a phone has to fit a heading, a hint
+      and a control in one screen's worth of height. Adding a category is one array entry.
+    - [x] Contact sync in Settings, sharing one opt-in with the chat Discover rail. The flag is
+      `localStorage`, never a `user_settings` column, because a server copy of "we do not keep your
+      phone book" would be the thing it promises not to do.
 
 **Phase 1 status: complete.** Everything above is shipped except four items that are
 deliberately v2+ work, listed here so the deferral is a decision and not an omission:

@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
 import { Spinner } from '@/components/AuthLayout'
-import { Panel, Toggle } from '@/components/settings/SettingsUI'
+import { SettingCard } from '@/components/settings/SettingCard'
+import { Toggle } from '@/components/settings/SettingsUI'
 import { settingsApi } from '@/lib/api'
 import type { NotificationKey, PrivacyKey, SettingsPatch, UserSettings } from '@/types/settings'
 
@@ -53,13 +54,21 @@ const NOTIFICATIONS: Item<NotificationKey>[] = [
   { key: 'notify_comments', label: 'Comments and replies', hint: 'Someone replied to you.' },
 ]
 
-export function PreferencesSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+/**
+ * One preference group, split out because Privacy and Notifications are
+ * separate rail entries now — someone looking for "who can message me" should
+ * not have to scroll past every notification switch to reach it.
+ *
+ * They still share one query and one mutation, because the server stores them
+ * on the same row: two independent fetches of a single resource would be a
+ * request that has to be kept consistent with itself.
+ */
+function usePreferences() {
   const queryClient = useQueryClient()
 
-  const settings = useQuery({
+  const query = useQuery({
     queryKey: ['settings', 'preferences'],
     queryFn: settingsApi.show,
-    enabled: open,
     // Writes go through the mutation's own cache update, so a refetch on every
     // window focus would fight the switch the user just flipped.
     staleTime: 60_000,
@@ -94,82 +103,87 @@ export function PreferencesSection({ open, onToggle }: { open: boolean; onToggle
     },
   })
 
-  const current = settings.data?.settings
+  return { query, save, settings: query.data?.settings }
+}
+
+export function PrivacySection() {
+  const { query, save, settings } = usePreferences()
 
   return (
-    <Panel
-      title="Preferences"
-      caption="Privacy and notifications"
-      open={open}
-      onToggle={onToggle}
+    <SettingCard
+      title="Privacy"
+      description="Who can find you, message you and tag you. Turning something off here never deletes anything you already did."
     >
-      {settings.isPending ? (
-        <div className="grid place-items-center py-6">
-          <Spinner className="h-5 w-5" />
+      {query.isPending ? <Loading /> : null}
+
+      {settings ? (
+        <div className="divide-y divide-white/5">
+          {PRIVACY.map((item) => (
+            <Toggle
+              key={item.key}
+              label={item.label}
+              hint={item.hint}
+              checked={settings.privacy[item.key]}
+              busy={save.isPending}
+              onChange={(next) => save.mutate({ privacy: { [item.key]: next } })}
+            />
+          ))}
         </div>
       ) : null}
 
-      {current ? (
-        <>
-          <PreferenceGroup title="Privacy">
-            {PRIVACY.map((item) => (
-              <Toggle
-                key={item.key}
-                label={item.label}
-                hint={item.hint}
-                checked={current.privacy[item.key]}
-                busy={save.isPending}
-                // One group per mutation: the endpoint is a partial update, so
-                // sending both groups would overwrite a switch flipped a moment
-                // earlier in the other group.
-                onChange={(next) => save.mutate({ privacy: { [item.key]: next } })}
-              />
-            ))}
-          </PreferenceGroup>
-
-          <PreferenceGroup title="Notifications" divided>
-            {NOTIFICATIONS.map((item) => (
-              <Toggle
-                key={item.key}
-                label={item.label}
-                hint={item.hint}
-                checked={current.notifications[item.key]}
-                busy={save.isPending}
-                onChange={(next) => save.mutate({ notifications: { [item.key]: next } })}
-              />
-            ))}
-          </PreferenceGroup>
-        </>
-      ) : null}
-
-      {settings.isError ? (
-        <p className="text-sm text-rose-300">Could not load your preferences.</p>
-      ) : null}
-
+      {query.isError ? <ErrorNote>Could not load your privacy settings.</ErrorNote> : null}
       {save.isError ? (
-        <p className="mt-2 text-xs text-rose-300">
+        <ErrorNote>
           That change did not save. {save.error instanceof Error ? save.error.message : ''}
-        </p>
+        </ErrorNote>
       ) : null}
-    </Panel>
+    </SettingCard>
   )
 }
 
-function PreferenceGroup({
-  title,
-  divided,
-  children,
-}: {
-  title: string
-  divided?: boolean
-  children: ReactNode
-}) {
+export function NotificationsSection() {
+  const { query, save, settings } = usePreferences()
+
   return (
-    <div className={divided ? 'mt-4 border-t border-white/5 pt-3' : undefined}>
-      <h3 className="px-2.5 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-        {title}
-      </h3>
-      <div className="mt-1 divide-y divide-white/5">{children}</div>
+    <SettingCard
+      title="Notifications"
+      description="Choose what amteCHAT is allowed to interrupt you for."
+    >
+      {query.isPending ? <Loading /> : null}
+
+      {settings ? (
+        <div className="divide-y divide-white/5">
+          {NOTIFICATIONS.map((item) => (
+            <Toggle
+              key={item.key}
+              label={item.label}
+              hint={item.hint}
+              checked={settings.notifications[item.key]}
+              busy={save.isPending}
+              onChange={(next) => save.mutate({ notifications: { [item.key]: next } })}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {query.isError ? <ErrorNote>Could not load your notification settings.</ErrorNote> : null}
+      {save.isError ? (
+        <ErrorNote>
+          That change did not save. {save.error instanceof Error ? save.error.message : ''}
+        </ErrorNote>
+      ) : null}
+    </SettingCard>
+  )
+}
+
+function Loading() {
+  return (
+    <div className="grid place-items-center py-8">
+      <Spinner className="h-5 w-5" />
     </div>
   )
+}
+
+function ErrorNote({ children }: { children: ReactNode }) {
+  return <p className="mt-2 text-xs text-rose-300">{children}</p>
 }
