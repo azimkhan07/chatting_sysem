@@ -25,6 +25,18 @@ final class PostResource extends JsonResource
                 'hashtags',
                 fn (): array => $this->hashtags->pluck('name')->values()->all(),
             ),
+            // Where it happened, as the name the author typed. Null when they
+            // did not say, and the client renders nothing rather than a pin.
+            'location' => $this->location,
+            'song' => $this->relationLoaded('song') && $this->song !== null
+                ? (new SongResource($this->song))->resolve()
+                : null,
+            // Only on the post the author just made. A feed page would cost a
+            // query per post to load a line most posts will not show.
+            'tagged_users' => $this->whenLoaded(
+                'mentions',
+                fn (): array => UserResource::collection($this->mentions)->resolve(),
+            ),
             'likes_count' => (int) ($this->likes_count ?? 0),
             'comments_count' => (int) ($this->comments_count ?? 0),
             'shares_count' => (int) ($this->shares_count ?? 0),

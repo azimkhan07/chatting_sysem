@@ -40,6 +40,44 @@ final class StoryTest extends TestCase
         ]);
     }
 
+    public function test_user_can_add_a_location_to_a_story(): void
+    {
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/stories', [
+                'media' => FakeMedia::png(600, 800),
+                'caption' => 'Sunset',
+                'location' => 'Marine Drive',
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.story.location', 'Marine Drive');
+
+        $this->assertDatabaseHas('stories', [
+            'user_id' => $user->id,
+            'location' => 'Marine Drive',
+        ]);
+    }
+
+    public function test_a_story_location_is_optional_and_blank_means_absent(): void
+    {
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->post('/api/v1/stories', [
+                'media' => FakeMedia::png(600, 800),
+                'caption' => 'No place',
+                'location' => '   ',
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.story.location', null);
+
+        $this->assertDatabaseHas('stories', [
+            'user_id' => $user->id,
+            'location' => null,
+        ]);
+    }
+
     public function test_user_can_add_effects_to_a_story(): void
     {
         $user = User::factory()->create();

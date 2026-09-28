@@ -1,13 +1,19 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 
 import { Spinner } from '@/components/AuthLayout'
-import { songsApi, storiesApi, usersApi } from '@/lib/api'
+import MentionPicker from '@/components/composer/MentionPicker'
+import SongPicker from '@/components/composer/SongPicker'
+import { findActiveMention } from '@/hooks/useMentionTrigger'
+import { songsApi, storiesApi } from '@/lib/api'
 import { filterCss, STORY_FILTERS } from '@/lib/storyFilters'
-import type { SearchSong, Song } from '@/types/song'
+import type { Song } from '@/types/song'
 import type { GifResult, TextStyle } from '@/types/story'
-import type { User } from '@/types/user'
+import type { MentionSuggestion } from '@/types/user'
+
+/** Matches the server's `location` column, so the UI cannot offer a longer one. */
+const MAX_STORY_LOCATION_LENGTH = 255
 
 export const FONT_SIZES = ['sm', 'md', 'lg', 'xl', '2xl'] as const
 export const TEXT_COLORS = ['white', 'yellow', 'red', 'green', 'blue', 'pink', 'orange', 'purple', 'black'] as const
@@ -96,39 +102,30 @@ interface StoryComposerProps {
 
 export default function StoryComposer({ onClose, onCreated }: StoryComposerProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const captionInputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [gif, setGif] = useState<GifResult | null>(null)
   const [caption, setCaption] = useState('')
   const [effects, setEffects] = useState('none')
   const [textStyle, setTextStyle] = useState<TextStyle>({ font: 'md', color: 'white', align: 'center', bg: 'none', pos: 'bottom' })
   const [pickedSong, setPickedSong] = useState<Song | null>(null)
-  const [songs, setSongs] = useState<Song[]>([])
-  const [genreFilter, setGenreFilter] = useState('All')
-  const [musicTab, setMusicTab] = useState<'library' | 'search'>('library')
-  const [realQuery, setRealQuery] = useState('')
-  const [realResults, setRealResults] = useState<SearchSong[]>([])
-  const [searchingReal, setSearchingReal] = useState(false)
-  const [panel, setPanel] = useState<'music' | 'emoji' | 'stickers' | 'gifs' | null>(null)
+  const [panel, setPanel] = useState<
+    'music' | 'emoji' | 'stickers' | 'gifs' | 'location' | null
+  >(null)
   const [addSearch, setAddSearch] = useState('')
   const [gifResults, setGifResults] = useState<GifResult[]>([])
   const [searchingGifs, setSearchingGifs] = useState(false)
-  const [previewSong, setPreviewSong] = useState<SearchSong | Song | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mentionTerm, setMentionTerm] = useState<string | null>(null)
-  const [suggestions, setSuggestions] = useState<User[]>([])
-  const [searchingMentions, setSearchingMentions] = useState(false)
-  const mentionDebounce = useRef<number | null>(null)
+  const [location, setLocation] = useState('')
+  // The caption input is a single line, so the caret is tracked explicitly.
+  // The list is driven by the fragment at the caret, not at the end of the
+  // string, and splicing a pick has to leave the caret after the handle.
+  const [caret, setCaret] = useState(0)
 
   useEffect(() => {
     inputRef.current?.click()
-    void songsApi
-      .list()
-      .then((data) => setSongs(data.songs))
-      .catch(() => setSongs([]))
-    return () => {
-      if (mentionDebounce.current) window.clearTimeout(mentionDebounce.current)
-    }
   }, [])
 
   useEffect(() => {
@@ -139,19 +136,6 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
   const previewUrl = file ? URL.createObjectURL(file) : gif?.url ?? null
   const isVideo = Boolean(file?.type.startsWith('video'))
   const hasMedia = file !== null || gif !== null
-
-  useEffect(() => {
-    if (realQuery.trim().length < 2 || musicTab !== 'search') return
-    setSearchingReal(true)
-    const handle = window.setTimeout(() => {
-      void songsApi
-        .search(realQuery.trim())
-        .then((data) => setRealResults(data.songs.filter((song) => song.url !== null)))
-        .catch(() => setRealResults([]))
-        .finally(() => setSearchingReal(false))
-    }, 350)
-    return () => window.clearTimeout(handle)
-  }, [realQuery, musicTab])
 
   useEffect(() => {
     if (panel !== 'gifs' || addSearch.trim().length < 1) return
@@ -166,42 +150,6 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
     return () => window.clearTimeout(handle)
   }, [addSearch, panel])
 
-  async function pickRealSong(result: SearchSong) {
-    if (!result.url) return
-    try {
-      const imported = await songsApi.import({
-        name: result.name,
-        artist: result.artist,
-        url: result.url,
-        genre: result.genre,
-      })
-      setPickedSong(imported.song)
-    } catch {
-      setError('Could not add that song. Try another.')
-    }
-  }
-
-  async function previewRealSong(result: SearchSong) {
-    if (previewSong?.name === result.name && previewSong?.artist === result.artist) {
-      setPreviewSong(null)
-      return
-    }
-    if (!result.url) return
-    try {
-      // Persist first so preview plays through the backend stream proxy
-      // instead of a raw iTunes URL that the browser may refuse.
-      const imported = await songsApi.import({
-        name: result.name,
-        artist: result.artist,
-        url: result.url,
-        genre: result.genre,
-      })
-      setPreviewSong(imported.song)
-    } catch {
-      setError('Could not preview that song. Try another.')
-    }
-  }
-
   async function submit() {
     if (!hasMedia || saving) return
     setSaving(true)
@@ -212,6 +160,9 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
         effects,
         songId: pickedSong?.id ?? null,
         textStyle,
+        // Null rather than "" so an untouched location is stored as absent
+        // instead of a blank place line on the story.
+        location: location.trim() === '' ? null : location.trim(),
       }
       if (gif) {
         await storiesApi.createFromUrl({ url: gif.url, ...payload })
@@ -229,44 +180,49 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
     setCaption((value) => `${value}${value && !value.endsWith(' ') ? ' ' : ''}${emoji} `)
   }
 
-  function togglePanel(next: 'music' | 'emoji' | 'stickers' | 'gifs') {
+  function togglePanel(next: 'music' | 'emoji' | 'stickers' | 'gifs' | 'location') {
     setPanel((value) => (value === next ? null : next))
     setAddSearch('')
   }
 
-  function updateCaption(value: string) {
-    setCaption(value)
-    const term = value.match(/(?:^|\s)@([A-Za-z0-9_.]*)$/)?.[1] ?? null
-    setMentionTerm(term)
-    if (mentionDebounce.current) window.clearTimeout(mentionDebounce.current)
-    if (!term) {
-      setSuggestions([])
-      setSearchingMentions(false)
-      return
-    }
-    mentionDebounce.current = window.setTimeout(() => {
-      setSearchingMentions(true)
-      void usersApi
-        .search(term)
-        .then((data) => setSuggestions(data.users))
-        .catch(() => setSuggestions([]))
-        .finally(() => setSearchingMentions(false))
-    }, 200)
+  function trackCaret(event: React.SyntheticEvent<HTMLInputElement>) {
+    setCaret(event.currentTarget.selectionStart ?? event.currentTarget.value.length)
   }
 
-  function pickMention(user: User) {
-    const match = caption.match(/(?:^|\s)@[A-Za-z0-9_.]*$/)
-    if (!match) {
-      setCaption(`${caption}@${user.username} `)
+  function updateCaption(value: string, nextCaret: number) {
+    setCaption(value)
+    setCaret(nextCaret)
+    // Shares the composer's mention detection with the post composer, so both
+    // open the picker on the same rule: a bare "@" is a mention, "@" inside an
+    // email address is not.
+    const active = findActiveMention(value, nextCaret)
+    setMentionTerm(active?.term ?? null)
+  }
+
+  function pickMention(user: MentionSuggestion) {
+    const active = findActiveMention(caption, caret)
+    if (!active) {
+      const next = `${caption}@${user.username} `
+      setCaption(next)
+      setCaret(next.length)
     } else {
-      const prefix = match[0].startsWith(' ') ? ' ' : ''
-      setCaption(caption.slice(0, caption.length - match[0].length) + `${prefix}@${user.username} `)
+      const before = caption.slice(0, active.start)
+      const after = caption.slice(active.end)
+      const inserted = `@${user.username} `
+      const next = `${before}${inserted}${after}`
+      setCaption(next)
+      setCaret(before.length + inserted.length)
+      // React has not re-rendered the input yet, so the DOM selection is put
+      // back on the next frame. Without this the caret lands at the end of the
+      // caption and the next word is typed after the mention instead of after
+      // wherever the user had been typing.
+      window.requestAnimationFrame(() => {
+        captionInputRef.current?.setSelectionRange(next.length, next.length)
+      })
     }
     setMentionTerm(null)
-    setSuggestions([])
   }
 
-  const genres = ['All', ...Array.from(new Set(songs.map((song) => song.genre).filter(Boolean) as string[]))]
   const pickedName = pickedSong ? `${pickedSong.name} — ${pickedSong.artist}` : ''
 
   return (
@@ -380,42 +336,22 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
 
         <div className="relative">
           <input
+            ref={captionInputRef}
             value={caption}
-            onChange={(e) => updateCaption(e.target.value)}
+            onChange={(event) =>
+              updateCaption(event.target.value, event.target.selectionStart ?? event.target.value.length)
+            }
+            onKeyUp={trackCaret}
+            onClick={trackCaret}
+            onSelect={trackCaret}
             maxLength={500}
             placeholder="Type something… (use @name to mention, #tag for hashtags)"
             className="input-field mt-3"
           />
 
-          {mentionTerm ? (
-            <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl bg-zinc-800/95 p-1 shadow-2xl backdrop-blur">
-              {searchingMentions ? (
-                <div className="flex items-center justify-center gap-2 px-3 py-2 text-xs text-[rgba(255,255,255,0.65)]">
-                  <Spinner className="h-3 w-3" />
-                  Searching…
-                </div>
-              ) : suggestions.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-[rgba(255,255,255,0.65)]">No one found — keep typing…</p>
-              ) : (
-                suggestions.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    onClick={() => pickMention(user)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-[rgba(255,255,255,0.12)]"
-                  >
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-fuchsia-500 text-[10px] font-bold text-[#fff]">
-                      {(user.display_name || user.username).charAt(0).toUpperCase()}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-semibold text-[#fff]">
-                        {user.display_name || user.username}
-                      </span>
-                      <span className="block truncate text-[11px] text-[rgba(255,255,255,0.65)]">@{user.username}</span>
-                    </span>
-                  </button>
-                ))
-              )}
+          {mentionTerm !== null ? (
+            <div className="absolute inset-x-0 top-full z-20 mt-1">
+              <MentionPicker term={mentionTerm} onPick={pickMention} />
             </div>
           ) : null}
         </div>
@@ -499,6 +435,14 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
           </button>
           <button
             type="button"
+            onClick={() => togglePanel('location')}
+            className={`btn-quiet px-3 py-1.5 text-xs ${location.trim() ? 'ring-2 ring-brand-400' : ''}`}
+            aria-expanded={panel === 'location'}
+          >
+            📍 {location.trim() ? 'Location added' : 'Add location'}
+          </button>
+          <button
+            type="button"
             onClick={() => togglePanel('emoji')}
             className="btn-quiet px-3 py-1.5 text-xs"
             aria-expanded={panel === 'emoji'}
@@ -525,131 +469,30 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
 
         {panel === 'music' ? (
           <div className="mt-2 rounded-xl bg-white/5 p-1.5">
-            <div className="mb-1.5 flex gap-1.5">
-              {(['library', 'search'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setMusicTab(tab)}
-                  className={`flex-1 rounded-lg px-2 py-1 text-[11px] font-medium transition ${
-                    musicTab === tab ? 'bg-brand-500/80 text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                  }`}
-                >
-                  {tab === 'library' ? 'Music library' : 'Search real songs'}
-                </button>
-              ))}
-            </div>
+            {/* Shared with the post composer so the two can't drift apart. */}
+            <SongPicker picked={pickedSong} onPick={setPickedSong} onError={setError} />
+          </div>
+        ) : null}
 
-            {musicTab === 'search' ? (
-              <>
-                <input
-                  value={realQuery}
-                  onChange={(e) => setRealQuery(e.target.value)}
-                  placeholder="Search Bollywood / Hollywood songs…"
-                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-brand-400/50"
-                />
-                <div className="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
-                  {searchingReal ? (
-                    <p className="px-2 py-2 text-center text-[11px] text-slate-500">Searching…</p>
-                  ) : realResults.length === 0 && realQuery.trim().length >= 2 ? (
-                    <p className="px-2 py-2 text-center text-[11px] text-slate-500">No songs found.</p>
-                  ) : (
-                    realResults.map((result, index) => {
-                      const selected = pickedSong?.name === result.name && pickedSong?.artist === result.artist
-                      const previewing = previewSong?.name === result.name && previewSong?.artist === result.artist
-                      return (
-                        <div
-                          key={`${result.name}-${index}`}
-                          className={`flex items-center gap-2 rounded-lg px-2 py-1.5 transition ${
-                            selected ? 'bg-brand-500/25 ring-1 ring-brand-400/60' : 'hover:bg-white/10'
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => void previewRealSong(result)}
-                            className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs transition ${
-                              previewing ? 'bg-brand-500/60 text-white' : 'bg-white/10 text-brand-300'
-                            }`}
-                            aria-label={previewing ? 'Stop preview' : 'Preview'}
-                          >
-                            {previewing ? '❚❚' : '▶'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void pickRealSong(result)}
-                            className="min-w-0 flex-1 text-left"
-                          >
-                            <span className="block truncate text-xs font-semibold text-slate-200">{result.name}</span>
-                            <span className="block truncate text-[11px] text-slate-500">
-                              {result.artist} · {result.genre}
-                            </span>
-                          </button>
-                          {selected ? <span className="text-xs text-brand-300">✓</span> : null}
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mb-1.5 flex gap-1.5 overflow-x-auto border-b border-white/10 pb-1.5">
-                  {genres.map((genre) => {
-                    const active = genreFilter === genre
-                    return (
-                      <button
-                        key={genre}
-                        type="button"
-                        onClick={() => {
-                          const next = active ? 'All' : genre
-                          setGenreFilter(next)
-                          if (next !== 'All') {
-                            setMusicTab('search')
-                            setRealQuery(next === 'Bollywood' ? 'bollywood songs' : next === 'Hollywood' ? 'hollywood songs' : `${next.toLowerCase()} songs`)
-                          }
-                        }}
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
-                          active ? 'bg-brand-500/80 text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                        }`}
-                      >
-                        {genre}
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="max-h-32 space-y-1 overflow-y-auto">
-                  {songs.length === 0 ? (
-                    <p className="px-2 py-3 text-center text-xs text-slate-500">Music library is empty.</p>
-                  ) : (
-                    songs
-                      .filter((song) => genreFilter === 'All' || song.genre === genreFilter)
-                      .map((song) => {
-                        const active = pickedSong?.id === song.id
-                        return (
-                          <button
-                            key={song.id}
-                            type="button"
-                            onClick={() => setPickedSong(active ? null : song)}
-                            className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition ${
-                              active ? 'bg-brand-500/25 ring-1 ring-brand-400/60' : 'hover:bg-white/10'
-                            }`}
-                          >
-                            <MusicNoteIcon className="h-4 w-4 shrink-0 text-brand-300" />
-                            <span className="min-w-0">
-                              <span className="block truncate text-xs font-semibold text-slate-200">{song.name}</span>
-                              <span className="block truncate text-[11px] text-slate-500">
-                                {song.artist}
-                                {song.genre ? ` · ${song.genre}` : ''}
-                              </span>
-                            </span>
-                            {active ? <span className="ml-auto text-xs text-brand-300">✓</span> : null}
-                          </button>
-                        )
-                      })
-                  )}
-                </div>
-              </>
-            )}
+        {panel === 'location' ? (
+          <div className="mt-2 rounded-xl bg-white/5 p-1.5">
+            <input
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  setPanel(null)
+                }
+              }}
+              maxLength={MAX_STORY_LOCATION_LENGTH}
+              placeholder="Add a place"
+              aria-label="Story location"
+              className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-brand-400/50"
+            />
+            <p className="mt-1 px-0.5 text-[11px] text-slate-500">
+              A place name, not your exact position. {location.length}/{MAX_STORY_LOCATION_LENGTH}
+            </p>
           </div>
         ) : null}
 
@@ -741,32 +584,44 @@ export default function StoryComposer({ onClose, onCreated }: StoryComposerProps
         {error ? <p className="mt-2 text-sm text-rose-300">{error}</p> : null}
       </motion.div>
 
-      {previewSong ? <PreviewAudio song={previewSong} onEnded={() => setPreviewSong(null)} /> : null}
+      {pickedSong ? <StoryPreviewAudio song={pickedSong} /> : null}
       </div>
     </div>
   )
 }
 
-function songUrl(song: SearchSong | Song): string | null {
-  if ('stream_url' in song && song.stream_url) return song.stream_url
+function songUrl(song: Song): string | null {
+  if (song.stream_url) return song.stream_url
   return song.url ?? null
 }
 
-function PreviewAudio({ song, onEnded }: { song: SearchSong | Song; onEnded: () => void }) {
+/**
+ * Plays the picked song under the story preview.
+ *
+ * Distinct from `SongPicker`'s own preview button: this is the sound the story
+ * will actually publish, auditioned on the real canvas. It is deliberately
+ * mounted on `pickedSong` and not on a separate "previewing" value, so what
+ * plays here is exactly what the picker has chosen.
+ *
+ * A failed play is swallowed. The browser blocks autoplay until a user gesture
+ * in some contexts, and failing to start a soundtrack must not clear the
+ * song the author already picked.
+ */
+function StoryPreviewAudio({ song }: { song: Song }) {
   const ref = useRef<HTMLAudioElement>(null)
   const url = songUrl(song)
+
   useEffect(() => {
     const audio = ref.current
-    if (!audio || !url) {
-      onEnded()
-      return
-    }
+    if (!audio || !url) return
+
     audio.preload = 'auto'
     audio.volume = 1
     audio.muted = false
-    void audio.play().catch(() => onEnded())
-  }, [url, onEnded])
-  return <audio ref={ref} src={url ?? undefined} preload="auto" onError={() => onEnded()} onEnded={onEnded} />
+    void audio.play().catch(() => undefined)
+  }, [url])
+
+  return <audio ref={ref} src={url ?? undefined} preload="auto" />
 }
 
 function justifyFor(align: TextStyle['align']): string {

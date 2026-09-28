@@ -173,6 +173,9 @@ Route::prefix('v1')->group(function (): void {
 
     Route::prefix('users')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
         Route::get('search', [UserController::class, 'search'])->middleware('throttle:search');
+        // Author-rank suggestions for the composer's "@" picker. Declared
+        // before `{user}` so the literal path is never captured as a username.
+        Route::get('mention-suggestions', [UserController::class, 'mentionSuggestions'])->middleware('throttle:search');
         // Static, reach-ordered discovery + opt-in phone matching. Declared
         // before `{user}` so the literal paths are never captured as a user.
         Route::get('top', [UserDiscoveryController::class, 'top'])->middleware('throttle:search');

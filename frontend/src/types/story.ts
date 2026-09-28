@@ -17,6 +17,8 @@ export interface Story {
   url: string
   caption: string | null
   effects: string | null
+  /** Free-text place name. Null means the author did not say. */
+  location: string | null
   text_style: TextStyle | null
   song: Song | null
   created_at: string

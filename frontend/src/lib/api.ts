@@ -23,6 +23,7 @@ import type {
   AccountType,
   AuthPayload,
   FollowResult,
+  MentionSuggestion,
   PublicUser,
   User,
   UserPage,
@@ -238,10 +239,19 @@ export const postsApi = {
       `/posts/explore?limit=24${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
     ),
   trending: () => api.get<FeedPage>('/posts/trending?limit=30'),
-  create: (form: { body: string; media: File[] }) => {
+  create: (form: {
+    body: string
+    media: File[]
+    location?: string | null
+    songId?: number | null
+  }) => {
     const data = new FormData()
     data.append('body', form.body)
     for (const file of form.media) data.append('media[]', file)
+    // Only sent when set: an empty string here would fail the `nullable`
+    // rule's intent and store a blank place line.
+    if (form.location) data.append('location', form.location)
+    if (form.songId) data.append('song_id', String(form.songId))
     return api.postForm<{ post: Post }>('/posts', data)
   },
   like: (postId: number) => api.post<LikeResult>(`/posts/${postId}/like`, {}),
@@ -302,6 +312,20 @@ export const usersApi = {
   search: (query: string) =>
     api.get<{ users: User[] }>(
       `/users/search?query=${encodeURIComponent(query)}`,
+    ),
+  /**
+   * Accounts to offer when someone types "@".
+   *
+   * Not `search`: the server ranks the people you follow first and only then
+   * high-reach accounts, which is what the composer wants. `search` is a name
+   * lookup and would open the picker on strangers.
+   *
+   * An empty query is allowed and returns the followed accounts, so a bare
+   * "@" is useful rather than an empty box.
+   */
+  mentionSuggestions: (query: string, limit = 8) =>
+    api.get<{ users: MentionSuggestion[] }>(
+      `/users/mention-suggestions?limit=${limit}&query=${encodeURIComponent(query)}`,
     ),
   /** Reach-ordered accounts the viewer does not follow yet. */
   top: (limit = 8) =>
@@ -409,6 +433,7 @@ export const storiesApi = {
     effects: string
     songId: number | null
     textStyle?: TextStyle
+    location?: string | null
   }) => {
     const data = new FormData()
     data.append('media', form.media)
@@ -416,6 +441,9 @@ export const storiesApi = {
     data.append('effects', form.effects)
     if (form.songId !== null) data.append('song_id', String(form.songId))
     if (form.textStyle) data.append('text_style', JSON.stringify(form.textStyle))
+    // Only when set, so an untouched location is stored as absent rather than
+    // as a blank place line.
+    if (form.location) data.append('location', form.location)
     return api.postForm<{ story: Story }>('/stories', data)
   },
   createFromUrl: (form: {
@@ -424,6 +452,7 @@ export const storiesApi = {
     effects: string
     songId: number | null
     textStyle?: TextStyle
+    location?: string | null
   }) =>
     api.post<{ story: Story }>('/stories', {
       media_url: form.url,
@@ -431,6 +460,7 @@ export const storiesApi = {
       effects: form.effects,
       song_id: form.songId,
       text_style: form.textStyle,
+      location: form.location ?? null,
     }),
   destroy: (storyId: number) => api.delete<null>(`/stories/${storyId}`),
 }

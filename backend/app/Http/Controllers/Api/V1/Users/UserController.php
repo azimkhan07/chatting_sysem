@@ -8,6 +8,7 @@ use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Auth\Models\User;
 use App\Domain\Posts\Contracts\PostService;
 use App\Domain\Social\Models\Follow;
+use App\Domain\Social\Services\MentionSuggestionService;
 use App\Domain\Social\Services\SocialService;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PostResource;
@@ -24,7 +25,45 @@ final class UserController extends Controller
     public function __construct(
         private readonly SocialService $socialService,
         private readonly PostService $postService,
+        private readonly MentionSuggestionService $mentionSuggestions,
     ) {}
+
+    /**
+     * Who to offer when someone types "@".
+     *
+     * Separate from `search` on purpose. Search is a person looking for
+     * someone they already have in mind and wants a name match; this is a
+     * person mid-sentence who wants to see the accounts they already follow
+     * before the famous ones. Answering both with one ordering meant the
+     * composer opened on strangers.
+     *
+     * A bare "@" (empty term) is deliberately allowed, and returns the
+     * followed accounts first.
+     */
+    public function mentionSuggestions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'query' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        $rows = $this->mentionSuggestions->suggest(
+            (int) $request->user()->id,
+            (string) ($validated['query'] ?? ''),
+            (int) ($validated['limit'] ?? 8),
+        );
+
+        return ApiResponse::success(data: [
+            'users' => $rows
+                ->map(static fn (array $row): array => [
+                    ...(new UserResource($row['user']))->resolve(),
+                    // Lets the composer label a suggestion "Following" and keep
+                    // the list visually grouped the way the ranking implies.
+                    'is_following' => $row['is_following'],
+                ])
+                ->all(),
+        ]);
+    }
 
     public function search(Request $request): JsonResponse
     {

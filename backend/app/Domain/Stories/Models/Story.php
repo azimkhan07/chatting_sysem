@@ -45,6 +45,7 @@ final class Story extends Model
         'effects',
         'text_style',
         'song_id',
+        'location',
         'expires_at',
     ];
 

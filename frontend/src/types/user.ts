@@ -14,6 +14,17 @@ export type UserStatus = 'active' | 'suspended' | 'banned'
  */
 export type AccountType = 'personal' | 'professional' | 'business'
 
+/**
+ * A user from the composer's "@" picker.
+ *
+ * The flag is not decoration: it is the server telling the client which of the
+ * two ranked groups this row came from, so the list can label the first group
+ * "Following" and draw the divider between them.
+ */
+export type MentionSuggestion = User & {
+  is_following: boolean
+}
+
 export interface User {
   id: number
   username: string

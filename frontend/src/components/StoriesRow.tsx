@@ -534,12 +534,12 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
           )}
         </div>
 
-        {current.story.caption ? (
+        {current.story.caption || current.story.location ? (
           <div
-            className="absolute inset-x-0 z-20 flex px-6 pb-14"
+            className="absolute inset-x-0 z-20 flex flex-col items-center gap-1 px-6 pb-14"
             style={{
               ...textPosition(current.story.text_style?.pos),
-              justifyContent:
+              alignItems:
                 current.story.text_style?.align === 'left'
                   ? 'flex-start'
                   : current.story.text_style?.align === 'right'
@@ -547,9 +547,20 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
                     : 'center',
             }}
           >
-            <p style={resolveTextStyle(current.story.text_style)} className="max-w-full break-words">
-              {renderCaption(current.story.caption, navigate)}
-            </p>
+            {current.story.caption ? (
+              <p
+                style={resolveTextStyle(current.story.text_style)}
+                className="max-w-full break-words"
+              >
+                {renderCaption(current.story.caption, navigate)}
+              </p>
+            ) : null}
+            {current.story.location ? (
+              <p className="flex max-w-full items-center gap-1 text-xs font-medium text-white/90 drop-shadow">
+                <span aria-hidden="true">📍</span>
+                <span className="truncate">{current.story.location}</span>
+              </p>
+            ) : null}
           </div>
         ) : null}
 

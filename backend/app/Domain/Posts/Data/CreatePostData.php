@@ -14,5 +14,7 @@ final readonly class CreatePostData
     public function __construct(
         public string $body = '',
         public array $media = [],
+        public ?string $location = null,
+        public ?int $songId = null,
     ) {}
 }

@@ -20,6 +20,7 @@ final class StoryResource extends JsonResource
             'url' => $this->media_path !== null ? MediaUrl::ofNullable($this->media_path) : $this->media_url,
             'caption' => $this->caption,
             'effects' => $this->effects,
+            'location' => $this->location,
             'text_style' => $this->text_style,
             'song' => $this->relationLoaded('song') && $this->song !== null
                 ? (new SongResource($this->song))->resolve()

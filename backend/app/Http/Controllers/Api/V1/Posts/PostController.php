@@ -84,14 +84,21 @@ final class PostController extends Controller
 
     public function store(CreatePostRequest $request): JsonResponse
     {
+        $songId = $request->validated('song_id');
+
         $post = $this->postService->create(
             $request->user(),
             new CreatePostData(
                 body: (string) $request->validated('body') ?: '',
                 media: $request->file('media') ?? [],
+                location: $request->validated('location'),
+                songId: $songId !== null ? (int) $songId : null,
             ),
         );
-        $post->load(['user', 'media', 'hashtags']);
+
+        // Eager loaded here but not on the feed: a post the reader just made is
+        // the one place they will look for "you tagged X" and the song name.
+        $post->load(['user', 'media', 'hashtags', 'song', 'mentions']);
 
         return ApiResponse::success(
             data: ['post' => (new PostResource($post))->resolve()],

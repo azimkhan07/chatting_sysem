@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Story;
 
+use App\Domain\Stories\Data\CreateStoryData;
 use App\Domain\Stories\Models\Story;
 use App\Domain\Stories\Services\StoryService;
 use App\Domain\Stories\Services\StoryTrayCache;
@@ -41,12 +42,15 @@ final class StoryController extends Controller
 
         $story = $this->storyService->create(
             $request->user(),
-            $request->file('media'),
-            $request->validated('media_url'),
-            $request->validated('caption'),
-            $request->validated('effects'),
-            $songId !== null ? (int) $songId : null,
-            $request->validated('text_style'),
+            new CreateStoryData(
+                file: $request->file('media'),
+                mediaUrl: $request->validated('media_url'),
+                caption: $request->validated('caption'),
+                effects: $request->validated('effects'),
+                songId: $songId !== null ? (int) $songId : null,
+                textStyle: $request->validated('text_style'),
+                location: $request->validated('location'),
+            ),
         );
         $story->load('song');
         $this->trayCache->forget();

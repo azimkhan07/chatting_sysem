@@ -28,6 +28,7 @@ final class CreateStoryRequest extends FormRequest
             'caption' => ['sometimes', 'nullable', 'string', 'max:500'],
             'effects' => ['sometimes', 'nullable', 'string', 'max:32'],
             'song_id' => ['sometimes', 'nullable', 'integer', new Exists('songs', 'id')],
+            'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'text_style' => ['sometimes', 'nullable', 'array'],
             'text_style.font' => ['sometimes', 'string', 'in:sm,md,lg,xl,2xl'],
             'text_style.color' => ['sometimes', 'string', 'in:white,black,yellow,red,green,blue,pink,orange,purple'],
@@ -35,5 +36,16 @@ final class CreateStoryRequest extends FormRequest
             'text_style.bg' => ['sometimes', 'string', 'in:none,solid,gradient'],
             'text_style.pos' => ['sometimes', 'string', 'in:top,middle,bottom'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $location = $this->input('location');
+
+        // "   " is not a location. Left as-is it would be stored and rendered
+        // as a blank place line on the story.
+        $this->merge([
+            'location' => is_string($location) && trim($location) !== '' ? trim($location) : null,
+        ]);
     }
 }

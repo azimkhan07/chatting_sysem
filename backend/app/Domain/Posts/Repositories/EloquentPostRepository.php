@@ -27,6 +27,8 @@ final class EloquentPostRepository implements PostRepository
         return Post::query()->create([
             'user_id' => $userId,
             'body' => $data->body,
+            'location' => $data->location,
+            'song_id' => $data->songId,
         ]);
     }
 

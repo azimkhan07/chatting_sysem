@@ -6,9 +6,9 @@ namespace App\Domain\Stories\Services;
 
 use App\Domain\Auth\Models\User;
 use App\Domain\Stories\Contracts\StoryRepository;
+use App\Domain\Stories\Data\CreateStoryData;
 use App\Domain\Stories\Exceptions\StoryNotAuthorizedException;
 use App\Domain\Stories\Models\Story;
-use Illuminate\Http\UploadedFile;
 
 final class StoryService
 {
@@ -17,17 +17,10 @@ final class StoryService
         private readonly StoryMediaProcessor $mediaProcessor,
     ) {}
 
-    public function create(
-        User $user,
-        ?UploadedFile $file,
-        ?string $mediaUrl = null,
-        ?string $caption = null,
-        ?string $effects = null,
-        ?int $songId = null,
-        ?array $textStyle = null,
-    ): Story {
-        if ($file !== null) {
-            $media = $this->mediaProcessor->process($user->id, $file);
+    public function create(User $user, CreateStoryData $data): Story
+    {
+        if ($data->file !== null) {
+            $media = $this->mediaProcessor->process($user->id, $data->file);
             $attributes = [
                 'media_path' => $media['file_path'],
                 'media_url' => null,
@@ -39,7 +32,7 @@ final class StoryService
         } else {
             $attributes = [
                 'media_path' => null,
-                'media_url' => $mediaUrl,
+                'media_url' => $data->mediaUrl,
                 'type' => 'image',
                 'mime' => null,
                 'width' => null,
@@ -49,10 +42,11 @@ final class StoryService
 
         return $this->storyRepository->create($user->id, [
             ...$attributes,
-            'caption' => $caption,
-            'effects' => $effects,
-            'text_style' => $textStyle,
-            'song_id' => $songId,
+            'caption' => $data->caption,
+            'effects' => $data->effects,
+            'text_style' => $data->textStyle,
+            'song_id' => $data->songId,
+            'location' => $data->location,
         ]);
     }
 

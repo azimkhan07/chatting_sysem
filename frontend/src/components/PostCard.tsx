@@ -194,6 +194,42 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
               <RichText text={post.body} />
             </p>
           ) : null}
+
+          {post.tagged_users?.length ? (
+            <p className="mt-1 text-xs text-slate-400">
+              with{' '}
+              {post.tagged_users.map((user, index) => (
+                <span key={user.id}>
+                  {index > 0 ? ', ' : ''}
+                  <button
+                    type="button"
+                    onClick={() => navigate(userProfile(user.username))}
+                    className="font-medium text-brand-300 transition hover:text-brand-200 hover:underline"
+                  >
+                    @{user.username}
+                  </button>
+                </span>
+              ))}
+            </p>
+          ) : null}
+
+          {post.location ? (
+            <p className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+              <span aria-hidden="true">⌖</span>
+              <span className="truncate">{post.location}</span>
+            </p>
+          ) : null}
+
+          {post.song ? (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
+              <span aria-hidden="true">♫</span>
+              <span className="truncate">
+                {post.song.name}
+                {post.song.artist ? ` — ${post.song.artist}` : ''}
+              </span>
+            </p>
+          ) : null}
+
           {media.length > 0 ? <PostMediaGrid media={media} compact={compact} /> : null}
 
           <div className="mt-3 flex items-center gap-1 border-t border-white/5 pt-2.5">

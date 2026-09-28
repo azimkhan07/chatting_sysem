@@ -6,6 +6,7 @@ namespace App\Domain\Posts\Models;
 
 use App\Domain\Auth\Models\User;
 use App\Domain\Hashtags\Models\Hashtag;
+use App\Domain\Songs\Models\Song;
 use Database\Factories\PostFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,8 @@ use Illuminate\Support\Carbon;
  * @property-read int $id
  * @property-read int $user_id
  * @property-read string $body
+ * @property-read string|null $location
+ * @property-read int|null $song_id
  * @property-read int $likes_count
  * @property-read int $comments_count
  * @property-read int $shares_count
@@ -37,6 +40,8 @@ final class Post extends Model
     protected $fillable = [
         'user_id',
         'body',
+        'location',
+        'song_id',
     ];
 
     /**
@@ -63,6 +68,25 @@ final class Post extends Model
     public function hashtags(): BelongsToMany
     {
         return $this->belongsToMany(Hashtag::class)->withTimestamps();
+    }
+
+    /**
+     * Accounts this post says it is about.
+     *
+     * Distinct from `hashtags`: a tag is a word with no owner, a mention is a
+     * person who may want to know they were tagged.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function mentions(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'post_mentions')->withTimestamps();
+    }
+
+    /** The soundtrack, when the author picked one. */
+    public function song(): BelongsTo
+    {
+        return $this->belongsTo(Song::class);
     }
 
     public function likes(): HasMany
