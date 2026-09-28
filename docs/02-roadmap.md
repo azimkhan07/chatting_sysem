@@ -161,6 +161,22 @@ Ordered by dependency, each item shipped with its own tests + docs update:
     - [x] Contact sync in Settings, sharing one opt-in with the chat Discover rail. The flag is
       `localStorage`, never a `user_settings` column, because a server copy of "we do not keep your
       phone book" would be the thing it promises not to do.
+    - [x] Post and story music, place and people tagging. A place is a typed name, not coordinates:
+      there is no geocoder here, and raw lat/lng would render as "19.07, 72.87" where a person
+      expects a name. `location` and `song_id` on `posts`, `location` on `stories`.
+    - [x] Mentions parsed out of the caption on write, same as hashtags. A client-supplied mention
+      list could disagree with the text and tag someone the caption never names, so there is no such
+      list; `post_mentions` is derived, with a unique key per (post, user).
+    - [x] `GET /users/mention-suggestions` — the people you follow, then the most-followed
+      strangers. Separate from `users/search` because the rankings are opposite: a search is a
+      lookup for someone you can already name, the picker is a mid-sentence suggestion. Two indexed
+      queries rather than one correlated sort, and a bare `@` is valid input.
+    - [x] One `SongPicker` and one mention hook for both composers, so the import path and the
+      "@"-at-the-caret rule cannot drift apart between posts and stories.
+
+**Verification note.** `npx tsc --noEmit` checks nothing in this repo: the root `tsconfig.json` is
+`"files": []` with project references, so it reports no errors on any input. The real type check is
+`npx tsc -b` (which `npm run build` runs anyway). Do not read a clean `--noEmit` as a clean build.
 
 **Phase 1 status: complete.** Everything above is shipped except four items that are
 deliberately v2+ work, listed here so the deferral is a decision and not an omission:
