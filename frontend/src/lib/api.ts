@@ -56,7 +56,6 @@ import type {
 
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
-const ADMIN_STORAGE_KEY = 'amtechat.admin'
 
 interface ApiEnvelope<T> {
   data: T | null
@@ -104,7 +103,6 @@ function readFromStorage(key: string): string | null {
 }
 
 const readToken = () => readFromStorage(AUTH_STORAGE_KEY)
-const readAdminToken = () => readFromStorage(ADMIN_STORAGE_KEY)
 
 type TokenReader = () => string | null
 
@@ -215,7 +213,6 @@ function filenameFrom(header: string | null): string {
 }
 
 export const api = makeApi(readToken)
-export const adminApi = makeApi(readAdminToken)
 
 export interface LikeResult {
   liked: boolean
@@ -742,66 +739,6 @@ export const invitesApi = {
   join: (code: string) =>
     api.post<{ conversation: Conversation }>(
       `/chat/invites/${encodeURIComponent(code)}/join`,
-      {},
-    ),
-}
-
-export interface SubscriptionReviewUser {
-  id: number
-  username: string
-  display_name: string
-  bio: string | null
-  avatar_url: string | null
-  is_verified: boolean
-  created_at: string | null
-}
-
-export interface SubscriptionReview {
-  id: number
-  status: string
-  status_code: string
-  plan: string
-  plan_name: string
-  amount_paisa: number
-  price_month: string
-  auto_renew: boolean
-  paid: boolean
-  is_verified: boolean
-  verified_at: string | null
-  created_at: string | null
-  switch_from: {
-    subscription_id: number
-    plan: string
-    plan_name: string
-  } | null
-  user: SubscriptionReviewUser | null
-}
-
-export interface SubscriptionReviewsPage {
-  subscriptions: SubscriptionReview[]
-  meta: { total: number; page: number; per_page: number }
-}
-
-export interface AdminStats {
-  counts: Record<string, number>
-  revenue_paisa: number
-}
-
-export const subscriptionsAdminApi = {
-  list: (status?: string, page = 1) => {
-    const query = new URLSearchParams({ page: String(page), limit: '20' })
-    if (status) query.set('status', status)
-    return adminApi.get<SubscriptionReviewsPage>(`/admin/subscriptions?${query}`)
-  },
-  stats: () => adminApi.get<{ stats: AdminStats }>('/admin/subscriptions/stats'),
-  approve: (id: number) =>
-    adminApi.post<{ subscription: SubscriptionReview }>(
-      `/admin/subscriptions/${id}/approve`,
-      {},
-    ),
-  reject: (id: number) =>
-    adminApi.post<{ subscription: SubscriptionReview }>(
-      `/admin/subscriptions/${id}/reject`,
       {},
     ),
 }

@@ -1,64 +1,125 @@
 # Admin Panel & Subscriptions
 
-> Status: PLANNED (skeleton in Phase 1, implementation Phase 2–3).
+> Status: ACTIVE (rebuild underway). Spec below is the full product ask — the admin
+> console is being **rebuilt from scratch** as a standalone web app (new `admin/`
+> frontend app + expanded `/api/v1/admin/*` backend). The old in-app `/admin`
+> surface (dashboard + review queue) is being removed from the user app.
 
 ## Vision (user ask)
 
-- An **admin panel** exists at `/admin` where the team manages the business: users,
-  blue-tick subscriptions, payments and support.
-- **AI chat support**: users reach support from inside the app via a chat widget;
-  an AI assistant answers instantly, escalates to a human when needed. Admin sees
-  transcripts.
+- A single **Admin + Support** console, used only on desktop/web (no admin or support
+  login on mobile for now).
+- Admin and Support share **one database** and one API. The app has its own DB in
+  production, but the admin combines access to users + subscriptions + payments from
+  it.
+- Support staff have **their own role/id** (`support`) separate from admins. Every
+  user query or complaint filed from the user-facing support page lands here; support
+  replies inline or emails the user back.
+- Support also **owns subscription activation**: payment → support verifies → plan
+  goes active → blue tick shows + the bought features unlock.
 
-## Admin panel
+## Surfaces & routing (production)
 
-### Surface & auth
+| Surface | Host | Notes |
+| ------- | ---- | ----- |
+| User app | `amtechat.com` | separate DB |
+| Admin console | `admin.amtechat.com` | web only, dark polished template (Mantine) |
+| Support console | `support.amtechat.com` | same app, `support` role route tree |
 
-- Served at `/admin` as a **separate app surface** (own layout, own route tree). It is
-  never rendered inside the user SPA shell.
-- Auth: admin users live in the same `users` table but hold a role of `admin`/`super_admin`
-  (roles table below). API endpoints under a dedicated Admin API namespace
-  (`/api/v1/admin/*`) with a separate middleware that requires the admin role AND a
-  token granted the `admin` capability. No user token can reach admin routes.
-- Phase 3 hardening: mandatory MFA (TOTP) for admins, login from allow-listed IPs,
-  audit log of admin actions.
+Vite build with base `/`, proxied in dev via same `127.0.0.1:8000` backend.
 
-### Features (by phase)
+## Auth & session rules (hard requirement)
 
-| Area | Phase 2 | Phase 3 |
-| ---- | ------- | ------- |
-| Users | List/search, view profile, ban, verify, assign role | — |
-| Subscriptions | Plans CRUD, view subscribers, toggle blue tick | Manual adjustments, invoices PDF |
-| Payments | Record transactions (Razorpay), statuses | Stripe/Razorpay webhooks, refunds |
-| Support | View AI chat transcripts, reply, reassign | Ticket queues, SLAs, canned replies |
-| Moderation | Content report triage, take-down | ML-assisted flagging |
+- Admin and support tokens are minted only for users holding `admin` / `super_admin`
+  / `support` roles; the user app can never reach `/api/v1/admin/*`.
+- **Single session**: logging in on a new device must notify (alert banner) that the
+  session was taken over elsewhere, and revoke the previous one.
+- **Max 3 concurrent devices** for both admin and support. A 4th login is refused
+  until one existing session is revoked.
+- Phased hardening: MFA (TOTP), allow-listed IPs, action audit log.
 
-## Subscriptions & blue tick (the core paid product)
+## Dashboard
 
-- Blue tick = premium status, priced ₹1–₹5/month (current plan: flat ₹5/month, see
-  18 for pricing ladder).
-- Subscription lifecycle: `active → past_due → cancelled → expired`, driven by payment
-  provider webhooks; expiry flips `is_verified=false` automatically (queued job).
-- `plans` and `subscriptions` tables already sketched in `05-data-model.md`.
+- Cards: **total users**, **active subscriptions**, **suspended users**, plus a
+  **logged-out/other** snapshot. Revenue + blue-tick conversion shown if present.
+- **Range dropdown: Today / This Month / This Year / Custom**.
+- **Custom** opens a calendar date picker pair (start → end).
+  - **Future dates are never selectable** anywhere a calendar is used (this rule
+    applies to every date calendar in the app, admin and user side). Past dates are
+    always allowed. `maxDate = today` enforced at the picker level.
+- All counts re-fetch when the range changes.
 
-## Roles & permissions data
+## Users tab
 
-- `roles` (name, guard) and `role_user` pivot; a `super_admin` can grant `admin`.
-- Enforcement: a `EnsureUserIsAdmin` middleware consulting roles via the same
-  repository pattern as auth (`Domain\Admin` in Phase 2), NOT scattered `if`s.
+Not a bare list first. Layout, top → bottom:
 
-## AI chat support
+1. **4 stat cards**: All users · Joined today · Joined this month · Joined this year.
+2. **Filter bar**: suspicious users · suspended users · deactivated users · by country.
+   - Country comes from registration (Phase 2: Google Maps geocode saves the
+     user's country at signup). Column/filter exist now, data populates then.
+3. **List columns**: username · name · email · country · status · joined date ·
+   actions.
+   - **Flagged / unflagged** column is **deferred to Phase 2** (the app does not
+     implement flagging yet — the column is a stub until then).
 
-- Floating `SupportChat` widget ships in the app shell (Phase 1 placebAI: instant
-  canned answers + "escalate to a human" that files a support ticket).
-- Phase 2: the widget talks to the Laravel support API, which proxies an LLM (rules
-  from the product KB) and stores transcripts (`support_threads`, `support_messages`).
-- Escalation rules: user asks for human, detects PII/payment words, or LLM confidence
-  low → ticket created, admin notified (queue + realtime).
+## Subscriptions tab (admin)
+
+- **Plan pricing form (country-wise)** per plan:
+  - Select country → **currency + symbol auto-fill** (e.g. IN → ₹, US → $, AE → AED).
+  - Per-country price input + per-plan period.
+  - **Feature unlock checkboxes** — each feature is listed; the admin picks which
+    features unlock with each plan.
+- Plans at launch:
+  - **Basic** (cheap, 2–3 features)
+  - **Standard**
+  - **Premium** (everything)
+- The **user app gets a Subscriptions page** (own navigation entry) showing at least
+  **three price cards** (Basic / Standard / Premium) with their offers.
+- Every locked feature must be **visible as a named row in the price card list** —
+  a "locked" feature must never be silently absent. The lock crown in-app points to
+  the same `ChatFeature` keys the admin unlocks.
+
+## Support tab
+
+- Inbox of user filed queries/complaints (`support_tickets`), with status
+  (open / replied / closed), priority, and user context (username, country).
+- Reply inline (creates a `support_messages` thread row) **and/or** send the user an
+  email from a stored template.
+- Support role handles subscription activation → activates → blue tick + feature
+  unlock fire the same path as admin review today.
+
+## Email system
+
+- **Templates are CRUD**: title + subject + HTML body (+ plain-text preview).
+  - Body edited in a small HTML-safe editor; a **text preview panel** shows how it
+    reads before saving.
+  - Sending = pick a title → subject (from template) + body go out to the user.
+- **Email config CRUD** (host, port, username, password/API key, from address) — no
+  redeploys to change transport.
+
+## Payment gateway config
+
+- Backend code is written **once** against a generic gateway contract; all gateway
+  credentials are config CRUD: **key · merchant id · secret · endpoint** (+ currency,
+  enabled). Buying a new gateway = adding its credentials in admin, not touching code.
+- Payments recorded against subscriptions; support verifies → activates.
+
+## Data model additions (backend)
+
+- `roles` / `role_user` (admin, super_admin, support) — reused from auth docs.
+- `admin_sessions` or capability tokens with device_id + limit-to-3 enforcement.
+- `plan_countries` (plan_id, country, currency, currency_symbol, price, period).
+- `plan_features` / pivot `plan_feature` (feature key ⇄ plan).
+- `support_tickets`, `support_messages`.
+- `email_templates` (title, subject, html_body, text_body).
+- `email_config` (single row CRUD).
+- `payment_gateways` (name, key, merchant_id, secret, endpoint, currency, enabled).
+- `user_country` on `users` (Phase 2 geocode; filter now).
 
 ## Naming & conventions
 
-- Admin code goes under `backend/app/Domain/Admin/` and `frontend/src/admin/`
-  (own tree, own `paths`), mirroring the Domain structure from Phase 1.
-- Every admin action that mutates state is an Action + repository method with a
-  corresponding feature test, per `12-coding-standards.md`.
+- Frontend: `admin/` at repo root — own Vite app, own `src/pages/{dashboard,users,
+  subscriptions,support,email,gateways}`, Mantine UI, web-only.
+- Backend: `backend/app/Domain/Admin/`, `Domain/Support/`, `Domain/Plans/`,
+  `Domain/Email/`; every mutating admin action is an Action + repository method with
+  feature tests (12-coding-standards.md).

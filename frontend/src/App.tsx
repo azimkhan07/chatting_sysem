@@ -22,10 +22,6 @@ import SavedPage from '@/pages/SavedPage'
 import Settings from '@/pages/Settings'
 import UserProfile from '@/pages/UserProfile'
 import Verify from '@/pages/Verify'
-import AdminDashboard from '@/pages/admin/AdminDashboard'
-import AdminLayout from '@/pages/admin/AdminLayout'
-import AdminLogin from '@/pages/admin/AdminLogin'
-import AdminReviews from '@/pages/admin/AdminReviews'
 
 export default function App() {
   return (
@@ -68,11 +64,6 @@ export default function App() {
               <Route path={path('saved')} element={<SavedPage />} />
               <Route path={path('verified')} element={<Verify />} />
             </Route>
-          </Route>
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="reviews" element={<AdminReviews />} />
           </Route>
           <Route path="*" element={<Navigate to={path('home')} replace />} />
         </Routes>
