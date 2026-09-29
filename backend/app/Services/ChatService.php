@@ -22,6 +22,8 @@ use App\Domain\Chat\Models\ConversationMember;
 use App\Domain\Chat\Models\ConversationMessage;
 use App\Domain\Chat\Models\GroupInvite;
 use App\Domain\Chat\Services\ChatEntitlements;
+use App\Domain\Moderation\Exceptions\BlockedInteractionException;
+use App\Domain\Moderation\Services\BlockService;
 use App\Domain\Social\Contracts\FollowRepository;
 use App\Events\MemberJoined;
 use App\Events\MessageDeleted;
@@ -38,6 +40,7 @@ final class ChatService implements ChatServiceContract
         private readonly ChatRepository $chatRepository,
         private readonly FollowRepository $followRepository,
         private readonly ChatEntitlements $entitlements,
+        private readonly BlockService $blocks,
     ) {}
 
     public function conversationsFor(User $user): Collection
@@ -49,6 +52,12 @@ final class ChatService implements ChatServiceContract
     {
         if ($targetUserId === $user->id) {
             throw new InvalidConversationException('You cannot start a conversation with yourself.');
+        }
+
+        // Checked before the existing-conversation lookup, so a blocked pair
+        // cannot keep an already-open thread alive by one side reopening it.
+        if ($this->blocks->blocksEitherWay((int) $user->id, $targetUserId)) {
+            throw new BlockedInteractionException('You cannot start this conversation.');
         }
 
         $existing = $this->chatRepository->findDmBetween($user->id, $targetUserId);
@@ -148,6 +157,13 @@ final class ChatService implements ChatServiceContract
             if ($memberId === $user->id) {
                 continue;
             }
+            // The same rule as `sendMessage`: a conversation with a blocked
+            // account on it is one nobody could post into, so refusing to build
+            // it beats creating a group that can never be used. The send guard
+            // stays as the backstop for members added later.
+            if ($this->blocks->blocksEitherWay((int) $user->id, $memberId)) {
+                throw new BlockedInteractionException('You cannot add a blocked account to a conversation.');
+            }
             $this->chatRepository->addMember($conversation, $memberId, ['role' => MemberRole::Member]);
         }
 
@@ -179,6 +195,8 @@ final class ChatService implements ChatServiceContract
     {
         $conversation = $this->resolveForUser($user, $conversationId);
 
+        $this->guardBlockedRecipient($conversation, (int) $user->id);
+
         if (($feature = $this->featureFor($data->type)) !== null) {
             $this->entitlements->authorize($user, $feature);
         }
@@ -195,6 +213,30 @@ final class ChatService implements ChatServiceContract
         }
 
         return $message;
+    }
+
+    /**
+     * Refuses to deliver a message to someone on the other side of a block.
+     *
+     * A block that stops a new conversation but not the next message in an
+     * existing one is not a block, it is a suggestion. Applied to the whole
+     * conversation rather than to individual DMs, because in a group the
+     * blocked person is a third party and the sender usually has no way to
+     * know which member it is.
+     */
+    private function guardBlockedRecipient(Conversation $conversation, int $senderId): void
+    {
+        $others = $conversation->members()
+            ->pluck('user_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->reject(static fn (int $id): bool => $id === $senderId)
+            ->all();
+
+        foreach ($others as $otherId) {
+            if ($this->blocks->blocksEitherWay($senderId, $otherId)) {
+                throw new BlockedInteractionException('You cannot send this message.');
+            }
+        }
     }
 
     /**
@@ -284,6 +326,12 @@ final class ChatService implements ChatServiceContract
         $conversation = $this->resolveForUser($user, $conversationId);
         $this->assertModerator($conversation, $user->id);
         $this->assertGroup($conversation);
+
+        // Consistency with group creation: a moderator cannot quietly add
+        // someone back after a block happened by going around the create path.
+        if ($this->blocks->blocksEitherWay((int) $user->id, $newUserId)) {
+            throw new BlockedInteractionException('You cannot add a blocked account to a conversation.');
+        }
 
         $this->chatRepository->addMember($conversation, $newUserId, ['role' => MemberRole::Member]);
         $conversation->load(['members.user', 'lastMessage.user']);

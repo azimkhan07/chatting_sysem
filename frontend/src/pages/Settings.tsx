@@ -18,7 +18,7 @@ import { AccountCenterSection } from '@/components/settings/AccountCenterSection
 import { ContactSyncSection } from '@/components/settings/ContactSyncSection'
 import { FamilySection } from '@/components/settings/FamilySection'
 import { HelpSection } from '@/components/settings/HelpSection'
-import { NotificationsSection, PrivacySection } from '@/components/settings/PreferencesSection'
+import { NotificationsSection, PrivacyAndBlocksSection } from '@/components/settings/PreferencesSection'
 import { SecuritySection } from '@/components/settings/SecuritySection'
 import { SettingCard } from '@/components/settings/SettingCard'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -72,7 +72,7 @@ const CATEGORIES: Category[] = [
     label: 'Privacy',
     blurb: 'Who can reach you',
     icon: <PrivacyIcon className="h-5 w-5" />,
-    render: () => <PrivacySection />,
+    render: () => <PrivacyAndBlocksSection />,
   },
   {
     id: 'notifications',

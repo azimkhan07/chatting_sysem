@@ -30,6 +30,15 @@ final class EloquentFollowRepository implements FollowRepository
             ->delete();
     }
 
+    /**
+     * No block filter here, and that is deliberate rather than an oversight.
+     *
+     * `BlockService::block()` deletes both follow edges for the pair, and
+     * `FollowUserAction` refuses to create one while a block stands. So a
+     * blocked pair cannot have a follow row to return - the invariant is held
+     * by the write path instead, which also keeps the counts and the list
+     * agreeing without two separate filters to keep in step.
+     */
     public function followersFor(int $userId, int $limit, ?string $cursor): CursorPaginator
     {
         return Follow::query()

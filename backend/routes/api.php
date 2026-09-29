@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\Admin\ReportAdminController;
 use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
@@ -19,6 +20,8 @@ use App\Http\Controllers\Api\V1\Chat\ChatReactionController;
 use App\Http\Controllers\Api\V1\Chat\ChatUnreadController;
 use App\Http\Controllers\Api\V1\Chat\ConversationController;
 use App\Http\Controllers\Api\V1\Hashtags\HashtagController;
+use App\Http\Controllers\Api\V1\Moderation\BlockController;
+use App\Http\Controllers\Api\V1\Moderation\ReportController;
 use App\Http\Controllers\Api\V1\Music\SongController;
 use App\Http\Controllers\Api\V1\Posts\PostController;
 use App\Http\Controllers\Api\V1\Posts\PostInteractionController;
@@ -101,6 +104,8 @@ Route::prefix('v1')->group(function (): void {
         Route::post('{post}/share', [PostInteractionController::class, 'share']);
         Route::get('{post}/comments', [PostInteractionController::class, 'comments']);
         Route::post('{post}/comments', [PostInteractionController::class, 'storeComment']);
+        // Author-only, checked against the row's own user_id.
+        Route::delete('{post}', [PostController::class, 'destroy'])->whereNumber('post');
     });
 
     Route::prefix('hashtags')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
@@ -211,10 +216,29 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('{subscription}', [SubscriptionController::class, 'destroy'])->whereNumber('subscription');
     });
 
+    // Blocking and reporting, for the person filing them. Block is a
+    // user-facing setting they can undo, so it is a plain authenticated group;
+    // the staff queue below is not.
+    Route::prefix('moderation')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
+        Route::get('report-reasons', [ReportController::class, 'reasons']);
+        Route::post('reports', [ReportController::class, 'store']);
+
+        Route::get('blocks', [BlockController::class, 'index']);
+        Route::post('blocks/{userId}', [BlockController::class, 'store'])->whereNumber('userId');
+        Route::delete('blocks/{userId}', [BlockController::class, 'destroy'])->whereNumber('userId');
+    });
+
     Route::prefix('admin/subscriptions')->middleware(['auth:sanctum', 'active', 'admin', 'throttle:api'])->group(function (): void {
         Route::get('stats', [SubscriptionAdminController::class, 'stats']);
         Route::get('/', [SubscriptionAdminController::class, 'index']);
         Route::post('{subscription}/approve', [SubscriptionAdminController::class, 'approve'])->whereNumber('subscription');
         Route::post('{subscription}/reject', [SubscriptionAdminController::class, 'reject'])->whereNumber('subscription');
+    });
+
+    // The report queue. Behind `admin`, and the UI for it belongs in the
+    // separate admin app - it names the accounts that reported other accounts.
+    Route::prefix('admin/reports')->middleware(['auth:sanctum', 'active', 'admin', 'throttle:api'])->group(function (): void {
+        Route::get('/', [ReportAdminController::class, 'index']);
+        Route::patch('{report}', [ReportAdminController::class, 'update'])->whereNumber('report');
     });
 });

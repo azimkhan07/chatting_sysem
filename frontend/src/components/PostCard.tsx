@@ -1,9 +1,10 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { HeartIcon, MessageIcon, ShareIcon } from '@/components/icons'
+import ReportDialog from '@/components/moderation/ReportDialog'
 import RichText from '@/components/RichText'
 import { commentsApi, postsApi } from '@/lib/api'
 import { userProfile } from '@/lib/paths'
@@ -25,6 +26,9 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
   const [commentBody, setCommentBody] = useState('')
   const [replyTo, setReplyTo] = useState<Comment | null>(null)
   const [copied, setCopied] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [reporting, setReporting] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const media = post.media
 
@@ -148,6 +152,52 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
     share.mutate()
   }
 
+  /**
+   * Removal is optimistic, because the post is on screen and the reader asked
+   * for it to be gone. Every cached copy of this feed is patched, not just the
+   * one the card happens to be rendered in - the same post is in the home feed,
+   * the profile grid and explore at once, and leaving it in two of them is how
+   * a deleted post comes back on a scroll.
+   */
+  const remove = useMutation({
+    mutationFn: () => postsApi.remove(post.id),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: cacheKey })
+      const previous = queryClient.getQueryData(cacheKey)
+      queryClient.setQueryData(
+        cacheKey,
+        (current: { pages?: { posts: Post[] }[]; posts?: Post[] } | undefined) => {
+          if (!current) return undefined
+          if (Array.isArray(current.pages)) {
+            return {
+              ...current,
+              pages: current.pages.map((page) => ({
+                ...page,
+                posts: page.posts.filter((p) => p.id !== post.id),
+              })),
+            }
+          }
+          if (Array.isArray(current.posts)) {
+            return { ...current, posts: current.posts.filter((p) => p.id !== post.id) }
+          }
+          return current
+        },
+      )
+      return previous
+    },
+    onError: (_error, _vars, rollback) => {
+      if (rollback !== undefined) queryClient.setQueryData(cacheKey, rollback)
+    },
+    onSuccess: () => {
+      // The optimistic update above only knows about the one list this card was
+      // rendered in. Every post list shares the ['posts', ...] prefix - feed,
+      // reels, explore, trending, profile, user profile - so invalidating the
+      // prefix refetches the others, which is what stops a deleted post from
+      // surviving in a feed the reader has not navigated back to yet.
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+    },
+  })
+
   function handleCommentSubmit(event: React.FormEvent) {
     event.preventDefault()
     const body = commentBody.trim()
@@ -156,6 +206,26 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
       replyTo === null ? { body } : { body, parentId: replyTo.id },
     )
   }
+
+  const isOwnPost = sessionUser?.id === post.author.id
+
+  // Dismissed on an outside click rather than left open: a menu that has to be
+  // dismissed with a second click on its trigger covers the caption underneath.
+  useEffect(() => {
+    if (!menuOpen) return
+    function onPointerDown(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false)
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuOpen])
 
   return (
     <motion.article
@@ -232,7 +302,8 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
 
           {media.length > 0 ? <PostMediaGrid media={media} compact={compact} /> : null}
 
-          <div className="mt-3 flex items-center gap-1 border-t border-white/5 pt-2.5">
+          <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-2.5">
+            <div className="flex items-center gap-1">
             <ActionButton
               active={post.liked_by_me}
               activeClass="text-rose-400"
@@ -266,7 +337,57 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
             {copied ? (
               <span className="text-xs font-semibold text-brand-300">Link copied</span>
             ) : null}
+            </div>
+
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                aria-label="Post options"
+                aria-expanded={menuOpen}
+                className="rounded-full p-1.5 text-slate-500 transition hover:bg-white/5 hover:text-slate-200"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="12" cy="19" r="2" />
+                </svg>
+              </button>
+
+              {menuOpen ? (
+                <div className="absolute right-0 bottom-full z-20 mb-1 w-44 overflow-hidden rounded-2xl border border-white/10 bg-slate-900 py-1 shadow-xl">
+                  {isOwnPost ? (
+                    <button
+                      type="button"
+                      disabled={remove.isPending}
+                      onClick={() => {
+                        setMenuOpen(false)
+                        remove.mutate()
+                      }}
+                      className="block w-full px-4 py-2 text-left text-sm text-rose-300 transition hover:bg-white/5 disabled:opacity-50"
+                    >
+                      Delete post
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        setReporting(true)
+                      }}
+                      className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-white/5"
+                    >
+                      Report post
+                    </button>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
+
+          {remove.isError ? (
+            <p className="mt-2 text-xs text-rose-400">Could not delete that post. Try again.</p>
+          ) : null}
 
           {commentsOpen ? (
             <CommentsPanel
@@ -283,6 +404,15 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
           ) : null}
         </div>
       </div>
+
+      {reporting ? (
+        <ReportDialog
+          targetType="post"
+          targetId={post.id}
+          subject={`post by @${post.author.username}`}
+          onClose={() => setReporting(false)}
+        />
+      ) : null}
     </motion.article>
   )
 }
@@ -419,6 +549,8 @@ function CommentRow({
   comment: Comment
   onReply?: (comment: Comment) => void
 }) {
+  const [reporting, setReporting] = useState(false)
+
   return (
     <div className="flex gap-2">
       <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-500/20 text-[10px] font-bold text-brand-200">
@@ -444,8 +576,24 @@ function CommentRow({
               Reply
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={() => setReporting(true)}
+            className="font-semibold text-slate-500 transition hover:text-rose-300"
+          >
+            Report
+          </button>
         </p>
       </div>
+
+      {reporting ? (
+        <ReportDialog
+          targetType="comment"
+          targetId={comment.id}
+          subject={`comment by @${comment.author.username}`}
+          onClose={() => setReporting(false)}
+        />
+      ) : null}
     </div>
   )
 }

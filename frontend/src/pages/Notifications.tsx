@@ -76,7 +76,7 @@ export default function Notifications() {
         <div className="grid place-items-center rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
           <p className="text-base font-semibold text-slate-200">You're all caught up</p>
           <p className="mt-1 text-sm text-slate-400">
-            Follows, likes and comments will show up here.
+            Follows, likes, comments and mentions will show up here.
           </p>
         </div>
       ) : null}
@@ -151,6 +151,12 @@ function messageFor(notification: Notification): string {
       return 'liked your post.'
     case 'comment':
       return `commented: “${notification.data.comment_preview ?? ''}”`
+    // A mention does not carry a preview - the tagged line is the content, and
+    // the feed is where it lives, so the sentence stays about who did it.
+    case 'mention':
+      return notification.data.story_id
+        ? 'mentioned you in a story.'
+        : 'mentioned you in a post.'
     case 'verified': {
       if (notification.data.approved === false) {
         return 'submitted a verification request that was not approved this time.'

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1\Posts;
 
 use App\Domain\Posts\Contracts\PostService;
 use App\Domain\Posts\Data\CreatePostData;
+use App\Domain\Posts\Models\Post;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreatePostRequest;
 use App\Http\Resources\PostResource;
@@ -104,6 +105,18 @@ final class PostController extends Controller
             data: ['post' => (new PostResource($post))->resolve()],
             status: 201,
         );
+    }
+
+    /**
+     * Removes the post. 200 with a body rather than 204, because the client
+     * removes the card from whichever list it is looking at and needs to know
+     * the id that came back matches what it optimistically dropped.
+     */
+    public function destroy(Request $request, Post $post): JsonResponse
+    {
+        $this->postService->delete($request->user(), $post);
+
+        return ApiResponse::success(data: ['deleted' => true, 'id' => (int) $post->id]);
     }
 
     private function feedPayload(CursorPaginator $paginator): JsonResponse

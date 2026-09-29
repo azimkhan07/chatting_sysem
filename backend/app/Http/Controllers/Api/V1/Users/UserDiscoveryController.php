@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1\Users;
 
 use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Auth\Models\User;
+use App\Domain\Moderation\Services\BlockService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Users\MatchContactsRequest;
 use App\Http\Resources\UserResource;
@@ -16,8 +17,12 @@ use Illuminate\Http\Request;
 
 final class UserDiscoveryController extends Controller
 {
+    public function __construct(
+        private readonly BlockService $blocks,
+    ) {}
+
     /**
-     * "Top accounts" — the reach-ordered list that backs the side tab, so a new
+     * "Top accounts" - the reach-ordered list that backs the side tab, so a new
      * user has somewhere to follow from before they know anyone. Ranked by
      * followers, then by posts, and never including the viewer or an account
      * they already follow (nothing to do there).
@@ -25,15 +30,18 @@ final class UserDiscoveryController extends Controller
     public function top(Request $request): JsonResponse
     {
         $viewerId = (int) $request->user()->id;
-        $users = User::query()
-            ->where('status', UserStatus::Active->value)
-            ->where('id', '!=', $viewerId)
-            ->whereNotExists(function ($query) use ($viewerId): void {
-                $query->selectRaw('1')
-                    ->from('follows')
-                    ->whereColumn('follows.follower_id', $viewerId)
-                    ->whereColumn('follows.following_id', 'users.id');
-            })
+        $users = $this->blocks->hideBlockedFromQuery(
+            User::query()
+                ->where('status', UserStatus::Active->value)
+                ->where('id', '!=', $viewerId)
+                ->whereNotExists(function ($query) use ($viewerId): void {
+                    $query->selectRaw('1')
+                        ->from('follows')
+                        ->whereColumn('follows.follower_id', $viewerId)
+                        ->whereColumn('follows.following_id', 'users.id');
+                }),
+            $viewerId,
+        )
             ->withCount(['followers', 'posts'])
             ->orderByDesc('followers_count')
             ->orderByDesc('posts_count')
@@ -76,16 +84,20 @@ final class UserDiscoveryController extends Controller
             ->unique()
             ->values();
 
-        $users = User::query()
-            ->where('status', UserStatus::Active->value)
-            ->where('id', '!=', $request->user()->id)
-            ->whereIn('mobile', $candidates->all())
+        $viewerId = (int) $request->user()->id;
+
+        $users = $this->blocks->hideBlockedFromQuery(
+            User::query()
+                ->where('status', UserStatus::Active->value)
+                ->where('id', '!=', $viewerId)
+                ->whereIn('mobile', $candidates->all()),
+            $viewerId,
+        )
             ->withCount(['followers', 'posts'])
             ->orderByDesc('followers_count')
             ->limit(50)
             ->get();
 
-        $viewerId = (int) $request->user()->id;
         $users->loadExists([
             'followers as is_followed_by_me' => fn ($query) => $query->where('follower_id', $viewerId),
         ]);

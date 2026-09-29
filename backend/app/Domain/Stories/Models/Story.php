@@ -8,6 +8,7 @@ use App\Domain\Auth\Models\User;
 use App\Domain\Songs\Models\Song;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -68,5 +69,15 @@ final class Story extends Model
     public function song(): BelongsTo
     {
         return $this->belongsTo(Song::class);
+    }
+
+    /**
+     * The accounts this story names.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function mentions(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'story_mentions')->withTimestamps();
     }
 }

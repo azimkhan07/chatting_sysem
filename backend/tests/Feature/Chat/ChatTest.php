@@ -241,6 +241,47 @@ final class ChatTest extends TestCase
             ->assertStatus(404);
     }
 
+    public function test_a_group_cannot_be_created_with_or_add_members_that_block_each_other(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+
+        $this->asUser($owner)
+            ->postJson("/api/v1/moderation/blocks/{$member->id}")
+            ->assertStatus(201);
+
+        // A group no member could ever post into is worse than no group at all:
+        // the send guard would refuse every message, leaving a dead chat. The
+        // creation is refused up front instead.
+        $this->asUser($owner)
+            ->postJson('/api/v1/chat/conversations', [
+                'type' => 'group',
+                'name' => 'Doomed',
+                'member_ids' => [$member->id],
+            ])
+            ->assertStatus(403)
+            ->assertJsonPath('errors.0.code', 'BLOCKED');
+
+        // And the "add member later" path cannot smuggle them back in.
+        $conversationId = $this->asUser($owner)
+            ->postJson('/api/v1/chat/conversations', [
+                'type' => 'group',
+                'name' => 'Design Crew',
+                'member_ids' => [],
+            ])
+            ->json('data.conversation.id');
+
+        $this->asUser($owner)
+            ->postJson("/api/v1/chat/conversations/{$conversationId}/members", ['user_id' => $member->id])
+            ->assertStatus(403)
+            ->assertJsonPath('errors.0.code', 'BLOCKED');
+
+        $this->assertDatabaseMissing('conversation_members', [
+            'conversation_id' => $conversationId,
+            'user_id' => $member->id,
+        ]);
+    }
+
     public function test_typing_endpoint_is_members_only_and_throttled_by_cache(): void
     {
         $me = User::factory()->create();

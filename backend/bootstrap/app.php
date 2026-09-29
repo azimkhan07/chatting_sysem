@@ -12,8 +12,12 @@ use App\Domain\Chat\Exceptions\InvalidConversationException;
 use App\Domain\Family\Exceptions\FamilyNotAllowedException;
 use App\Domain\Family\Exceptions\FamilyNotFoundException;
 use App\Domain\Family\Exceptions\FamilyPermissionException;
+use App\Domain\Moderation\Exceptions\BlockedInteractionException;
+use App\Domain\Moderation\Exceptions\CannotBlockException;
+use App\Domain\Moderation\Exceptions\CannotReportException;
 use App\Domain\Posts\Exceptions\InvalidCommentException;
 use App\Domain\Posts\Exceptions\InvalidPostMediaException;
+use App\Domain\Posts\Exceptions\PostNotOwnedException;
 use App\Domain\Social\Exceptions\SelfFollowException;
 use App\Domain\Stories\Exceptions\StoryNotAuthorizedException;
 use App\Domain\Threads\Exceptions\ThreadExpiredException;
@@ -88,6 +92,29 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(static function (SelfFollowException $e, Request $request): JsonResponse {
             return ApiResponse::error('INVALID_OPERATION', $e->getMessage(), 422);
+        });
+
+        // Moderation. Blocked writes are 403 with one shared message, because
+        // the client has nothing to branch on and, more importantly, a
+        // blocked person must not be able to tell which direction the block
+        // runs from the error it gets back.
+        $exceptions->render(static function (BlockedInteractionException $e, Request $request): JsonResponse {
+            return ApiResponse::error('BLOCKED', $e->getMessage(), 403);
+        });
+
+        // Self-block and blocking a missing account are 422, not 404: the
+        // person filing it is being told their own request was wrong, and
+        // there is nobody to hide the account's existence from.
+        $exceptions->render(static function (CannotBlockException $e, Request $request): JsonResponse {
+            return ApiResponse::error('INVALID_OPERATION', $e->getMessage(), 422);
+        });
+
+        $exceptions->render(static function (CannotReportException $e, Request $request): JsonResponse {
+            return ApiResponse::error('INVALID_OPERATION', $e->getMessage(), 422);
+        });
+
+        $exceptions->render(static function (PostNotOwnedException $e, Request $request): JsonResponse {
+            return ApiResponse::error('FORBIDDEN', $e->getMessage(), 403);
         });
 
         $exceptions->render(static function (StoryNotAuthorizedException $e, Request $request): JsonResponse {

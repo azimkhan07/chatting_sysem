@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Stories\Services;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Social\Services\MentionService;
 use App\Domain\Stories\Contracts\StoryRepository;
 use App\Domain\Stories\Data\CreateStoryData;
 use App\Domain\Stories\Exceptions\StoryNotAuthorizedException;
@@ -15,6 +16,7 @@ final class StoryService
     public function __construct(
         private readonly StoryRepository $storyRepository,
         private readonly StoryMediaProcessor $mediaProcessor,
+        private readonly MentionService $mentions,
     ) {}
 
     public function create(User $user, CreateStoryData $data): Story
@@ -40,7 +42,7 @@ final class StoryService
             ];
         }
 
-        return $this->storyRepository->create($user->id, [
+        $story = $this->storyRepository->create($user->id, [
             ...$attributes,
             'caption' => $data->caption,
             'effects' => $data->effects,
@@ -48,14 +50,20 @@ final class StoryService
             'song_id' => $data->songId,
             'location' => $data->location,
         ]);
+
+        // After the row exists, so the tag and the notification can both point
+        // at a real story id.
+        $this->mentions->attachToStory($story, (string) $data->caption);
+
+        return $story;
     }
 
     /**
      * @return array<int, array{user: User, stories: list<Story>}>
      */
-    public function feed(): array
+    public function feed(?User $viewer): array
     {
-        return $this->storyRepository->activeGroupedFeed();
+        return $this->storyRepository->activeGroupedFeed($viewer?->id === null ? null : (int) $viewer->id);
     }
 
     public function destroy(User $user, Story $story): void

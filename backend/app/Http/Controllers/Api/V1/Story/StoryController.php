@@ -25,12 +25,14 @@ final class StoryController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $stories = $this->trayCache->remember(fn (): array => array_values(array_map(
+        $viewerId = $request->user()?->id;
+
+        $stories = $this->trayCache->remember($viewerId, fn (): array => array_values(array_map(
             fn (array $group): array => [
                 'user' => (new UserResource($group['user']))->resolve(),
                 'stories' => StoryResource::collection($group['stories'])->resolve(),
             ],
-            $this->storyService->feed(),
+            $this->storyService->feed($request->user()),
         )));
 
         return ApiResponse::success(data: ['stories' => $stories]);
@@ -52,7 +54,13 @@ final class StoryController extends Controller
                 location: $request->validated('location'),
             ),
         );
-        $story->load('song');
+        // `mentions` is loaded here because the composer knows it just wrote a
+        // mention and the response is what refills the tray, so the person who
+        // was tagged is visible in the story they were tagged in. Without it the
+        // create response would carry `tagged_users: null` while the feed, which
+        // does load them, showed the tagged line - the same story reading two
+        // ways depending on where you saw it first.
+        $story->load(['song', 'mentions']);
         $this->trayCache->forget();
 
         return ApiResponse::success(

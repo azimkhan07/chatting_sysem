@@ -10,6 +10,7 @@ use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Billing\Models\Subscription;
 use App\Domain\Chat\Models\Conversation;
 use App\Domain\Family\Models\FamilyMember;
+use App\Domain\Moderation\Models\UserBlock;
 use App\Domain\Posts\Models\Post;
 use App\Domain\Settings\Models\UserSettings;
 use App\Domain\Social\Models\Follow;
@@ -173,6 +174,26 @@ class User extends Authenticatable
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class, 'user_id');
+    }
+
+    /**
+     * Accounts this user has blocked.
+     *
+     * @return HasMany<UserBlock, $this>
+     */
+    public function userBlocks(): HasMany
+    {
+        return $this->hasMany(UserBlock::class, 'blocker_id');
+    }
+
+    /**
+     * Accounts that have blocked this user.
+     *
+     * @return HasMany<UserBlock, $this>
+     */
+    public function blockedBy(): HasMany
+    {
+        return $this->hasMany(UserBlock::class, 'blocked_id');
     }
 
     /**

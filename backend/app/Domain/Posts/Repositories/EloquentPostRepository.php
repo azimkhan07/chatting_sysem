@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\Posts\Repositories;
 
 use App\Domain\Hashtags\Models\Hashtag;
+use App\Domain\Moderation\Exceptions\BlockedInteractionException;
+use App\Domain\Moderation\Services\BlockService;
 use App\Domain\Posts\Contracts\PostRepository;
 use App\Domain\Posts\Data\CreatePostData;
+use App\Domain\Posts\Exceptions\PostNotOwnedException;
 use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
 use App\Domain\Posts\Services\TrendingRanking;
@@ -22,6 +25,10 @@ final class EloquentPostRepository implements PostRepository
      */
     private const REPLIES_PREVIEW = 3;
 
+    public function __construct(
+        private readonly BlockService $blocks,
+    ) {}
+
     public function create(int $userId, CreatePostData $data): Post
     {
         return Post::query()->create([
@@ -35,6 +42,19 @@ final class EloquentPostRepository implements PostRepository
     public function attachMedia(Post $post, array $media): void
     {
         $post->media()->createMany($media);
+    }
+
+    public function delete(Post $post, int $actorId): void
+    {
+        if ((int) $post->user_id !== $actorId) {
+            throw new PostNotOwnedException('You can only delete your own post.');
+        }
+
+        // Soft delete, not a hard one. The row stays so the comment and reply
+        // threads below it keep their shape, and so a moderator can still see
+        // what was removed and why — the `reports` row that led to the removal
+        // points at an id that must still resolve.
+        $post->delete();
     }
 
     public function feedFor(int $userId, int $limit, ?string $cursor): CursorPaginator
@@ -81,6 +101,8 @@ final class EloquentPostRepository implements PostRepository
 
     public function like(Post $post, int $userId): bool
     {
+        $this->assertReachable($post, $userId, 'like');
+
         $like = $post->likes()->createOrFirst(['user_id' => $userId]);
 
         return $like->wasRecentlyCreated;
@@ -88,6 +110,10 @@ final class EloquentPostRepository implements PostRepository
 
     public function unlike(Post $post, int $userId): bool
     {
+        // Unlike is not guarded, and deliberately: it removes a row the viewer
+        // already owns. Refusing it would leave somebody unable to take back
+        // their own like after a block, which is a worse outcome than allowing a
+        // one-way cleanup.
         return $post->likes()->where('user_id', $userId)->delete() > 0;
     }
 
@@ -100,6 +126,11 @@ final class EloquentPostRepository implements PostRepository
 
     public function addComment(Post $post, int $userId, string $body, ?int $parentId = null): Comment
     {
+        // A blocked author must not be reachable through a third party's post.
+        // Not checking here would let anyone reply to a comment thread started
+        // before a block and keep the conversation going under it.
+        $this->assertReachable($post, $userId, 'comment on');
+
         /** @var Comment $comment */
         $comment = $post->comments()->create([
             'user_id' => $userId,
@@ -110,14 +141,23 @@ final class EloquentPostRepository implements PostRepository
         return $comment;
     }
 
-    public function commentsFor(Post $post, int $limit, ?string $cursor): CursorPaginator
+    public function commentsFor(Post $post, int $limit, ?string $cursor, int $viewerId): CursorPaginator
     {
+        // Comments from blocked accounts are dropped from the thread, and from
+        // the reply count, so blocking someone does not leave a visible wall of
+        // their replies under a post.
+        $hideBlocked = fn (Builder $query): Builder => $this->blocks->hideFromQuery($query, $viewerId, 'comments.user_id');
+
         return $post->comments()
             ->whereNull('parent_id')
+            ->tap($hideBlocked)
             ->with('user')
-            ->withCount('replies')
+            ->withCount([
+                'replies as replies_count' => fn ($query) => $query->tap($hideBlocked),
+            ])
             ->with([
                 'replies' => fn ($query) => $query
+                    ->tap($hideBlocked)
                     ->with('user')
                     ->oldest('id')
                     ->limit(self::REPLIES_PREVIEW),
@@ -128,11 +168,30 @@ final class EloquentPostRepository implements PostRepository
 
     public function share(Post $post, int $userId): array
     {
+        $this->assertReachable($post, $userId, 'share');
+
         $share = $post->shares()->createOrFirst(['user_id' => $userId]);
 
         $post->loadCount('shares');
 
         return ['count' => (int) $post->shares_count, 'created' => $share->wasRecentlyCreated];
+    }
+
+    /**
+     * A write aimed at this post's author is refused when the two are blocked
+     * in either direction.
+     *
+     * One guard for like, comment and share, because the failure they share is
+     * the same: each is a public signal that the pair is still connected, and a
+     * block that stopped comments but not likes would still ping the other
+     * person with a notification. Written as a single call so a fourth
+     * interaction cannot be added without the question being asked again.
+     */
+    private function assertReachable(Post $post, int $userId, string $verb): void
+    {
+        if ($this->blocks->blocksEitherWay($userId, (int) $post->user_id)) {
+            throw new BlockedInteractionException("You cannot {$verb} this post.");
+        }
     }
 
     public function trendingFor(int $viewerId, int $limit): Collection
@@ -177,20 +236,38 @@ final class EloquentPostRepository implements PostRepository
     }
 
     /**
-     * Every feed surface shares this projection so a page costs a fixed number
-     * of queries instead of one per post. `hashtags` is intentionally *not*
-     * eager loaded: the API payload does not need it and it doubled the query
-     * count of a feed page.
+     * Every post read path starts here.
+     *
+     * That is what makes the block filter trustworthy: the feed, reels,
+     * explore, a profile, a hashtag page and trending are six different
+     * queries, and a block enforced in only some of them is a block that
+     * leaks the moment the reader opens a different tab. Filtering in the one
+     * shared base means a new read path inherits the rule for free.
+     *
+     * The check is "the viewer does not block this author", and only that
+     * direction — the blocked person losing the ability to comment is
+     * enforced on write instead, which is a different question.
+     *
+     * Every feed surface also shares this projection, so a page costs a fixed
+     * number of queries instead of one per post. `hashtags` is intentionally
+     * *not* eager loaded: the API payload does not need it and it doubled the
+     * query count of a feed page.
      *
      * @return Builder<Post>
      */
     private function baseQuery(int $viewerId): Builder
     {
-        return Post::query()
+        $query = Post::query()
             ->with(['user', 'media'])
             ->withCount(['likes', 'comments', 'shares'])
             ->withExists([
                 'likes as liked_by_me' => fn (Builder $query): Builder => $query->where('user_id', $viewerId),
             ]);
+
+        // Applied as a statement rather than chained through `tap()`. `tap`
+        // is forwarded to the query builder, so it returns a type that erases
+        // the `Builder<Post>` generic and every read path built on this loses
+        // its element type.
+        return $this->blocks->hideFromQuery($query, $viewerId, 'posts.user_id');
     }
 }

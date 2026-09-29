@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Stories\Repositories;
 
 use App\Domain\Auth\Models\User;
+use App\Domain\Moderation\Services\BlockService;
 use App\Domain\Stories\Contracts\StoryRepository;
 use App\Domain\Stories\Models\Story;
 use Illuminate\Support\Collection;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\Storage;
 
 final class EloquentStoryRepository implements StoryRepository
 {
+    public function __construct(
+        private readonly BlockService $blocks,
+    ) {}
+
     public function create(int $userId, array $attributes): Story
     {
         return Story::query()->create([
@@ -21,13 +26,24 @@ final class EloquentStoryRepository implements StoryRepository
         ]);
     }
 
-    public function activeGroupedFeed(): array
+    public function activeGroupedFeed(?int $viewerId): array
     {
-        $active = Story::query()
-            ->with(['user', 'song'])
-            ->where('expires_at', '>', now())
-            ->orderByDesc('id')
-            ->get();
+        $query = Story::query()
+            ->with(['user', 'song', 'mentions'])
+            ->where('expires_at', '>', now());
+
+        // The story tray is the one place a block could hide someone in a
+        // different way from every other surface, because it is grouped per
+        // author: filtering rows would leave an author with their remaining
+        // stories and an avatar but drop nothing at all if the only story they
+        // had was the filtered one. Filtering the author column before
+        // grouping is what removes the whole tray, so a blocked account is
+        // gone rather than reshaped.
+        if ($viewerId !== null) {
+            $this->blocks->hideFromQuery($query, $viewerId, 'stories.user_id');
+        }
+
+        $active = $query->orderByDesc('id')->get();
 
         $grouped = $active->groupBy('user_id');
 

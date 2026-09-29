@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import FollowButton from '@/components/FollowButton'
+import BlockMenu from '@/components/moderation/BlockMenu'
 import { ContactSheet } from '@/components/profile/ContactSheet'
 import { chatApi } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types/user'
 
 interface ProfileActionsProps {
@@ -21,6 +23,7 @@ interface ProfileActionsProps {
  */
 export default function ProfileActions({ user, onChanged }: ProfileActionsProps) {
   const navigate = useNavigate()
+  const sessionUser = useAuthStore((state) => state.user)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [starting, setStarting] = useState(false)
 
@@ -67,6 +70,10 @@ export default function ProfileActions({ user, onChanged }: ProfileActionsProps)
             {starting ? 'Opening…' : 'Message'}
           </button>
         )}
+        {/* Blocking yourself is not an option, so the menu is for other people only. */}
+        {sessionUser?.id !== user.id ? (
+          <BlockMenu user={user} onBlocked={onChanged} />
+        ) : null}
       </div>
 
       {sheetOpen ? (

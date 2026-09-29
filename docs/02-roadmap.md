@@ -173,6 +173,22 @@ Ordered by dependency, each item shipped with its own tests + docs update:
       queries rather than one correlated sort, and a bare `@` is valid input.
     - [x] One `SongPicker` and one mention hook for both composers, so the import path and the
       "@"-at-the-caret rule cannot drift apart between posts and stories.
+13. **Moderation** (added during the Phase 1 polish pass)
+    - [x] Block — `user_blocks`, idempotent, both follow edges removed on block (and both guards
+      prevent a new one while a block stands). Reads are one-way through the shared
+      `BlockService::hideFromQuery` subquery (feed, reels, explore, hashtags, trending, profile
+      posts, comments, story tray, notifications); writes are two-way (`blocksEitherWay` on
+      follow, like, comment, share, DM start, and every message send). Direct profile access
+      answers `404` in both directions — `403` would confirm the account exists.
+    - [x] Report — unified `reports` table (`user` / `post` / `comment` / `message`), dedupe per
+      (reporter, reason), self-report rejected, message reports require conversation membership,
+      urgent queue (`self_harm` / `abuse` first), admin review endpoints resolving or dismissing.
+    - [x] Post delete — author-only, soft delete so comment threads and report rows keep their
+      shape. Main story-cache invalidation and tray invalidation on block/unblock keep every
+      surface in step. 22 block tests, 10 mention tests, 18 report tests, 7 post-delete tests.
+    - [x] Block also guards discovery surfaces (top accounts, contact match, mention suggestions,
+      story tray per-viewer cache) and group create/add-member, with a one-way notification
+      filter so a blocked account's notifications stop being delivered.
 
 **Verification note.** `npx tsc --noEmit` checks nothing in this repo: the root `tsconfig.json` is
 `"files": []` with project references, so it reports no errors on any input. The real type check is

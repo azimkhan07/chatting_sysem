@@ -37,6 +37,7 @@ final class PostInteractionController extends Controller
             $post,
             limit: $request->integer('limit', 20),
             cursor: $request->query('cursor'),
+            viewerId: (int) $request->user()->id,
         );
 
         return ApiResponse::success(

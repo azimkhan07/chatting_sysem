@@ -25,6 +25,11 @@ final class StoryResource extends JsonResource
             'song' => $this->relationLoaded('song') && $this->song !== null
                 ? (new SongResource($this->song))->resolve()
                 : null,
+            // Loaded only where the tray or the viewer actually renders the
+            // tagged line, not on every row of the story feed.
+            'tagged_users' => $this->relationLoaded('mentions')
+                ? UserResource::collection($this->mentions)->resolve()
+                : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),
         ];

@@ -41,6 +41,14 @@ final class PostService implements PostServiceContract
         return $this->createPostAction->handle($author->id, $data);
     }
 
+    public function delete(User $author, Post $post): void
+    {
+        // The ownership check lives in the repository rather than here so that
+        // every path to the row - this service, a job, an admin tool - has the
+        // same answer to "may this account delete this post".
+        $this->repository->delete($post, (int) $author->id);
+    }
+
     public function feedFor(User $user, int $limit = 20, ?string $cursor = null): CursorPaginator
     {
         return $this->listFeedAction->handle($user->id, $limit, $cursor);
@@ -81,9 +89,9 @@ final class PostService implements PostServiceContract
         return $this->commentOnPostAction->handle($post, $user->id, $body, $parentId);
     }
 
-    public function commentsFor(Post $post, int $limit = 20, ?string $cursor = null): CursorPaginator
+    public function commentsFor(Post $post, int $limit = 20, ?string $cursor = null, ?int $viewerId = null): CursorPaginator
     {
-        return $this->listPostCommentsAction->handle($post, $limit, $cursor);
+        return $this->listPostCommentsAction->handle($post, $limit, $cursor, $viewerId);
     }
 
     public function share(User $user, Post $post): int

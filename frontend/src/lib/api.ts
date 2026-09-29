@@ -36,6 +36,11 @@ import type {
   SettingsPatch,
   UserSettings,
 } from '@/types/settings'
+import type {
+  ReportInput,
+  ReportReasonOptions,
+  ReportReceipt,
+} from '@/types/moderation'
 
 const API_BASE = '/api/v1'
 const AUTH_STORAGE_KEY = 'amtechat.auth'
@@ -257,6 +262,26 @@ export const postsApi = {
   like: (postId: number) => api.post<LikeResult>(`/posts/${postId}/like`, {}),
   unlike: (postId: number) => api.delete<LikeResult>(`/posts/${postId}/like`),
   share: (postId: number) => api.post<ShareResult>(`/posts/${postId}/share`, {}),
+  /**
+   * Author-only on the server; the client only ever offers it on your own post.
+   * The id comes back so the cache can drop the exact card it removed, rather
+   * than refetching a whole page to hide one row.
+   */
+  remove: (postId: number) => api.delete<{ deleted: boolean; id: number }>(`/posts/${postId}`),
+}
+
+export const moderationApi = {
+  reportReasons: () => api.get<ReportReasonOptions>('/moderation/report-reasons'),
+  report: (input: ReportInput) =>
+    api.post<{ report: ReportReceipt }>('/moderation/reports', {
+      target_type: input.target_type,
+      target_id: input.target_id,
+      reason: input.reason,
+      ...(input.details ? { details: input.details } : {}),
+    }),
+  blocks: () => api.get<{ blocked: User[] }>('/moderation/blocks'),
+  block: (userId: number) => api.post<{ blocked: boolean }>(`/moderation/blocks/${userId}`, {}),
+  unblock: (userId: number) => api.delete<{ blocked: boolean }>(`/moderation/blocks/${userId}`),
 }
 
 export const hashtagsApi = {
@@ -576,7 +601,7 @@ export const chatApi = {
       { up_to_message_id: upToMessageId },
     ),
   pins: (conversationId: number) =>
-    api.get<{ messages: ConversationMessage[] }>(
+    api.get<{ pinned: ConversationMessage[] }>(
       `/chat/conversations/${conversationId}/pins`,
     ),
   pin: (conversationId: number, messageId: number) =>

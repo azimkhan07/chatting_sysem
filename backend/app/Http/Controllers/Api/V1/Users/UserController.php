@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1\Users;
 
 use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Auth\Models\User;
+use App\Domain\Moderation\Services\BlockService;
 use App\Domain\Posts\Contracts\PostService;
 use App\Domain\Social\Models\Follow;
 use App\Domain\Social\Services\MentionSuggestionService;
@@ -26,6 +27,7 @@ final class UserController extends Controller
         private readonly SocialService $socialService,
         private readonly PostService $postService,
         private readonly MentionSuggestionService $mentionSuggestions,
+        private readonly BlockService $blocks,
     ) {}
 
     /**
@@ -81,6 +83,9 @@ final class UserController extends Controller
 
         $users = User::query()
             ->where('status', UserStatus::Active->value)
+            // Someone you blocked must not be one search keystroke away, or the
+            // block is a filter you have to remember to apply everywhere.
+            ->whereNotIn('id', $this->blocks->blockedIdsFor((int) $request->user()->id))
             ->where(function ($query) use ($prefix, $contains): void {
                 $query->whereRaw('lower(username) like ?', [$prefix])
                     ->orWhereRaw('lower(username) like ?', [$contains])
@@ -104,6 +109,16 @@ final class UserController extends Controller
     public function show(Request $request, User $user): JsonResponse
     {
         $viewer = $request->user();
+
+        // A blocked account's profile is a 404, not a 403. "Forbidden" confirms
+        // the account exists, which is itself a disclosure — and a blocked
+        // person is meant to be unable to tell whether you are around.
+        if ($viewer !== null
+            && ($this->blocks->isBlocked($viewer, (int) $user->id) || $this->blocks->isBlocked($user, (int) $viewer->id))
+        ) {
+            return ApiResponse::error('NOT_FOUND', 'Not found', 404);
+        }
+
         $user->loadCount(['posts', 'followers', 'following']);
         $user->loadExists([
             'followers as is_followed_by_me' => fn ($query) => $query->where('follower_id', $viewer?->id),
@@ -114,8 +129,20 @@ final class UserController extends Controller
 
     public function posts(Request $request, User $user): JsonResponse
     {
+        $viewer = $request->user();
+
+        // Same rule as `show`: a blocked person is unreachable, not "there but
+        // with fewer things on it". The profile 404 is only meaningful if the
+        // posts page under it 404s too - without this, blocking someone but
+        // opening their username directly would hand back their whole feed.
+        if ($viewer !== null
+            && ($this->blocks->isBlocked($viewer, (int) $user->id) || $this->blocks->isBlocked($user, (int) $viewer->id))
+        ) {
+            return ApiResponse::error('NOT_FOUND', 'Not found', 404);
+        }
+
         $paginator = $this->postService->postsBy(
-            viewer: $request->user(),
+            viewer: $viewer,
             owner: $user,
             limit: PageSize::clamp($request->integer('limit', 15), 15),
             cursor: $request->query('cursor'),

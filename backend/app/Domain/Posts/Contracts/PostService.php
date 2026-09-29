@@ -7,6 +7,7 @@ namespace App\Domain\Posts\Contracts;
 use App\Domain\Auth\Models\User;
 use App\Domain\Hashtags\Models\Hashtag;
 use App\Domain\Posts\Data\CreatePostData;
+use App\Domain\Posts\Exceptions\PostNotOwnedException;
 use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
 use Illuminate\Database\Eloquent\Collection;
@@ -15,6 +16,13 @@ use Illuminate\Pagination\CursorPaginator;
 interface PostService
 {
     public function create(User $author, CreatePostData $data): Post;
+
+    /**
+     * Removes one of the author's own posts.
+     *
+     * @throws PostNotOwnedException
+     */
+    public function delete(User $author, Post $post): void;
 
     /**
      * Feed of posts, newest first, cursor-paginated.
@@ -60,9 +68,12 @@ interface PostService
     /**
      * Latest comments on a post, newest first.
      *
+     * Takes the viewer because the block filter is per-viewer: the same post
+     * shows a different comment list to each reader.
+     *
      * @return CursorPaginator<int, Comment>
      */
-    public function commentsFor(Post $post, int $limit = 20, ?string $cursor = null): CursorPaginator;
+    public function commentsFor(Post $post, int $limit = 20, ?string $cursor = null, ?int $viewerId = null): CursorPaginator;
 
     /**
      * Records the viewer sharing a post. Returns the new total share count.

@@ -6,6 +6,7 @@ namespace App\Domain\Posts\Contracts;
 
 use App\Domain\Hashtags\Models\Hashtag;
 use App\Domain\Posts\Data\CreatePostData;
+use App\Domain\Posts\Exceptions\PostNotOwnedException;
 use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
 use Illuminate\Database\Eloquent\Collection;
@@ -14,6 +15,13 @@ use Illuminate\Pagination\CursorPaginator;
 interface PostRepository
 {
     public function create(int $userId, CreatePostData $data): Post;
+
+    /**
+     * Soft-deletes a post on behalf of its author.
+     *
+     * @throws PostNotOwnedException
+     */
+    public function delete(Post $post, int $actorId): void;
 
     /**
      * @param  list<array<string, mixed>>  $media  normalized media rows
@@ -47,7 +55,7 @@ interface PostRepository
 
     public function addComment(Post $post, int $userId, string $body, ?int $parentId = null): Comment;
 
-    public function commentsFor(Post $post, int $limit, ?string $cursor): CursorPaginator;
+    public function commentsFor(Post $post, int $limit, ?string $cursor, int $viewerId): CursorPaginator;
 
     /**
      * Records a share of a post by a user. Idempotent per (post, user).

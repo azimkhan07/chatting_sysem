@@ -17,6 +17,7 @@ import { SeenBySheet } from '@/components/chat/SeenBySheet'
 import { UpgradePrompt } from '@/components/chat/UpgradePrompt'
 import { GroupInviteModal } from '@/components/GroupInviteModal'
 import { GroupThreadModal } from '@/components/GroupThreadModal'
+import ReportDialog from '@/components/moderation/ReportDialog'
 import {
   ArrowLeftIcon,
   BellIcon,
@@ -984,8 +985,8 @@ function ThreadPane({
           <PinnedBar
             // Re-keying on the newest pin re-opens a collapsed bar when someone
             // pins something, without an effect that would re-render the thread.
-            key={pinsQuery.data?.messages[0]?.id ?? 'none'}
-            messages={pinsQuery.data?.messages ?? []}
+            key={pinsQuery.data?.pinned[0]?.id ?? 'none'}
+            messages={pinsQuery.data?.pinned ?? []}
             loading={pinsQuery.isPending}
           />
 
@@ -1374,6 +1375,7 @@ function MessageBubble({
   const isMedia =
     kind === 'image' || kind === 'video' || kind === 'gif' || kind === 'drawing'
   const [picker, setPicker] = useState(false)
+  const [reporting, setReporting] = useState(false)
 
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -1528,8 +1530,29 @@ function MessageBubble({
                   <PinGlyph className="h-3 w-3" />
                 </button>
               ) : null}
+              {/* Only someone else's message is reportable; the backend
+                  rejects reporting yourself. */}
+              {!mine ? (
+                <button
+                  type="button"
+                  onClick={() => setReporting(true)}
+                  aria-label="Report message"
+                  title="Report to staff"
+                  className="grid h-6 w-6 place-items-center rounded-full bg-white/5 text-[10px] transition hover:bg-rose-500/20 hover:text-rose-300"
+                >
+                  ⚑
+                </button>
+              ) : null}
             </div>
           </div>
+        ) : null}
+        {reporting ? (
+          <ReportDialog
+            targetType="message"
+            targetId={message.id}
+            subject={`message from ${message.sender?.display_name ?? message.sender?.username ?? 'a member'}`}
+            onClose={() => setReporting(false)}
+          />
         ) : null}
         {picker ? (
           <div className="mt-1 flex gap-1 rounded-full border border-white/10 bg-midnight-900 p-1">

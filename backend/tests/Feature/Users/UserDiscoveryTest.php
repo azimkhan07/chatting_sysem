@@ -139,6 +139,39 @@ final class UserDiscoveryTest extends TestCase
             ->assertUnauthorized();
     }
 
+    public function test_top_hides_blocked_accounts(): void
+    {
+        $viewer = $this->account();
+        $blocked = $this->account();
+        $this->followMany($blocked, [$this->account()->id, $this->account()->id, $this->account()->id]);
+
+        Sanctum::actingAs($viewer);
+        $this->postJson("/api/v1/moderation/blocks/{$blocked->id}");
+
+        // "Top accounts" is a suggested-who-to-follow rail. A blocked account
+        // appearing there would surface the very person the viewer has hidden.
+        $response = $this->getJson('/api/v1/users/top');
+        $response->assertOk();
+        $ids = collect($response->json('data.users'))->pluck('id')->all();
+        $this->assertNotContains($blocked->id, $ids);
+    }
+
+    public function test_match_contacts_hides_blocked_accounts(): void
+    {
+        $viewer = $this->account();
+        $blocked = $this->account(['mobile' => '9876543210']);
+
+        Sanctum::actingAs($viewer);
+        $this->postJson("/api/v1/moderation/blocks/{$blocked->id}");
+
+        // If the blocker's own phone book matched the blocked account, handing
+        // the account back out of match-contacts would undo the profile block.
+        $this->postJson('/api/v1/users/match-contacts', ['contacts' => ['9876543210']])
+            ->assertOk()
+            ->assertJsonCount(0, 'data.users')
+            ->assertJsonPath('data.matched', 0);
+    }
+
     /** A plain active account; auth is attached explicitly, as the other suites do. */
     private function account(array $attributes = []): User
     {

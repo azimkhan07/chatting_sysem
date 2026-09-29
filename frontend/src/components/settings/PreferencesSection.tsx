@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
 import { Spinner } from '@/components/AuthLayout'
+import { BlockedAccountsSection } from '@/components/settings/BlockedAccountsSection'
 import { SettingCard } from '@/components/settings/SettingCard'
 import { Toggle } from '@/components/settings/SettingsUI'
 import { settingsApi } from '@/lib/api'
@@ -138,6 +139,20 @@ export function PrivacySection() {
         </ErrorNote>
       ) : null}
     </SettingCard>
+  )
+}
+
+/**
+ * Privacy is two cards: the switches, then the people you have actually cut
+ * off. A switch can be off with an empty list behind it, and someone looking
+ * for "how do I undo that block" should not have to infer it from a toggle.
+ */
+export function PrivacyAndBlocksSection() {
+  return (
+    <div className="space-y-4">
+      <PrivacySection />
+      <BlockedAccountsSection />
+    </div>
   )
 }
 

@@ -6,6 +6,7 @@ namespace App\Domain\Social\Services;
 
 use App\Domain\Auth\Enums\UserStatus;
 use App\Domain\Auth\Models\User;
+use App\Domain\Moderation\Services\BlockService;
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -54,6 +55,10 @@ final class MentionSuggestionService
 
         return array_values(array_unique(array_filter($names, static fn (string $n): bool => $n !== '')));
     }
+
+    public function __construct(
+        private readonly BlockService $blocks,
+    ) {}
 
     /**
      * @return Collection<int, array{user: User, is_following: bool}>
@@ -120,16 +125,21 @@ final class MentionSuggestionService
     }
 
     /**
-     * Active accounts, minus the viewer's own.
+     * Active accounts, minus the viewer's own and minus the accounts they
+     * blocked.
      *
-     * Never tag yourself in your own post: it is noise on the post, and the
-     * "tagged" line would read "You tagged yourself".
+     * A blocked account surfacing in the tag picker is the smallest possible
+     * leak and the easiest one: tagging is the one signal that says "I want
+     * your attention", which is precisely what the block refused.
      */
     private function baseQuery(int $viewerId): Builder
     {
-        return User::query()
-            ->where('users.status', UserStatus::Active->value)
-            ->where('users.id', '!=', $viewerId);
+        return $this->blocks->hideBlockedFromQuery(
+            User::query()
+                ->where('users.status', UserStatus::Active->value)
+                ->where('users.id', '!=', $viewerId),
+            $viewerId,
+        );
     }
 
     /**
