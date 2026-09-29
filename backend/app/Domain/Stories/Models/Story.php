@@ -80,4 +80,13 @@ final class Story extends Model
     {
         return $this->belongsToMany(User::class, 'story_mentions')->withTimestamps();
     }
+
+    /**
+     * The calendar date this story was published on (`Y-m-d`), which is the
+     * day a story-archive entry belongs to even though it lapses later.
+     */
+    public function createdAtDay(): string
+    {
+        return $this->created_at->toDateString();
+    }
 }

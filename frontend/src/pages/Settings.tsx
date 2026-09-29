@@ -1,12 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 import {
   AccountIcon,
   AppearanceIcon,
+  ArchiveIcon,
   ArrowLeftIcon,
   BellIcon,
+  BookmarkIcon,
   ChevronRightIcon,
   FamilyIcon,
   HelpIcon,
@@ -22,6 +24,7 @@ import { NotificationsSection, PrivacyAndBlocksSection } from '@/components/sett
 import { SecuritySection } from '@/components/settings/SecuritySection'
 import { SettingCard } from '@/components/settings/SettingCard'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { path } from '@/lib/paths'
 import type { ThemeMode } from '@/lib/theme'
 import { useThemeStore } from '@/stores/themeStore'
 
@@ -43,6 +46,8 @@ interface Category {
   blurb: string
   icon: ReactNode
   render: () => ReactNode
+  /** When set, the row leaves Settings for a full page instead of a section. */
+  href?: string
 }
 
 const CATEGORIES: Category[] = [
@@ -96,6 +101,22 @@ const CATEGORIES: Category[] = [
     render: () => <ContactSyncSection />,
   },
   {
+    id: 'saved',
+    label: 'Saved',
+    blurb: 'Posts and stories you kept',
+    icon: <BookmarkIcon className="h-5 w-5" />,
+    render: () => null,
+    href: path('saved'),
+  },
+  {
+    id: 'archive',
+    label: 'Archived',
+    blurb: 'Your hidden posts and stories',
+    icon: <ArchiveIcon className="h-5 w-5" />,
+    render: () => null,
+    href: path('archive'),
+  },
+  {
     id: 'help',
     label: 'Help & about',
     blurb: 'Support and version',
@@ -130,6 +151,7 @@ function findCategory(id: string | null): Category | null {
 export default function Settings() {
   const isDesktop = useMediaQuery('(min-width: 768px)')
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
 
   // Desktop always shows a screen, defaulting to the first. Mobile shows the
   // list until something is chosen.
@@ -137,6 +159,13 @@ export default function Settings() {
   const active = isDesktop ? (chosen ?? findCategory(DEFAULT_CATEGORY)) : chosen
 
   function select(id: string) {
+    const category = findCategory(id)
+    // A category with a page destination leaves Settings rather than sliding
+    // in a section, so the back arrow behaves predictably.
+    if (category?.href) {
+      navigate(category.href)
+      return
+    }
     setParams({ section: id })
   }
 

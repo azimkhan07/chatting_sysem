@@ -3,10 +3,10 @@ import { motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { HeartIcon, MessageIcon, ShareIcon } from '@/components/icons'
+import { BookmarkIcon, HeartIcon, MessageIcon, ShareIcon } from '@/components/icons'
 import ReportDialog from '@/components/moderation/ReportDialog'
 import RichText from '@/components/RichText'
-import { commentsApi, postsApi } from '@/lib/api'
+import { commentsApi, postsApi, savedApi } from '@/lib/api'
 import { userProfile } from '@/lib/paths'
 import { timeAgo } from '@/lib/time'
 import { useAuthStore } from '@/stores/authStore'
@@ -16,9 +16,16 @@ interface PostCardProps {
   post: Post
   cacheKey?: (string | number)[]
   compact?: boolean
+  /** The card is showing a kept post; the menu offers "Restore post" instead. */
+  archived?: boolean
 }
 
-export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact = false }: PostCardProps) {
+export default function PostCard({
+  post,
+  cacheKey = ['posts', 'feed'],
+  compact = false,
+  archived = false,
+}: PostCardProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const sessionUser = useAuthStore((state) => state.user)
@@ -198,6 +205,42 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
     },
   })
 
+  const savedOverview = useQuery({
+    queryKey: ['saved', 'overview'],
+    queryFn: () => savedApi.overview(),
+    enabled: sessionUser !== null,
+  })
+  const isSaved = (savedOverview.data?.items ?? []).some(
+    (item) => item.saveable_type === 'post' && item.saveable.id === post.id,
+  )
+
+  const toggleSave = useMutation({
+    mutationFn: async () => {
+      if (isSaved) {
+        await savedApi.remove('post', post.id)
+      } else {
+        await savedApi.save('post', post.id)
+      }
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: ['saved', 'overview'] })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['saved', 'overview'] })
+    },
+  })
+
+  const archive = useMutation({
+    mutationFn: () => (archived ? postsApi.unarchive(post.id) : postsApi.archive(post.id)),
+    onSuccess: () => {
+      // The grid it was shown in depends on the post leaving it: the archive
+      // day view is filtered by `archived_at` server-side, and the profile
+      // grid should no longer land this post either.
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['archive'] })
+    },
+  })
+
   function handleCommentSubmit(event: React.FormEvent) {
     event.preventDefault()
     const body = commentBody.trim()
@@ -334,6 +377,21 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
               icon={<ShareIcon className="h-[18px] w-[18px]" />}
               count={copied ? 0 : post.shares_count}
             />
+            <ActionButton
+              active={isSaved}
+              activeClass="text-brand-300"
+              onClick={() => {
+                if (!toggleSave.isPending) toggleSave.mutate()
+              }}
+              disabled={toggleSave.isPending}
+              label={isSaved ? 'Remove from saved' : 'Save post'}
+              icon={
+                <BookmarkIcon
+                  className={`h-[18px] w-[18px] ${isSaved ? 'fill-brand-400 text-brand-400' : ''}`}
+                />
+              }
+              count={0}
+            />
             {copied ? (
               <span className="text-xs font-semibold text-brand-300">Link copied</span>
             ) : null}
@@ -357,17 +415,30 @@ export default function PostCard({ post, cacheKey = ['posts', 'feed'], compact =
               {menuOpen ? (
                 <div className="absolute right-0 bottom-full z-20 mb-1 w-44 overflow-hidden rounded-2xl border border-white/10 bg-slate-900 py-1 shadow-xl">
                   {isOwnPost ? (
-                    <button
-                      type="button"
-                      disabled={remove.isPending}
-                      onClick={() => {
-                        setMenuOpen(false)
-                        remove.mutate()
-                      }}
-                      className="block w-full px-4 py-2 text-left text-sm text-rose-300 transition hover:bg-white/5 disabled:opacity-50"
-                    >
-                      Delete post
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        disabled={archive.isPending}
+                        onClick={() => {
+                          setMenuOpen(false)
+                          archive.mutate()
+                        }}
+                        className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+                      >
+                        {archived ? 'Restore post' : 'Archive post'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={remove.isPending}
+                        onClick={() => {
+                          setMenuOpen(false)
+                          remove.mutate()
+                        }}
+                        className="block w-full px-4 py-2 text-left text-sm text-rose-300 transition hover:bg-white/5 disabled:opacity-50"
+                      >
+                        Delete post
+                      </button>
+                    </>
                   ) : (
                     <button
                       type="button"

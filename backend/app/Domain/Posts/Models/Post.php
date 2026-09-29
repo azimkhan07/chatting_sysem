@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property-read int $shares_count
  * @property-read Carbon $created_at
  * @property-read Carbon $updated_at
+ * @property-read Carbon|null $archived_at
  * @property-read Carbon|null $deleted_at
  */
 final class Post extends Model
@@ -42,6 +43,14 @@ final class Post extends Model
         'body',
         'location',
         'song_id',
+        'archived_at',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'archived_at' => 'datetime',
     ];
 
     /**

@@ -16,6 +16,7 @@ use App\Domain\Posts\Services\TrendingRanking;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\CursorPaginator;
+use Illuminate\Support\Carbon;
 
 final class EloquentPostRepository implements PostRepository
 {
@@ -235,6 +236,46 @@ final class EloquentPostRepository implements PostRepository
         return new Collection($ordered);
     }
 
+    public function archive(Post $post, int $actorId): void
+    {
+        if ((int) $post->user_id !== $actorId) {
+            throw new PostNotOwnedException('You can only archive your own post.');
+        }
+
+        $post->update(['archived_at' => now()]);
+    }
+
+    public function unarchive(Post $post, int $actorId): void
+    {
+        if ((int) $post->user_id !== $actorId) {
+            throw new PostNotOwnedException('You can only unarchive your own post.');
+        }
+
+        $post->update(['archived_at' => null]);
+    }
+
+    public function archivedFor(int $ownerId, int $viewerId, int $limit, ?string $cursor): CursorPaginator
+    {
+        // Unlike baseQuery, this is only ever the row owner asking, so the
+        // block filter is meaningless here; the query differs only in that it
+        // keeps archived rows.
+        return $this->projectedPosts($viewerId)
+            ->where('user_id', $ownerId)
+            ->whereNotNull('archived_at')
+            ->orderByDesc('created_at')
+            ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
+    }
+
+    public function archivedOn(int $ownerId, int $viewerId, Carbon $day): Collection
+    {
+        return $this->projectedPosts($viewerId)
+            ->where('user_id', $ownerId)
+            ->whereNotNull('archived_at')
+            ->whereDate('created_at', $day->toDateString())
+            ->orderByDesc('created_at')
+            ->get();
+    }
+
     /**
      * Every post read path starts here.
      *
@@ -253,9 +294,24 @@ final class EloquentPostRepository implements PostRepository
      * *not* eager loaded: the API payload does not need it and it doubled the
      * query count of a feed page.
      *
+     * Archived posts are hidden from every public surface: archive is a
+     * personal "took it off my grid" state, not a visibility toggle public
+     * viewers should be able to disagree with.
+     *
      * @return Builder<Post>
      */
     private function baseQuery(int $viewerId): Builder
+    {
+        return $this->projectedPosts($viewerId)->whereNull('archived_at');
+    }
+
+    /**
+     * Shared projection (author, media, counts, block filter) without the
+     * archive visibility rule, for the author's own archive screens.
+     *
+     * @return Builder<Post>
+     */
+    private function projectedPosts(int $viewerId): Builder
     {
         $query = Post::query()
             ->with(['user', 'media'])

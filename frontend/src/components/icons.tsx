@@ -329,6 +329,35 @@ export function ChevronRightIcon(props: IconProps) {
   )
 }
 
+/** Bookmark - a ribbon, the classic save-to-collection glyph. */
+export function BookmarkIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M6.5 4h11a1 1 0 0 1 1 1v15l-6.5-4-6.5 4V5a1 1 0 0 1 1-1Z" />
+    </svg>
+  )
+}
+
+/** Archive - a stack of records, the walled-off storage glyph. */
+export function ArchiveIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M4 8.5h16v9A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5Z" />
+      <path d="M3.5 4h17a1.5 1.5 0 0 1 0 3h-17a1.5 1.5 0 0 1 0-3Z" />
+      <path d="M9.5 12h5" />
+    </svg>
+  )
+}
+
+/** Folder - a collection on the saved grid. */
+export function FolderIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M3.5 6A1.5 1.5 0 0 1 5 4.5h4.4l2 2.5H19A1.5 1.5 0 0 1 20.5 8.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5Z" />
+    </svg>
+  )
+}
+
 /** Phone handset, for starting/joining an audio call. */
 export function PhoneIcon(props: IconProps) {
   return (

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Domain\Archive\Contracts\ArchiveService as ArchiveServiceContract;
+use App\Domain\Archive\Services\EloquentArchiveService;
 use App\Domain\Auth\Contracts\AuthRepository;
 use App\Domain\Auth\Contracts\AuthService as AuthServiceContract;
 use App\Domain\Auth\Contracts\PasswordResetService as PasswordResetServiceContract;
@@ -24,6 +26,8 @@ use App\Domain\Hashtags\Repositories\EloquentHashtagRepository;
 use App\Domain\Posts\Contracts\PostRepository;
 use App\Domain\Posts\Contracts\PostService as PostServiceContract;
 use App\Domain\Posts\Repositories\EloquentPostRepository;
+use App\Domain\Saved\Contracts\SavedService as SavedServiceContract;
+use App\Domain\Saved\Services\EloquentSavedService;
 use App\Domain\Social\Contracts\FollowRepository;
 use App\Domain\Social\Contracts\NotificationRepository;
 use App\Domain\Social\Repositories\EloquentFollowRepository;
@@ -62,6 +66,8 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(NotificationRepository::class, EloquentNotificationRepository::class);
         $this->app->bind(StoryRepository::class, EloquentStoryRepository::class);
         $this->app->bind(StoryService::class, StoryService::class);
+        $this->app->bind(ArchiveServiceContract::class, EloquentArchiveService::class);
+        $this->app->bind(SavedServiceContract::class, EloquentSavedService::class);
         $this->app->bind(ChatRepository::class, EloquentChatRepository::class);
         $this->app->bind(ChatServiceContract::class, ChatService::class);
         $this->app->bind(CallServiceContract::class, CallService::class);

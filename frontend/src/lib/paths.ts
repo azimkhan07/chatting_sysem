@@ -14,6 +14,8 @@ export const ROUTES = {
   settings: '/s2v6q',
   profile: '/p8f1r',
   verified: '/v9x2m',
+  archive: '/k4d8p',
+  saved: '/w3n6b',
 } as const
 
 export type RouteKey = keyof typeof ROUTES

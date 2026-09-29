@@ -6,6 +6,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import ThemeWash from '@/components/ThemeWash'
 import { queryClient } from '@/lib/queryClient'
 import { path } from '@/lib/paths'
+import ArchivePage from '@/pages/ArchivePage'
 import ChatPage from '@/pages/ChatPage'
 import Explore from '@/pages/Explore'
 import ForgotPassword from '@/pages/ForgotPassword'
@@ -17,6 +18,7 @@ import Notifications from '@/pages/Notifications'
 import Profile from '@/pages/Profile'
 import Register from '@/pages/Register'
 import ResetPassword from '@/pages/ResetPassword'
+import SavedPage from '@/pages/SavedPage'
 import Settings from '@/pages/Settings'
 import UserProfile from '@/pages/UserProfile'
 import Verify from '@/pages/Verify'
@@ -62,6 +64,8 @@ export default function App() {
                 path={path('settings')}
                 element={<Settings />}
               />
+              <Route path={path('archive')} element={<ArchivePage />} />
+              <Route path={path('saved')} element={<SavedPage />} />
               <Route path={path('verified')} element={<Verify />} />
             </Route>
           </Route>

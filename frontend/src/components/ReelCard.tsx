@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom'
 
 import { CommentsPanel } from '@/components/PostCard'
 import RichText from '@/components/RichText'
-import { HeartIcon, MessageIcon, ShareIcon } from '@/components/icons'
-import { commentsApi, postsApi } from '@/lib/api'
+import { BookmarkIcon, HeartIcon, MessageIcon, ShareIcon } from '@/components/icons'
+import { commentsApi, postsApi, savedApi } from '@/lib/api'
 import { userProfile } from '@/lib/paths'
 import { timeAgo } from '@/lib/time'
 import { useAuthStore } from '@/stores/authStore'
@@ -78,6 +78,30 @@ export default function ReelCard({ post }: { post: Post }) {
         setLiked(rollback.liked)
         setLikesCount(rollback.count)
       }
+    },
+  })
+
+  const savedOverview = useQuery({
+    queryKey: ['saved', 'overview'],
+    queryFn: () => savedApi.overview(),
+    enabled: sessionUser !== null,
+  })
+  const isSaved = (savedOverview.data?.items ?? []).some(
+    (item) => item.saveable_type === 'post' && item.saveable.id === post.id,
+  )
+  const toggleSave = useMutation({
+    mutationFn: async () => {
+      if (isSaved) {
+        await savedApi.remove('post', post.id)
+      } else {
+        await savedApi.save('post', post.id)
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['saved', 'overview'] })
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: ['saved', 'overview'] })
     },
   })
 
@@ -244,6 +268,20 @@ export default function ReelCard({ post }: { post: Post }) {
           <span className="text-[10px] font-semibold text-[#fff]">
             {sharesCount > 0 ? sharesCount.toLocaleString() : ''}
           </span>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (!toggleSave.isPending) toggleSave.mutate()
+            }}
+            disabled={toggleSave.isPending}
+            className={`${ACTION_BASE} disabled:cursor-not-allowed disabled:opacity-60`}
+            aria-label={isSaved ? 'Remove from saved' : 'Save reel'}
+          >
+            <BookmarkIcon
+              className={`h-5 w-5 ${isSaved ? 'fill-brand-400 text-brand-400' : ''}`}
+            />
+          </button>
           {copied ? <span className="text-[9px] text-[#fff]">Copied!</span> : null}
         </div>
 

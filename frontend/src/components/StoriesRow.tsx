@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { Spinner } from '@/components/AuthLayout'
 import StoryComposer from '@/components/StoryComposer'
 import { resolveTextStyle, textPosition } from '@/components/StoryComposer'
-import { storiesApi } from '@/lib/api'
+import { BookmarkIcon } from '@/components/icons'
+import { savedApi, storiesApi } from '@/lib/api'
 import { hashtagPage, userProfile } from '@/lib/paths'
 import { filterCss } from '@/lib/storyFilters'
 import { useAuthStore } from '@/stores/authStore'
@@ -299,6 +300,33 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
   const current = localItems[index]
   const isMine = me ? current?.owner.username === me.username : false
 
+  const savedOverview = useQuery({
+    queryKey: ['saved', 'overview'],
+    queryFn: () => savedApi.overview(),
+    enabled: me !== null,
+  })
+  const isSaved = current
+    ? (savedOverview.data?.items ?? []).some(
+        (item) => item.saveable_type === 'story' && item.saveable.id === current.story.id,
+      )
+    : false
+  const toggleSave = useMutation({
+    mutationFn: async () => {
+      if (!current) throw new Error('no story open')
+      if (isSaved) {
+        await savedApi.remove('story', current.story.id)
+      } else {
+        await savedApi.save('story', current.story.id)
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['saved', 'overview'] })
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: ['saved', 'overview'] })
+    },
+  })
+
   useEffect(() => {
     if (current) onSeen?.(current.story.id)
   }, [index, current, onSeen])
@@ -449,6 +477,19 @@ export function StoryViewer({ groups, initialUserId, onSeen, onClose }: StoryVie
                   <MuteIcon muted={muted} />
                 </button>
               ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!toggleSave.isPending && current) toggleSave.mutate()
+                }}
+                disabled={toggleSave.isPending || !current}
+                className="grid h-8 w-8 place-items-center rounded-lg text-[rgba(255,255,255,0.8)] transition hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-60"
+                aria-label={isSaved ? 'Remove from saved' : 'Save story'}
+              >
+                <BookmarkIcon
+                  className={`h-[18px] w-[18px] ${isSaved ? 'fill-brand-400 text-brand-400' : ''}`}
+                />
+              </button>
               <div className="relative">
                 <button
                   type="button"

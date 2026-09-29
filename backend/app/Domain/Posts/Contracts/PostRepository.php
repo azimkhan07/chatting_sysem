@@ -11,6 +11,7 @@ use App\Domain\Posts\Models\Comment;
 use App\Domain\Posts\Models\Post;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\CursorPaginator;
+use Illuminate\Support\Carbon;
 
 interface PostRepository
 {
@@ -80,4 +81,30 @@ interface PostRepository
      * @return Collection<int, Post>
      */
     public function byIdsInOrder(array $ids, int $viewerId): Collection;
+
+    /**
+     * Hides a post from its author's grid (archive). Author-only.
+     *
+     * @throws PostNotOwnedException
+     */
+    public function archive(Post $post, int $actorId): void;
+
+    /**
+     * Restores an archived post to its author's grid.
+     *
+     * @throws PostNotOwnedException
+     */
+    public function unarchive(Post $post, int $actorId): void;
+
+    /**
+     * Archived posts of one user, newest first.
+     */
+    public function archivedFor(int $ownerId, int $viewerId, int $limit, ?string $cursor): CursorPaginator;
+
+    /**
+     * Archived posts of one user created on a given day.
+     *
+     * @return Collection<int, Post>
+     */
+    public function archivedOn(int $ownerId, int $viewerId, Carbon $day): Collection;
 }

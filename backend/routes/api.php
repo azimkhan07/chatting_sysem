@@ -22,6 +22,8 @@ use App\Http\Controllers\Api\V1\Chat\ChatReactionController;
 use App\Http\Controllers\Api\V1\Chat\ChatUnreadController;
 use App\Http\Controllers\Api\V1\Chat\ConversationController;
 use App\Http\Controllers\Api\V1\Hashtags\HashtagController;
+use App\Http\Controllers\Api\V1\Me\ArchiveController;
+use App\Http\Controllers\Api\V1\Me\SavedController;
 use App\Http\Controllers\Api\V1\Moderation\BlockController;
 use App\Http\Controllers\Api\V1\Moderation\ReportController;
 use App\Http\Controllers\Api\V1\Music\SongController;
@@ -91,6 +93,22 @@ Route::prefix('v1')->group(function (): void {
             ->whereNumber('member');
         Route::delete('family/members/{member}', [FamilyController::class, 'destroyMember'])
             ->whereNumber('member');
+
+        // Archive: my archived posts, and my expired stories, on a calendar.
+        Route::get('archive/calendar', [ArchiveController::class, 'calendar']);
+        Route::get('archive/posts', [ArchiveController::class, 'posts']);
+        Route::get('archive/stories', [ArchiveController::class, 'stories']);
+
+        // Saved: posts/stories I put aside, plus named collections.
+        Route::get('saved', [SavedController::class, 'index']);
+        Route::post('saved', [SavedController::class, 'store']);
+        Route::delete('saved', [SavedController::class, 'destroy']);
+        Route::get('saved/collections', [SavedController::class, 'index']);
+        Route::post('saved/collections', [SavedController::class, 'storeCollection']);
+        Route::delete('saved/collections/{collection}', [SavedController::class, 'destroyCollection'])
+            ->whereNumber('collection');
+        Route::get('saved/collections/{collection}/items', [SavedController::class, 'showCollection'])
+            ->whereNumber('collection');
     });
 
     Route::prefix('posts')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {
@@ -106,6 +124,8 @@ Route::prefix('v1')->group(function (): void {
         Route::post('{post}/share', [PostInteractionController::class, 'share']);
         Route::get('{post}/comments', [PostInteractionController::class, 'comments']);
         Route::post('{post}/comments', [PostInteractionController::class, 'storeComment']);
+        Route::post('{post}/archive', [ArchiveController::class, 'archivePost']);
+        Route::post('{post}/unarchive', [ArchiveController::class, 'unarchivePost']);
         // Author-only, checked against the row's own user_id.
         Route::delete('{post}', [PostController::class, 'destroy'])->whereNumber('post');
     });

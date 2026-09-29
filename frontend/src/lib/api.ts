@@ -9,6 +9,16 @@ import type {
   MessageReactionResult,
   PresenceHeartbeat,
 } from '@/types/chat'
+import type {
+  ArchiveCalendar,
+  ArchiveDayPosts,
+  ArchiveDayStories,
+  CollectionFolder,
+  SavedCollection,
+  SavedOverview,
+  SavedResult,
+  SaveableType,
+} from '@/types/archive'
 import type { Comment, CommentsPage, FeedPage, Post } from '@/types/post'
 import type { NotificationsPage, UnreadCountResult } from '@/types/notification'
 import type { SearchSong, Song } from '@/types/song'
@@ -270,6 +280,39 @@ export const postsApi = {
    * than refetching a whole page to hide one row.
    */
   remove: (postId: number) => api.delete<{ deleted: boolean; id: number }>(`/posts/${postId}`),
+  archive: (postId: number) =>
+    api.post<{ archived: boolean; id: number }>(`/posts/${postId}/archive`, {}),
+  unarchive: (postId: number) =>
+    api.post<{ archived: boolean; id: number }>(`/posts/${postId}/unarchive`, {}),
+}
+
+export const archiveApi = {
+  calendar: (year: number) =>
+    api.get<ArchiveCalendar>(`/me/archive/calendar?year=${encodeURIComponent(String(year))}`),
+  posts: (date: string) => api.get<ArchiveDayPosts>(`/me/archive/posts?date=${date}`),
+  stories: (date: string) => api.get<ArchiveDayStories>(`/me/archive/stories?date=${date}`),
+}
+
+export const savedApi = {
+  overview: () => api.get<SavedOverview>('/me/saved'),
+  save: (saveableType: SaveableType, saveableId: number, collectionId?: number) =>
+    api.post<SavedResult>('/me/saved', {
+      saveable_type: saveableType,
+      saveable_id: saveableId,
+      ...(collectionId === undefined ? {} : { collection_id: collectionId }),
+    }),
+  remove: (saveableType: SaveableType, saveableId: number) =>
+    api.delete<{ removed: boolean }>('/me/saved', {
+      saveable_type: saveableType,
+      saveable_id: saveableId,
+    }),
+  collections: () => api.get<{ collections: SavedCollection[] }>('/me/saved/collections'),
+  createCollection: (name: string) =>
+    api.post<{ collection: SavedCollection }>('/me/saved/collections', { name }),
+  deleteCollection: (collectionId: number) =>
+    api.delete<{ deleted: boolean; id: number }>(`/me/saved/collections/${collectionId}`),
+  collectionItems: (collectionId: number) =>
+    api.get<CollectionFolder>(`/me/saved/collections/${collectionId}/items`),
 }
 
 export const moderationApi = {
