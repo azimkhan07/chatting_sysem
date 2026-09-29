@@ -328,3 +328,22 @@ export function ChevronRightIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** Phone handset, for starting/joining an audio call. */
+export function PhoneIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M5.6 4h3.1l1.6 3.6-2 1.6a12.5 12.5 0 0 0 5.6 5.6l1.6-2L19 14.4v3.1c0 1.1-.9 2-2 1.9A15.3 15.3 0 0 1 3.7 6c-.1-1.1.8-2 1.9-2Z" />
+    </svg>
+  )
+}
+
+/** Video camera, for starting/joining a video call. */
+export function VideoIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props} aria-hidden="true">
+      <path d="M6 5.5h8a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 14 18.5H6A2.5 2.5 0 0 1 3.5 16V8A2.5 2.5 0 0 1 6 5.5Z" />
+      <path d="m15.5 10 4-2.5v9l-4-2.5" />
+    </svg>
+  )
+}

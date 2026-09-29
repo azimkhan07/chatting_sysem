@@ -18,6 +18,13 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+      // Echo's private-channel auth endpoint hits /broadcasting from the
+      // browser; the API server answers it, but only after a CSRF-token
+      // handshake that the browser performs against this same origin.
+      '/broadcasting': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
       // The API returns root-relative media URLs, so uploads stay reachable from
       // the dev server without baking an API host into the response.
       '/storage': {

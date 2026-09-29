@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\ProfileController;
 use App\Http\Controllers\Api\V1\Auth\ReactivateAccountController;
 use App\Http\Controllers\Api\V1\Billing\SubscriptionController;
+use App\Http\Controllers\Api\V1\Chat\CallController;
 use App\Http\Controllers\Api\V1\Chat\ChatDrawingController;
 use App\Http\Controllers\Api\V1\Chat\ChatEntitlementController;
 use App\Http\Controllers\Api\V1\Chat\ChatInviteController;
@@ -179,6 +180,13 @@ Route::prefix('v1')->group(function (): void {
         Route::post('groups/{conversation}/thread', [ThreadController::class, 'start'])->whereNumber('conversation');
         Route::post('groups/{conversation}/thread/entries', [ThreadController::class, 'addEntry'])->whereNumber('conversation');
         Route::post('groups/{conversation}/thread/entries/{entry}/reactions', [ThreadController::class, 'toggleReaction'])->whereNumber(['conversation', 'entry']);
+
+        // Voice/video calls. `start` mints the initiator's token and rings the
+        // room; `answer` mints a responder's token; `reject`/`end` are signalling.
+        Route::post('conversations/{conversation}/calls', [CallController::class, 'start'])->whereNumber('conversation');
+        Route::post('calls/{call}/answer', [CallController::class, 'answer'])->whereNumber('call');
+        Route::post('calls/{call}/reject', [CallController::class, 'reject'])->whereNumber('call');
+        Route::post('calls/{call}/end', [CallController::class, 'end'])->whereNumber('call');
     });
 
     Route::prefix('users')->middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function (): void {

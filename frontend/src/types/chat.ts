@@ -171,3 +171,63 @@ export interface RealtimeMemberJoinedPayload {
   conversation_id: number
   user: { id: number; username: string; display_name: string }
 }
+
+export type CallKind = 'audio' | 'video'
+export type CallStatus = 'ringing' | 'active' | 'ended' | 'declined'
+
+/** A participant summary as broadcast/returned by the backend. */
+export interface CallUser {
+  id: number
+  username: string
+  display_name: string
+  avatar_url: string | null
+}
+
+export interface CallRecord {
+  id: number
+  conversation_id: number
+  initiator_id: number
+  kind: CallKind
+  status: CallStatus
+  answered_at: string | null
+  ended_at: string | null
+}
+
+/**
+ * What a `start`/`answer` response hands back: the persisted call plus the
+ * LiveKit join details minted for the requestor.
+ */
+export interface CallJoinDetails {
+  call: CallRecord
+  token: string
+  room: string
+  server_url: string
+}
+
+export interface RealtimeCallOfferedPayload {
+  conversation_id: number
+  call_id: number
+  caller: CallUser
+  kind: CallKind
+  room: string
+  server_url: string
+}
+
+export interface RealtimeCallAcceptedPayload {
+  conversation_id: number
+  call_id: number
+  participant: CallUser
+  room: string
+}
+
+export interface RealtimeCallRejectedPayload {
+  conversation_id: number
+  call_id: number
+  rejected_by: number
+}
+
+export interface RealtimeCallEndedPayload {
+  conversation_id: number
+  call_id: number
+  ended_by: number
+}

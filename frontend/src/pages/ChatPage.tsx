@@ -25,16 +25,19 @@ import {
   ImageStackIcon,
   LinkIcon,
   PencilIcon,
+  PhoneIcon,
   PlusIcon,
   SendIcon,
   SmileIcon,
   SparkleIcon,
   UsersIcon,
+  VideoIcon,
   XIcon,
 } from '@/components/icons'
 import { useChatEntitlements } from '@/hooks/useChatEntitlements'
 import { ApiError, chatApi, usersApi } from '@/lib/api'
 import { echoInstance } from '@/lib/echo'
+import { useCallStore } from '@/stores/callStore'
 import { EMOJI_GROUPS, appendEmoji } from '@/lib/emoji'
 import { chatConversation, path } from '@/lib/paths'
 import { emptyReactions, REACTIONS, REACTION_EMOJI, type ReactionName } from '@/lib/reactions'
@@ -465,6 +468,20 @@ function ThreadPane({
     },
   })
 
+  const startCallMutation = useMutation({
+    mutationFn: (kind: 'audio' | 'video') => chatApi.startCall(conversationId, kind),
+    onSuccess: (details) => {
+      useCallStore.getState().start({
+        callId: details.call.id,
+        conversationId,
+        kind: details.call.kind,
+        room: details.room,
+        serverUrl: details.server_url,
+        token: details.token,
+      })
+    },
+  })
+
   const myReadWatermarkId = useMemo(() => {
     let watermark = 0
     for (const message of serverMessages) {
@@ -885,6 +902,26 @@ function ThreadPane({
             <p className="truncate text-xs text-slate-500">{subtitle}</p>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => startCallMutation.mutate('audio')}
+          disabled={pendingRequest || startCallMutation.isPending}
+          title="Start audio call"
+          aria-label="Start audio call"
+          className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-brand-300 disabled:opacity-40"
+        >
+          <PhoneIcon className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => startCallMutation.mutate('video')}
+          disabled={pendingRequest || startCallMutation.isPending}
+          title="Start video call"
+          aria-label="Start video call"
+          className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-brand-300 disabled:opacity-40"
+        >
+          <VideoIcon className="h-5 w-5" />
+        </button>
         <button
           type="button"
           onClick={() => setPersonalizeOpen(true)}

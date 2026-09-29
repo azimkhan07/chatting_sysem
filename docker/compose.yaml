@@ -145,6 +145,26 @@ services:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
       - redis-data:/data
 
+  # LiveKit: the self-hosted WebRTC SFU behind voice/video calls. Media flows
+  # browser <-> livekit so N participants need 1 upstream, not N-1 mesh links.
+  livekit:
+    image: livekit/livekit-server:v1.13.6
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      # Signaling (WebSocket) - the browser connects here.
+      - "7880:7880"
+      # WebRTC TCP fallback for UDP-blocked networks.
+      - "7881:7881"
+      # Media (UDP) - the full RTC range for the SFU.
+      - "50000-50100:50000-50100/udp"
+    healthcheck:
+      test: ["CMD", "livekit-server", "--version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mysql:
     image: mysql:8.4
     command: --mysql_native_password=ON

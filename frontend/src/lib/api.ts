@@ -1,4 +1,5 @@
 import type {
+  CallJoinDetails,
   ChatEntitlements,
   ChatMessagesPage,
   ChatUnreadTotal,
@@ -646,6 +647,18 @@ export const chatApi = {
     api.delete<null>(`/chat/conversations/${conversationId}/messages/${messageId}`),
   unreadTotal: () => api.get<ChatUnreadTotal>('/chat/unread-total'),
   presence: () => api.post<PresenceHeartbeat>('/chat/presence', {}),
+  startCall: (conversationId: number, kind: 'audio' | 'video') =>
+    api.post<CallJoinDetails>(`/chat/conversations/${conversationId}/calls`, { kind }),
+  answerCall: (callId: number, conversationId: number) =>
+    api.post<CallJoinDetails>(`/chat/calls/${callId}/answer`, { conversation_id: conversationId }),
+  rejectCall: (callId: number, conversationId: number) =>
+    api.post<{ call_id: number }>(`/chat/calls/${callId}/reject`, {
+      conversation_id: conversationId,
+    }),
+  endCall: (callId: number, conversationId: number) =>
+    api.post<{ call_id: number }>(`/chat/calls/${callId}/end`, {
+      conversation_id: conversationId,
+    }),
 }
 
 export const threadsApi = {

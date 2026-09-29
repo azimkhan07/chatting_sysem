@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 
 import AppShell, { ShellLoading } from '@/components/AppShell'
+import CallOverlay from '@/components/call/CallOverlay'
 import {
   BellIcon,
   ChatIcon,
@@ -16,6 +17,13 @@ import { echoInstance } from '@/lib/echo'
 import { path } from '@/lib/paths'
 import { usePresenceHeartbeat } from '@/hooks/usePresence'
 import { useAuthStore } from '@/stores/authStore'
+import { useCallStore } from '@/stores/callStore'
+import type {
+  RealtimeCallAcceptedPayload,
+  RealtimeCallEndedPayload,
+  RealtimeCallOfferedPayload,
+  RealtimeCallRejectedPayload,
+} from '@/types/chat'
 import type { User } from '@/types/user'
 
 export default function AppLayout() {
@@ -83,9 +91,50 @@ export default function AppLayout() {
       void queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] })
       void queryClient.invalidateQueries({ queryKey: ['notifications'] })
     })
+    channel.listen('.call.offered', (payload: RealtimeCallOfferedPayload) => {
+      const { phase, conversationId, caller } = useCallStore.getState()
+      // Already in a call for this thread - ignore a second offer.
+      if (phase !== 'idle' && phase !== 'ended') return
+      if (conversationId === payload.conversation_id) return
+      if (caller?.id === payload.caller.id) return
+      useCallStore.getState().ring({
+        callId: payload.call_id,
+        conversationId: payload.conversation_id,
+        kind: payload.kind,
+        room: payload.room,
+        serverUrl: payload.server_url,
+        caller: payload.caller,
+      })
+    })
+    channel.listen('.call.accepted', (payload: RealtimeCallAcceptedPayload) => {
+      const state = useCallStore.getState()
+      if (state.callId !== payload.call_id) return
+      if (state.caller === null) return
+      // The callee confirmed; if we are the caller still ringing, go live.
+      if (state.phase === 'outgoing') {
+        useCallStore.getState().activate()
+        useCallStore.getState().setBusy(false)
+      }
+    })
+    channel.listen('.call.rejected', (payload: RealtimeCallRejectedPayload) => {
+      const state = useCallStore.getState()
+      if (state.callId !== payload.call_id) return
+      if (state.phase === 'outgoing') {
+        useCallStore.getState().end()
+      }
+    })
+    channel.listen('.call.ended', (payload: RealtimeCallEndedPayload) => {
+      const state = useCallStore.getState()
+      if (state.callId !== payload.call_id) return
+      useCallStore.getState().end()
+    })
 
     return () => {
       channel.stopListening('.notification.created')
+      channel.stopListening('.call.offered')
+      channel.stopListening('.call.accepted')
+      channel.stopListening('.call.rejected')
+      channel.stopListening('.call.ended')
     }
   }, [meQuery.data?.user?.id, queryClient])
 
@@ -115,6 +164,7 @@ export default function AppLayout() {
   return (
     <AppShell nav={NAV}>
       <Outlet />
+      <CallOverlay />
     </AppShell>
   )
 }

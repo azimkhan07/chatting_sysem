@@ -12,10 +12,12 @@ use App\Domain\Auth\Repositories\EloquentAuthRepository;
 use App\Domain\Auth\Services\LaravelPasswordResetService;
 use App\Domain\Billing\Contracts\SubscriptionRepository;
 use App\Domain\Billing\Repositories\EloquentSubscriptionRepository;
+use App\Domain\Chat\Contracts\CallService as CallServiceContract;
 use App\Domain\Chat\Contracts\ChatRepository;
 use App\Domain\Chat\Contracts\ChatService as ChatServiceContract;
 use App\Domain\Chat\Contracts\PresenceService as PresenceServiceContract;
 use App\Domain\Chat\Repositories\EloquentChatRepository;
+use App\Domain\Chat\Services\LiveKitTokenIssuer;
 use App\Domain\Chat\Services\PresenceStore;
 use App\Domain\Hashtags\Contracts\HashtagRepository;
 use App\Domain\Hashtags\Repositories\EloquentHashtagRepository;
@@ -34,6 +36,7 @@ use App\Domain\Stories\Services\StoryService;
 use App\Domain\Threads\Contracts\ThreadRepository;
 use App\Domain\Threads\Repositories\EloquentThreadRepository;
 use App\Services\AuthService;
+use App\Services\CallService;
 use App\Services\ChatService;
 use App\Services\PostService;
 use App\Services\PresenceService;
@@ -61,6 +64,16 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(StoryService::class, StoryService::class);
         $this->app->bind(ChatRepository::class, EloquentChatRepository::class);
         $this->app->bind(ChatServiceContract::class, ChatService::class);
+        $this->app->bind(CallServiceContract::class, CallService::class);
+        $this->app->bind(LiveKitTokenIssuer::class, static fn (): LiveKitTokenIssuer => new LiveKitTokenIssuer(
+            (string) config('livekit.api_key'),
+            (string) config('livekit.api_secret'),
+        ));
+        $this->app->bind(CallService::class, static fn (): CallService => new CallService(
+            app(ChatRepository::class),
+            app(LiveKitTokenIssuer::class),
+            (string) config('livekit.url'),
+        ));
         $this->app->bind(ThreadRepository::class, EloquentThreadRepository::class);
         $this->app->bind(SubscriptionRepository::class, EloquentSubscriptionRepository::class);
         $this->app->bind(PasswordResetServiceContract::class, LaravelPasswordResetService::class);
