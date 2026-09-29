@@ -90,7 +90,7 @@ final class ArchiveSavedTest extends TestCase
         ]);
 
         $this->postJson("/api/v1/posts/{$post->id}/unarchive")->assertOk()
-            ->assertJsonPath('archived', false);
+            ->assertJsonPath('data.archived', false);
 
         $this->assertDatabaseHas('posts', [
             'id' => $post->id,
@@ -111,12 +111,12 @@ final class ArchiveSavedTest extends TestCase
 
         $this->getJson('/api/v1/me/archive/calendar')
             ->assertOk()
-            ->assertJsonPath('year', now()->year);
+            ->assertJsonPath('data.year', now()->year);
 
         $response = $this->getJson('/api/v1/me/archive/calendar')->json();
-        $this->assertArrayHasKey(now()->toDateString(), $response['days']);
-        $this->assertSame(1, $response['days'][now()->toDateString()]['posts']);
-        $this->assertSame(1, $response['days'][now()->toDateString()]['stories']);
+        $this->assertArrayHasKey(now()->toDateString(), $response['data']['days']);
+        $this->assertSame(1, $response['data']['days'][now()->toDateString()]['posts']);
+        $this->assertSame(1, $response['data']['days'][now()->toDateString()]['stories']);
     }
 
     public function test_archive_posts_returns_only_that_day(): void
@@ -133,7 +133,7 @@ final class ArchiveSavedTest extends TestCase
 
         $this->getJson('/api/v1/me/archive/posts?date='.now()->toDateString())
             ->assertOk()
-            ->assertJsonCount(1, 'posts')
+            ->assertJsonCount(1, 'data.posts')
             ->assertJsonMissing(['id' => $yesterday->id]);
     }
 
@@ -146,7 +146,7 @@ final class ArchiveSavedTest extends TestCase
 
         $this->getJson('/api/v1/me/archive/stories?date='.now()->toDateString())
             ->assertOk()
-            ->assertJsonCount(1, 'stories');
+            ->assertJsonCount(1, 'data.stories');
     }
 
     public function test_save_creates_item_and_collection(): void
@@ -157,13 +157,13 @@ final class ArchiveSavedTest extends TestCase
 
         $collection = $this->postJson('/api/v1/me/saved/collections', ['name' => 'Ideas'])
             ->assertCreated()
-            ->json('collection');
+            ->json('data.collection');
 
         $this->postJson('/api/v1/me/saved', [
             'saveable_type' => 'post',
             'saveable_id' => $post->id,
             'collection_id' => $collection['id'],
-        ])->assertOk()->assertJsonPath('created', true);
+        ])->assertOk()->assertJsonPath('data.created', true);
 
         $this->assertDatabaseHas('saved_items', [
             'user_id' => $me->id,
@@ -173,12 +173,12 @@ final class ArchiveSavedTest extends TestCase
 
         $this->getJson('/api/v1/me/saved')
             ->assertOk()
-            ->assertJsonPath('collections.0.name', 'Ideas');
+            ->assertJsonPath('data.collections.0.name', 'Ideas');
 
         // Item lands in the collection folder too.
         $this->getJson("/api/v1/me/saved/collections/{$collection['id']}/items")
             ->assertOk()
-            ->assertJsonCount(1, 'items');
+            ->assertJsonCount(1, 'data.items');
     }
 
     public function test_unsave_removes_item(): void
@@ -195,7 +195,7 @@ final class ArchiveSavedTest extends TestCase
         $this->deleteJson('/api/v1/me/saved', [
             'saveable_type' => 'post',
             'saveable_id' => $post->id,
-        ])->assertOk()->assertJsonPath('removed', true);
+        ])->assertOk()->assertJsonPath('data.removed', true);
 
         $this->assertDatabaseMissing('saved_items', [
             'user_id' => $me->id,
@@ -211,11 +211,11 @@ final class ArchiveSavedTest extends TestCase
         $this->postJson('/api/v1/me/saved', [
             'saveable_type' => 'story',
             'saveable_id' => $story->id,
-        ])->assertOk()->assertJsonPath('saved.saveable_type', 'story');
+        ])->assertOk()->assertJsonPath('data.saved.saveable_type', 'story');
 
         $this->getJson('/api/v1/me/saved')
             ->assertOk()
-            ->assertJsonPath('items.0.saveable_type', 'story');
+            ->assertJsonPath('data.items.0.saveable_type', 'story');
     }
 
     public function test_delete_collection_keeps_items_in_all(): void
@@ -238,6 +238,6 @@ final class ArchiveSavedTest extends TestCase
         $this->assertDatabaseMissing('saved_collections', ['id' => $collection->id]);
         $this->assertDatabaseHas('saved_items', ['id' => $item->id]);
 
-        $this->getJson('/api/v1/me/saved')->assertOk()->assertJsonCount(1, 'items');
+        $this->getJson('/api/v1/me/saved')->assertOk()->assertJsonCount(1, 'data.items');
     }
 }

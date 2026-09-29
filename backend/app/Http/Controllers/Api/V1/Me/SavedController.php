@@ -9,6 +9,7 @@ use App\Domain\Saved\Models\SavedCollection;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SavedCollectionResource;
 use App\Http\Resources\SavedItemResource;
+use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -24,7 +25,7 @@ final class SavedController extends Controller
         $userId = (int) $request->user()->id;
         $overview = $this->saved->overview($userId);
 
-        return response()->json([
+        return ApiResponse::success([
             'collections' => SavedCollectionResource::collection($overview['collections']),
             'items' => SavedItemResource::collection($overview['items']),
             'collection_counts' => $overview['collection_counts'],
@@ -42,7 +43,7 @@ final class SavedController extends Controller
 
         $items = $this->saved->itemsForCollection($userId, (int) $collectionModel->id);
 
-        return response()->json([
+        return ApiResponse::success([
             'collection' => new SavedCollectionResource($collectionModel),
             'items' => SavedItemResource::collection($items),
         ]);
@@ -66,7 +67,7 @@ final class SavedController extends Controller
             isset($data['collection_id']) ? (int) $data['collection_id'] : null,
         );
 
-        return response()->json([
+        return ApiResponse::success([
             'saved' => new SavedItemResource($result['item']),
             'created' => $result['created'],
         ]);
@@ -84,7 +85,7 @@ final class SavedController extends Controller
 
         $removed = $this->saved->remove($userId, (string) $data['saveable_type'], (int) $data['saveable_id']);
 
-        return response()->json(['removed' => $removed]);
+        return ApiResponse::success(['removed' => $removed]);
     }
 
     public function storeCollection(Request $request): JsonResponse
@@ -98,9 +99,9 @@ final class SavedController extends Controller
 
         $collection = $this->saved->createCollection($userId, (string) $data['name']);
 
-        return response()->json([
+        return ApiResponse::success([
             'collection' => new SavedCollectionResource($collection),
-        ], 201);
+        ], status: 201);
     }
 
     public function destroyCollection(Request $request, int $collection): JsonResponse
@@ -114,6 +115,6 @@ final class SavedController extends Controller
 
         $this->saved->deleteCollection($collectionModel);
 
-        return response()->json(['deleted' => true, 'id' => $collectionModel->id]);
+        return ApiResponse::success(['deleted' => true, 'id' => $collectionModel->id]);
     }
 }

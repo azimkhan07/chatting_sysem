@@ -81,7 +81,8 @@ export default function AppShell({ nav, children }: AppShellProps) {
                 type="button"
                 onClick={() => void logout()}
                 title="Sign out"
-                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-rose-300"
+                aria-label="Sign out"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-rose-300"
               >
                 <LogoutIcon className="h-4 w-4" />
               </button>
@@ -102,8 +103,9 @@ export default function AppShell({ nav, children }: AppShellProps) {
               <button
                 type="button"
                 onClick={() => void logout()}
-                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-rose-300"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-rose-300"
                 title="Sign out"
+                aria-label="Sign out"
               >
                 <LogoutIcon className="h-4 w-4" />
               </button>

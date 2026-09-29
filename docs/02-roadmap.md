@@ -190,6 +190,24 @@ Ordered by dependency, each item shipped with its own tests + docs update:
       story tray per-viewer cache) and group create/add-member, with a one-way notification
       filter so a blocked account's notifications stop being delivered.
 
+14. **Calls** (added during the Phase 1 polish pass)
+    - [x] LiveKit voice/video calls for 1:1 DMs and groups — `calls` table (`type`, `channel`, `room_name`),
+      `CallService` + `CallController`, `CallAccepted` / `CallEnded` / `CallRejected` Reverb events,
+      `call_room` fetch, frontend `CallOverlay` with mute/camera/leave, ringing + join states.
+    - [x] In-thread call buttons (audio/video) + group call start, per-message call card in the chat.
+15. **Archive & Saved** (added during the Phase 1 polish pass)
+    - [x] Archive — `posts.archived_at` (manual archive/unarchive, author-only, hidden from profile
+      grid + home feed via `whereNull('archived_at')`); stories auto-archive on expiry and belong
+      to their `created_at` day. `me/archive/calendar` (rolling one-year window), `me/archive/posts`,
+      `me/archive/stories`, `posts/{post}/archive` + `/unarchive`.
+    - [x] Saved — `saved_items` ("All saved", unique per user+saveable) + `saved_collections` /
+      `saved_collection_items` composite pivot; save/unsave for posts and stories, create/delete
+      collection (delete keeps items in All), `me/saved` overview + collection items.
+    - [x] Frontend — Archive page (year toggle, 12-month calendar with day dots, Posts/Stories
+      toggle, day grid + post modal) and Saved page (collection folders + All saved grid, collection
+      detail, create-collection modal), reached from the Settings catalogue; bookmark buttons on
+      post cards, reels and the story viewer.
+
 **Verification note.** `npx tsc --noEmit` checks nothing in this repo: the root `tsconfig.json` is
 `"files": []` with project references, so it reports no errors on any input. The real type check is
 `npx tsc -b` (which `npm run build` runs anyway). Do not read a clean `--noEmit` as a clean build.

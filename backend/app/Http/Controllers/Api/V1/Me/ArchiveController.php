@@ -9,6 +9,7 @@ use App\Domain\Posts\Models\Post;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PostResource;
 use App\Http\Resources\StoryResource;
+use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -24,7 +25,7 @@ final class ArchiveController extends Controller
     {
         $year = (int) ($request->query('year', (string) Carbon::now()->year));
 
-        return response()->json([
+        return ApiResponse::success([
             'year' => $year,
             'days' => $this->archives->calendar((int) $request->user()->id, $year),
         ]);
@@ -34,7 +35,7 @@ final class ArchiveController extends Controller
     {
         $day = $this->validatedDay($request);
 
-        return response()->json([
+        return ApiResponse::success([
             'date' => $day->toDateString(),
             'posts' => PostResource::collection(
                 collect($this->archives->archivedPostsOn((int) $request->user()->id, $day)),
@@ -46,7 +47,7 @@ final class ArchiveController extends Controller
     {
         $day = $this->validatedDay($request);
 
-        return response()->json([
+        return ApiResponse::success([
             'date' => $day->toDateString(),
             'stories' => StoryResource::collection(
                 collect($this->archives->archivedStoriesOn((int) $request->user()->id, $day)),
@@ -60,12 +61,12 @@ final class ArchiveController extends Controller
         $userId = $request->user()->id;
 
         if ((int) $post->user_id !== $userId) {
-            return response()->json(['message' => 'You can only archive your own post.'], 403);
+            return ApiResponse::error('FORBIDDEN', 'You can only archive your own post.', 403);
         }
 
         $this->archives->archivePost($post, $userId);
 
-        return response()->json(['archived' => true, 'id' => $post->id]);
+        return ApiResponse::success(['archived' => true, 'id' => $post->id]);
     }
 
     public function unarchivePost(Request $request, Post $post): JsonResponse
@@ -74,12 +75,12 @@ final class ArchiveController extends Controller
         $userId = $request->user()->id;
 
         if ((int) $post->user_id !== $userId) {
-            return response()->json(['message' => 'You can only unarchive your own post.'], 403);
+            return ApiResponse::error('FORBIDDEN', 'You can only unarchive your own post.', 403);
         }
 
         $this->archives->unarchivePost($post, $userId);
 
-        return response()->json(['archived' => false, 'id' => $post->id]);
+        return ApiResponse::success(['archived' => false, 'id' => $post->id]);
     }
 
     private function validatedDay(Request $request): Carbon
