@@ -141,6 +141,22 @@ final class UserController extends Controller
             return ApiResponse::error('NOT_FOUND', 'Not found', 404);
         }
 
+        // A private account only shows posts to approved followers (the owner
+        // is always "approved"). Anyone else gets an empty page instead of a
+        // 403 - the profile exists, its contents simply are not public.
+        if ($user->is_private) {
+            $isKnown = $viewer !== null
+                && ((int) $viewer->id === (int) $user->id
+                    || $this->socialService->isFollowing((int) $viewer->id, (int) $user->id));
+
+            if (! $isKnown) {
+                return ApiResponse::success(
+                    data: ['posts' => [], 'next_cursor' => null],
+                    meta: ['has_more' => false, 'limit' => PageSize::clamp($request->integer('limit', 15), 15)],
+                );
+            }
+        }
+
         $paginator = $this->postService->postsBy(
             viewer: $viewer,
             owner: $user,

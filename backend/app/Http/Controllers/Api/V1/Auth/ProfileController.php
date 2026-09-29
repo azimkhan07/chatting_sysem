@@ -39,9 +39,37 @@ final class ProfileController extends Controller
                 $user->show_contact = false;
                 $user->contact_email = null;
                 $user->contact_phone = null;
+                $user->category = null;
             }
 
             $user->account_type = $accountType;
+        }
+
+        if ($request->exists('is_private')) {
+            $user->is_private = $request->boolean('is_private');
+
+            // A private account is personal by definition: there is no
+            // published contact block on a locked profile. A professional or
+            // business badge plus a private profile would contradict what the
+            // two account types advertise to visitors.
+            if ($user->is_private) {
+                $user->account_type = AccountType::Personal;
+                $user->show_contact = false;
+                $user->contact_email = null;
+                $user->contact_phone = null;
+                $user->category = null;
+            }
+        }
+
+        // Only professional and business accounts can carry a category; a
+        // personal account cleared it above, and a stray category on an older
+        // row is dropped here on the next write.
+        if ($request->exists('category')) {
+            $category = $request->input('category');
+            $user->category = is_string($category) && $category !== ''
+                && $user->account_type->offersContact()
+                    ? $category
+                    : null;
         }
 
         if ($request->exists('contact_email')) {

@@ -127,6 +127,13 @@ export default function UserProfile() {
                 {user.account_type_label ?? user.account_type}
               </span>
             ) : null}
+            {/* Creator category - light small text under the username, exactly
+                where Instagram/Meta business profiles paint theirs. */}
+            {user.category_label ? (
+              <p className="mt-0.5 text-xs font-medium text-slate-400">
+                {user.category_label}
+              </p>
+            ) : null}
             {user.bio ? (
               <p className="mt-1 text-sm leading-snug text-slate-300">{user.bio}</p>
             ) : null}

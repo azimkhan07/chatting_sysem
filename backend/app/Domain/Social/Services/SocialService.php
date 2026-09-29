@@ -42,4 +42,9 @@ final class SocialService
     {
         return $this->followRepository->followingFor($userId, $limit, $cursor);
     }
+
+    public function isFollowing(int $followerId, int $followingId): bool
+    {
+        return $this->followRepository->isFollowing($followerId, $followingId);
+    }
 }

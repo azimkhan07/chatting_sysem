@@ -85,6 +85,8 @@ class User extends Authenticatable
         'cover_path',
         'last_seen_at',
         'account_type',
+        'category',
+        'is_private',
         'contact_email',
         'contact_phone',
         'show_contact',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Domain\Auth\Enums\AccountType;
+use App\Domain\Auth\Enums\ProfileCategory;
 use App\Domain\Auth\Models\User;
 use App\Support\Media\MediaUrl;
 use Illuminate\Http\Request;
@@ -38,6 +39,13 @@ final class UserResource extends JsonResource
             'mobile' => $this->when($isSelf, $this->mobile),
             'account_type' => $accountType->value,
             'account_type_label' => $accountType->label(),
+            'is_private' => (bool) $this->is_private,
+            // Creator/business category for the profile badge. Only shown when
+            // the account type supports one, in line with the write side.
+            'category' => $accountType->offersContact() ? $this->category : null,
+            'category_label' => $accountType->offersContact() && is_string($this->category) && $this->category !== ''
+                ? ($this->categoryLabel()?->label())
+                : null,
             // The owner always sees their own settings, even while hidden.
             'contact_email' => $this->when($isSelf || $contactVisible, $this->contact_email),
             'contact_phone' => $this->when($isSelf || $contactVisible, $this->contact_phone),
@@ -53,5 +61,14 @@ final class UserResource extends JsonResource
             'following_count' => $this->whenCounted('following', fn (): int => (int) $this->following_count, 0),
             'is_followed_by_me' => (bool) ($this->is_followed_by_me ?? false),
         ];
+    }
+
+    private function categoryLabel(): ?ProfileCategory
+    {
+        if (! is_string($this->category) || $this->category === '') {
+            return null;
+        }
+
+        return ProfileCategory::tryFrom($this->category);
     }
 }

@@ -24,6 +24,7 @@ import type {
   AuthPayload,
   FollowResult,
   MentionSuggestion,
+  ProfileCategoryKey,
   PublicUser,
   User,
   UserPage,
@@ -420,11 +421,22 @@ export const familyApi = {
   leave: () => api.post<{ left: boolean; family: null }>('/me/family/leave', {}),
 }
 
+export interface CategoryOption {
+  key: ProfileCategoryKey
+  label: string
+}
+
+export const categoriesApi = {
+  list: () => api.get<{ categories: CategoryOption[] }>('/categories'),
+}
+
 export const profileApi = {
   update: (data: {
     display_name?: string
     bio?: string | null
     account_type?: AccountType
+    is_private?: boolean
+    category?: ProfileCategoryKey | null
     contact_email?: string | null
     contact_phone?: string | null
     show_contact?: boolean

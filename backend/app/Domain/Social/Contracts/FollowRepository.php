@@ -33,4 +33,10 @@ interface FollowRepository
      * or land in the recipient's message requests.
      */
     public function connected(int $firstUserId, int $secondUserId): bool;
+
+    /**
+     * True when `$followerId` follows `$followingId`. Used by the private
+     * account gate on profile posts.
+     */
+    public function isFollowing(int $followerId, int $followingId): bool;
 }

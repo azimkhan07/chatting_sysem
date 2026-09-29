@@ -14,6 +14,22 @@ export type UserStatus = 'active' | 'suspended' | 'banned'
  */
 export type AccountType = 'personal' | 'professional' | 'business'
 
+/** Creator/business category, mirroring `ProfileCategory` on the server. */
+export type ProfileCategoryKey =
+  | 'artist'
+  | 'entertainment'
+  | 'sport'
+  | 'creator'
+  | 'music'
+  | 'food'
+  | 'fashion'
+  | 'beauty'
+  | 'travel'
+  | 'tech'
+  | 'education'
+  | 'business'
+  | 'other'
+
 /**
  * A user from the composer's "@" picker.
  *
@@ -39,6 +55,12 @@ export interface User {
   created_at: string
   account_type?: AccountType
   account_type_label?: string
+  /** Public account: visible to everyone. Private: only approved followers. */
+  is_private?: boolean
+  /** Creator/business category key, e.g. "artist"; null on personal accounts. */
+  category?: ProfileCategoryKey | null
+  /** Human label of `category`, e.g. "Artist". */
+  category_label?: string | null
   /** Only the owner ever sees these unless they are published. */
   contact_email?: string | null
   contact_phone?: string | null

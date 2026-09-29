@@ -67,6 +67,14 @@ final class EloquentFollowRepository implements FollowRepository
         return (int) Follow::query()->where('follower_id', $userId)->count();
     }
 
+    public function isFollowing(int $followerId, int $followingId): bool
+    {
+        return Follow::query()
+            ->where('follower_id', $followerId)
+            ->where('following_id', $followingId)
+            ->exists();
+    }
+
     public function connected(int $firstUserId, int $secondUserId): bool
     {
         return Follow::query()

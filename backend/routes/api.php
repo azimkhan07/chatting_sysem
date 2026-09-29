@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\Admin\ReportAdminController;
 use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Auth\CategoryController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\ProfileController;
 use App\Http\Controllers\Api\V1\Auth\ReactivateAccountController;
@@ -112,6 +113,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('search', [HashtagController::class, 'search'])->middleware('throttle:search');
         Route::get('{name}', [HashtagController::class, 'show']);
     });
+
+    // Creator categories for the profile editor - public like the audio
+    // proxy, so the editor can render before a session resolves.
+    Route::get('categories', [CategoryController::class, 'index'])->middleware('throttle:api');
 
     // Audio playback proxy: public (media elements can't send auth headers),
     // rate-limited separately so it can stream without draining `throttle:api`.
