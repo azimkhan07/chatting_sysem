@@ -2,6 +2,7 @@ export interface AuthUser {
   id: number
   username: string
   display_name: string | null
+  role?: string | null
   email?: string | null
   name?: string | null
 }
@@ -10,6 +11,8 @@ export interface AuthPayload {
   access_token: string
   token_type: string
   expires_in: number
+  superseded?: boolean
+  active_devices?: number
   user: AuthUser
 }
 
@@ -34,7 +37,14 @@ export class ApiError extends Error {
 const API_BASE = '/api/v1'
 
 function readAdminToken(): string | null {
-  return localStorage.getItem('amtechat.admin')
+  const raw = localStorage.getItem('amtechat.admin')
+  if (!raw) return null
+  try {
+    const persisted = JSON.parse(raw) as { state?: { token?: string | null } }
+    return persisted.state?.token || null
+  } catch {
+    return null
+  }
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -81,6 +91,8 @@ export const adminApi = {
     }),
   patch: <T>(path: string, data: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(data) }),
+  put: <T>(path: string, data: unknown) =>
+    request<T>(path, { method: 'PUT', body: JSON.stringify(data) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }
 

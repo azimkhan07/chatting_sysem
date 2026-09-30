@@ -34,7 +34,10 @@ export default function Login() {
     setBusy(true)
     setError(null)
     try {
-      await login(values.identifier, values.password)
+      const { superseded } = await login(values.identifier, values.password)
+      if (superseded) {
+        sessionStorage.setItem('amtechat.admin.session-alert', '1')
+      }
       navigate('/dashboard', { replace: true })
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Unable to sign in.')
@@ -44,8 +47,8 @@ export default function Login() {
   })
 
   return (
-    <Center h="100vh" bg="dark.9">
-      <Paper w="min(420px, 92vw)" p="xl" radius="lg" shadow="md">
+    <Center h="100vh" bg="gray.1">
+      <Paper w="min(420px, 92vw)" p="xl" radius="lg" shadow="md" withBorder>
         <Stack>
           <Center>
             <IconShieldLock size={34} color="var(--mantine-color-blue-6)" />

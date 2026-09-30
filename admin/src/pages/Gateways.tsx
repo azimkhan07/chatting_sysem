@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApi, ApiError } from '../lib/api'
 
 interface GatewayConfig {
+  name: string
   key: string
   merchant_id: string
   secret: string
@@ -32,7 +33,7 @@ export default function Gateways() {
   })
 
   const form = useForm<GatewayConfig>({
-    initialValues: { key: '', merchant_id: '', secret: '', endpoint: '', currency: 'INR', enabled: true },
+    initialValues: { name: '', key: '', merchant_id: '', secret: '', endpoint: '', currency: 'INR', enabled: true },
   })
 
   const save = useMutation({
@@ -65,7 +66,7 @@ export default function Gateways() {
           {data?.gateways.map((g, i) => (
             <Group key={i} justify="space-between" mb="sm">
               <Stack gap={0}>
-                <Text fw={600}>{g.key}</Text>
+                <Text fw={600}>{g.name || g.key}</Text>
                 <Text size="xs" c="dimmed">
                   {g.endpoint} · {g.currency}
                 </Text>
@@ -84,7 +85,8 @@ export default function Gateways() {
         </Text>
         <form onSubmit={form.onSubmit((v) => save.mutate(v))}>
           <SimpleGrid cols={{ base: 1, md: 2 }}>
-            <TextInput label="Gateway key" placeholder="razorpay_live_xxx" {...form.getInputProps('key')} />
+            <TextInput label="Gateway name" placeholder="Razorpay" {...form.getInputProps('name')} />
+            <TextInput label="Gateway key" placeholder="rzp_live_xxx" {...form.getInputProps('key')} />
             <TextInput label="Merchant id" {...form.getInputProps('merchant_id')} />
             <TextInput label="Secret key" {...form.getInputProps('secret')} />
             <TextInput label="Endpoint" placeholder="https://api.razorpay.com/v1" {...form.getInputProps('endpoint')} />

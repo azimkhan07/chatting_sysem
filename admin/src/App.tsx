@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Email from './pages/Email'
 import Gateways from './pages/Gateways'
 import Login from './pages/Login'
+import Settings from './pages/Settings'
 import Subscriptions from './pages/Subscriptions'
 import Support from './pages/Support'
 import Users from './pages/Users'
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/support" element={<Support />} />
         <Route path="/email" element={<Email />} />
         <Route path="/gateways" element={<Gateways />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

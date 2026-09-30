@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Admin\GatewayAdminController;
 use App\Http\Controllers\Api\V1\Admin\PlanAdminController;
 use App\Http\Controllers\Api\V1\Admin\ReportAdminController;
 use App\Http\Controllers\Api\V1\Admin\StaffAuthController;
+use App\Http\Controllers\Api\V1\Admin\StaffManagementController;
 use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
 use App\Http\Controllers\Api\V1\Admin\SupportAdminController;
 use App\Http\Controllers\Api\V1\Admin\UserAdminController;
@@ -274,7 +275,14 @@ Route::prefix('v1')->group(function (): void {
             Route::post('login', [StaffAuthController::class, 'login'])->withoutMiddleware(['auth:sanctum', 'active', 'staff']);
             Route::get('me', [StaffAuthController::class, 'me']);
             Route::post('logout', [StaffAuthController::class, 'logout']);
+            Route::post('password', [StaffAuthController::class, 'changePassword']);
         });
+
+        // Team. Creating staff is admin-only; support agents name their own
+        // password from the Settings screen.
+        Route::get('staff', [StaffManagementController::class, 'index'])->middleware('admin');
+        Route::post('staff', [StaffManagementController::class, 'store'])->middleware('admin');
+        Route::delete('staff/{userId}', [StaffManagementController::class, 'destroy'])->whereNumber('userId')->middleware('admin');
     });
 
     // Subscription review queue. The support role owns activation, admins too.
