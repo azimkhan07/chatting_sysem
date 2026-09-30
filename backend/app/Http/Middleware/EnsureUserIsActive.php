@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Domain\Admin\Models\StaffUser;
 use App\Domain\Auth\Enums\UserStatus;
 use App\Support\ApiResponse;
 use Closure;
@@ -13,13 +14,18 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * A suspended or banned account keeps its Sanctum token until it expires, so
  * every authenticated request has to re-check the status. Without this a ban is
- * only cosmetic.
+ * only cosmetic. Console staff live in their own database and are not
+ * suspendable from the app, so they pass through untouched.
  */
 final class EnsureUserIsActive
 {
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
+
+        if ($user instanceof StaffUser) {
+            return $next($request);
+        }
 
         if ($user !== null && $user->status !== UserStatus::Active) {
             $user->tokens()->delete();

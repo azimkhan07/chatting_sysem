@@ -50,7 +50,7 @@ final class ReportAdminController extends Controller
     public function update(ResolveReportRequest $request, int $reportId): JsonResponse
     {
         $report = $this->reports->resolve(
-            handler: $request->user(),
+            handlerId: (int) $request->user()->id,
             reportId: $reportId,
             status: ReportStatus::from($request->validated('status')),
             resolution: $request->validated('resolution'),

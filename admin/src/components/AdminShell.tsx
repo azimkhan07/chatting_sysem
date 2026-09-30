@@ -51,11 +51,11 @@ export default function AppShellLayout() {
             active={isActive}
             label={n.label}
             leftSection={<Icon size={16} stroke={1.6} />}
-            c="gray.3"
             styles={{
               root: {
                 borderRadius: 8,
                 marginBottom: 2,
+                color: 'var(--mantine-color-dark-0)',
                 '&[data-active]': {
                   background: 'var(--mantine-primary-color-filled)',
                   color: 'white',
@@ -63,6 +63,9 @@ export default function AppShellLayout() {
                 '&:not([data-active]):hover': {
                   background: 'var(--mantine-color-gray-2)',
                   color: 'var(--mantine-color-dark-9)',
+                  '& .mantine-NavLink-label': {
+                    color: 'var(--mantine-color-dark-9)',
+                  },
                 },
               },
               label: { fontSize: 12.5, fontWeight: 500 },

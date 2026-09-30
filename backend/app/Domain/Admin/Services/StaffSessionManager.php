@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Admin\Services;
 
-use App\Domain\Auth\Models\User;
+use App\Domain\Admin\Models\StaffUser;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -31,7 +31,7 @@ final class StaffSessionManager
      *
      * @return array{token?: string, superseded: bool, active_devices: int}
      */
-    public function issueFor(User $user, string $device): array
+    public function issueFor(StaffUser $user, string $device): array
     {
         $existing = $user->tokens()
             ->where('name', 'like', 'staff · %')

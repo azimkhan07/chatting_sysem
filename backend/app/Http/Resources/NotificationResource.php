@@ -19,7 +19,12 @@ final class NotificationResource extends JsonResource
             'data' => $this->data ?? [],
             'read_at' => $this->read_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
-            'actor' => new UserResource($this->whenLoaded('actor')),
+            // The actor can be a console staff id (subscription approvals),
+            // which has no row in the app users table — surface null instead of
+            // a crash or a ghost account.
+            'actor' => $this->whenLoaded('actor', fn (): ?array => $this->actor === null
+                ? null
+                : (new UserResource($this->actor))->resolve()),
         ];
     }
 }

@@ -11,11 +11,11 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Allows staff (support or admin) through. The user app can never reach the
- * support console, and a support agent has no admin-only surface, but both
- * staff roles share the ticket reply endpoints.
+ * The support desk owns appeal decisions: it approves/rejects suspension
+ * appeals while an admin sees the queue in view mode only. super_admin overrides
+ * the support team, so a lead can still act when the desk is short-staffed.
  */
-final class EnsureUserIsStaff
+final class EnsureUserIsAppealHandler
 {
     public function handle(Request $request, Closure $next): Response
     {
@@ -23,11 +23,11 @@ final class EnsureUserIsStaff
 
         if ($user === null
             || ! $user instanceof StaffUser
-            || ! in_array($user->role, [StaffUser::ROLE_SUPPORT, StaffUser::ROLE_ADMIN, StaffUser::ROLE_SUPER_ADMIN], true)
+            || ! in_array($user->role, [StaffUser::ROLE_SUPPORT, StaffUser::ROLE_SUPER_ADMIN], true)
         ) {
             return ApiResponse::error(
                 'FORBIDDEN',
-                'Staff access is required for this action.',
+                'Only the support team can resolve appeals.',
                 403,
             );
         }

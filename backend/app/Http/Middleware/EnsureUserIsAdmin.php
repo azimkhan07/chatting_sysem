@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Domain\Admin\Models\StaffUser;
 use App\Support\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ final class EnsureUserIsAdmin
     {
         $user = $request->user();
 
-        if ($user === null || ! $user->hasRole('admin')) {
+        if ($user === null || ! $user instanceof StaffUser || $user->role !== StaffUser::ROLE_ADMIN) {
             return ApiResponse::error(
                 'FORBIDDEN',
                 'Admin access is required for this action.',

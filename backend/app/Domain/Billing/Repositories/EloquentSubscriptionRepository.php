@@ -90,7 +90,7 @@ final class EloquentSubscriptionRepository implements SubscriptionRepository
         $subscription->update([
             'status' => SubscriptionStatus::Active,
             'verified_at' => $now,
-            'approved_by' => $adminId,
+            'approved_by_staff' => $adminId,
             'starts_at' => $now,
             'expires_at' => $now->copy()->addDays(Plan::RENEWAL_DAYS),
         ]);

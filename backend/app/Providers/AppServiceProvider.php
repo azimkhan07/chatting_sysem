@@ -9,6 +9,7 @@ use App\Domain\Archive\Services\EloquentArchiveService;
 use App\Domain\Auth\Contracts\AuthRepository;
 use App\Domain\Auth\Contracts\AuthService as AuthServiceContract;
 use App\Domain\Auth\Contracts\PasswordResetService as PasswordResetServiceContract;
+use App\Domain\Auth\Models\PersonalAccessToken as AppPersonalAccessToken;
 use App\Domain\Auth\Models\User;
 use App\Domain\Auth\Repositories\EloquentAuthRepository;
 use App\Domain\Auth\Services\LaravelPasswordResetService;
@@ -51,6 +52,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -92,6 +94,11 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // One shared token table for both app users and console staff. Without
+        // this, staff tokens would follow the StaffUser model onto the `admin`
+        // connection while Sanctum keeps looking for them on the app one.
+        Sanctum::usePersonalAccessTokenModel(AppPersonalAccessToken::class);
+
         // Any authenticated request is proof of life: hooking the auth event
         // keeps presence correct without threading a middleware through every
         // route group. The service throttles this to one write per 30s.

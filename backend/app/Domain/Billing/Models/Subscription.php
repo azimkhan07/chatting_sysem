@@ -40,6 +40,7 @@ final class Subscription extends Model
         'status',
         'verified_at',
         'approved_by',
+        'approved_by_staff',
         'starts_at',
         'expires_at',
         'auto_renew',

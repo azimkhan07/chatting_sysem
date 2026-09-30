@@ -5,7 +5,6 @@ import {
   Loader,
   Paper,
   PasswordInput,
-  Select,
   Stack,
   Table,
   Text,
@@ -126,11 +125,11 @@ export default function Settings() {
       {isAdmin && (
         <Paper withBorder p="md" bg="white" maw={640}>
           <Text fw={600} mb="xs">
-            Staff accounts
+            Create support account
           </Text>
           <Text size="xs" c="dimmed" mb="md">
-            Create support and admin logins for the console. Support agents change
-            their own password here after first login.
+            New support logins are created with the support role automatically.
+            Support agents change their own password here after first login.
           </Text>
 
           <Stack gap="sm" mb="md">
@@ -157,15 +156,6 @@ export default function Settings() {
                 value={staffForm.password_confirmation}
                 onChange={(e) => setStaffForm((f) => ({ ...f, password_confirmation: e.currentTarget.value }))}
               />
-              <Select
-                label="Role"
-                data={[
-                  { value: 'support', label: 'Support' },
-                  { value: 'admin', label: 'Admin' },
-                ]}
-                value={staffForm.role}
-                onChange={(v) => setStaffForm((f) => ({ ...f, role: v ?? 'support' }))}
-              />
             </Group>
             {staffError && <Alert color="red">{staffError}</Alert>}
             <Group justify="flex-end">
@@ -178,7 +168,7 @@ export default function Settings() {
                   })
                 }
               >
-                Create account
+                Create support account
               </Button>
             </Group>
           </Stack>

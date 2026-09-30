@@ -15,6 +15,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { adminApi, ApiError } from '../lib/api'
+import { useAdminStore } from '../stores/session'
 
 interface ReplyPayload {
   reply: string
@@ -50,6 +51,9 @@ export default function Support() {
   const [resolveModal, setResolveModal] = useState<Appeal | null>(null)
   const [resolution, setResolution] = useState('')
   const [appealError, setAppealError] = useState<string | null>(null)
+
+  const admin = useAdminStore((s) => s.admin)
+  const canResolve = admin?.role === 'support' || admin?.role === 'super_admin'
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['admin', 'support-tickets'],
@@ -250,7 +254,7 @@ export default function Support() {
                       </Text>
                     </Table.Td>
                     <Table.Td>
-                      {a.status === 'pending' ? (
+                      {a.status === 'pending' && canResolve ? (
                         <Button
                           size="compact-sm"
                           variant="light"

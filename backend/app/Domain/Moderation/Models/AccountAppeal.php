@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Moderation\Models;
 
+use App\Domain\Admin\Models\StaffUser;
 use App\Domain\Auth\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -42,6 +43,7 @@ final class AccountAppeal extends Model
         'message',
         'status',
         'handled_by',
+        'handled_by_staff',
         'resolution',
         'handled_at',
     ];
@@ -65,11 +67,11 @@ final class AccountAppeal extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<StaffUser, $this>
      */
     public function handler(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'handled_by');
+        return $this->belongsTo(StaffUser::class, 'handled_by_staff');
     }
 
     public function isPending(): bool

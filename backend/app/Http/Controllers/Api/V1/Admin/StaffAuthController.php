@@ -6,21 +6,21 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Domain\Admin\Actions\StaffLoginAction;
 use App\Domain\Admin\Exceptions\StaffNotAllowedException;
-use App\Domain\Auth\Exceptions\AccountDeactivatedException;
-use App\Domain\Auth\Exceptions\AccountDisabledException;
+use App\Domain\Admin\Models\StaffUser;
 use App\Domain\Auth\Exceptions\InvalidCredentialsException;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\UserResource;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * Console login for the separate admin/support app.
  *
- * A staff account (admin / super_admin / support) signs in here. The `staff`
- * token is capped at 3 devices per user; `superseded` tells the client that an
- * older session was replaced so it can show the "signed in elsewhere" alert.
+ * A staff account (admin / super_admin / support) signs in here. Accounts live
+ * in the console database, the `staff` token is capped at 3 devices per user,
+ * and `superseded` tells the client that an older session was replaced so it
+ * can show the "signed in elsewhere" alert.
  */
 final class StaffAuthController extends Controller
 {
@@ -42,19 +42,13 @@ final class StaffAuthController extends Controller
                 device: (string) $request->userAgent(),
             );
         } catch (InvalidCredentialsException) {
-            return ApiResponse::error('INVALID_CREDENTIALS', 'Wrong username/email or password.', 401);
-        } catch (AccountDisabledException $e) {
-            return ApiResponse::error('ACCOUNT_DISABLED', $e->getMessage(), 403);
-        } catch (AccountDeactivatedException $e) {
-            return ApiResponse::error('ACCOUNT_DEACTIVATED', $e->getMessage(), 403);
+            return ApiResponse::error('INVALID_CREDENTIALS', 'Wrong username or password.', 401);
         } catch (StaffNotAllowedException $e) {
             return ApiResponse::error('FORBIDDEN', $e->getMessage(), 403);
         }
 
         return ApiResponse::success([
-            'user' => (new UserResource($result['user']))->resolve() + [
-                'role' => $result['user']->roles->first()?->name,
-            ],
+            'user' => self::payload($result['user']),
             'access_token' => $result['token'],
             'token_type' => 'Bearer',
             'expires_in' => $result['expires_in'],
@@ -65,12 +59,8 @@ final class StaffAuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user();
-
         return ApiResponse::success([
-            'user' => (new UserResource($user))->resolve() + [
-                'role' => $user->roles->first()?->name,
-            ],
+            'user' => self::payload($request->user()),
         ]);
     }
 
@@ -90,7 +80,7 @@ final class StaffAuthController extends Controller
 
         $user = $request->user();
 
-        if (! \Illuminate\Support\Facades\Hash::check($data['current_password'], $user->password)) {
+        if (! Hash::check($data['current_password'], $user->password)) {
             return ApiResponse::error(
                 'INVALID_CURRENT_PASSWORD',
                 'The current password is incorrect.',
@@ -102,5 +92,18 @@ final class StaffAuthController extends Controller
         $user->forceFill(['password' => $data['new_password']])->save();
 
         return ApiResponse::success(['message' => 'Password updated.']);
+    }
+
+    /**
+     * @return array{id: int, username: string, display_name: string, role: string}
+     */
+    private static function payload(StaffUser $staff): array
+    {
+        return [
+            'id' => (int) $staff->id,
+            'username' => $staff->username,
+            'display_name' => $staff->display_name,
+            'role' => $staff->role,
+        ];
     }
 }

@@ -157,7 +157,7 @@ final class ReportService
             ->cursorPaginate($limit, ['*'], 'cursor', $cursor);
     }
 
-    public function resolve(User $handler, int $reportId, ReportStatus $status, ?string $resolution): Report
+    public function resolve(int $handlerId, int $reportId, ReportStatus $status, ?string $resolution): Report
     {
         $report = Report::query()->find($reportId);
 
@@ -167,7 +167,7 @@ final class ReportService
 
         $report->forceFill([
             'status' => $status->value,
-            'handled_by' => (int) $handler->id,
+            'handled_by_staff' => $handlerId,
             'resolution' => $resolution !== null && trim($resolution) !== '' ? trim($resolution) : null,
             'handled_at' => now(),
         ])->save();

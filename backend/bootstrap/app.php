@@ -25,6 +25,7 @@ use App\Domain\Threads\Exceptions\ThreadNotAuthorizedException;
 use App\Http\Middleware\EnsureChatFeature;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureUserIsAppealHandler;
 use App\Http\Middleware\EnsureUserIsStaff;
 use App\Support\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
@@ -57,6 +58,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // Support desk + subscription activation: admins and the support
             // role share these endpoints, user tokens still 403.
             'staff' => EnsureUserIsStaff::class,
+            // Appeal decisions belong to the support team: admins view the
+            // queue, only support (or super_admin) approves/rejects.
+            'appeal.handler' => EnsureUserIsAppealHandler::class,
             // Applied explicitly after `auth:sanctum` in routes/api.php: a
             // suspended account must be rejected only once the token resolved to
             // a user, and group middleware always runs before route middleware.

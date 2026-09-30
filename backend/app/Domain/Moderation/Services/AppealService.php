@@ -67,7 +67,7 @@ final class AppealService
 
         $appeal->forceFill([
             'status' => AccountAppeal::STATUS_APPROVED,
-            'handled_by' => $handlerId,
+            'handled_by_staff' => $handlerId,
             'resolution' => $resolution !== null && trim($resolution) !== '' ? trim($resolution) : null,
             'handled_at' => now(),
         ])->save();
@@ -87,7 +87,7 @@ final class AppealService
     {
         $appeal->forceFill([
             'status' => AccountAppeal::STATUS_REJECTED,
-            'handled_by' => $handlerId,
+            'handled_by_staff' => $handlerId,
             'resolution' => $resolution !== null && trim($resolution) !== '' ? trim($resolution) : null,
             'handled_at' => now(),
         ])->save();

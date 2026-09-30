@@ -320,7 +320,9 @@ Route::prefix('v1')->group(function (): void {
         Route::post('support/tickets/{ticket}/reply', [SupportAdminController::class, 'reply'])->whereNumber('ticket');
 
         Route::get('appeals', [SupportAdminController::class, 'appeals']);
-        Route::post('appeals/{appeal}/resolve', [SupportAdminController::class, 'resolveAppeal'])->whereNumber('appeal');
+        Route::post('appeals/{appeal}/resolve', [SupportAdminController::class, 'resolveAppeal'])
+            ->whereNumber('appeal')
+            ->middleware('appeal.handler');
 
         Route::get('email/templates', [EmailAdminController::class, 'templates']);
         Route::post('email/templates', [EmailAdminController::class, 'createTemplate']);

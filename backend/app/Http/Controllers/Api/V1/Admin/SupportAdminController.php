@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
-use App\Domain\Auth\Models\User;
+use App\Domain\Admin\Models\StaffUser;
+use App\Domain\Admin\Models\SupportStaff;
 use App\Domain\Moderation\Models\AccountAppeal;
 use App\Domain\Moderation\Services\AppealService;
 use App\Domain\Support\Models\SupportMessage;
@@ -72,7 +73,7 @@ final class SupportAdminController extends Controller
         }
 
         $ticket->messages()->create([
-            'user_id' => $request->user()->id,
+            'staff_user_id' => $request->user()->id,
             'from_support' => true,
             'body' => $request->validated('reply'),
             'emailed' => (bool) $request->validated('email', false),
@@ -93,24 +94,25 @@ final class SupportAdminController extends Controller
     }
 
     /**
-     * The accounts staffing the support desk. Regular end-users are excluded,
-     * so the Support tab shows the support team, not the whole user table.
+     * The accounts staffing the support desk. Regular end-users are excluded;
+     * every listed agent is a console account whose support profile row marks
+     * them as desk staff.
      */
     public function agents(Request $request): JsonResponse
     {
-        $roleNames = ['support', 'super_admin', 'admin'];
+        $roleNames = [StaffUser::ROLE_SUPPORT, StaffUser::ROLE_ADMIN, StaffUser::ROLE_SUPER_ADMIN];
 
-        $agents = User::query()
-            ->with('roles')
-            ->whereHas('roles', fn ($q) => $q->whereIn('name', $roleNames))
+        $agents = StaffUser::query()
+            ->whereIn('role', $roleNames)
+            ->whereHas('supportProfile')
             ->orderByDesc('created_at')
             ->get()
-            ->map(static fn (User $u): array => [
+            ->map(static fn (StaffUser $u): array => [
                 'id' => (int) $u->id,
                 'username' => $u->username,
                 'display_name' => $u->display_name,
-                'role' => $u->roles->first()?->name,
-                'status' => $u->status->value,
+                'role' => $u->role,
+                'status' => 'active',
                 'created_at' => $u->created_at?->toIso8601String(),
             ]);
 
