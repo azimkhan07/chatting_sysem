@@ -2,8 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\Admin\DashboardAdminController;
+use App\Http\Controllers\Api\V1\Admin\EmailAdminController;
+use App\Http\Controllers\Api\V1\Admin\GatewayAdminController;
+use App\Http\Controllers\Api\V1\Admin\PlanAdminController;
 use App\Http\Controllers\Api\V1\Admin\ReportAdminController;
+use App\Http\Controllers\Api\V1\Admin\StaffAuthController;
 use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
+use App\Http\Controllers\Api\V1\Admin\SupportAdminController;
+use App\Http\Controllers\Api\V1\Admin\UserAdminController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\CategoryController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
@@ -261,17 +268,51 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('blocks/{userId}', [BlockController::class, 'destroy'])->whereNumber('userId');
     });
 
-    Route::prefix('admin/subscriptions')->middleware(['auth:sanctum', 'active', 'admin', 'throttle:api'])->group(function (): void {
+    Route::prefix('admin')->middleware(['auth:sanctum', 'active', 'staff'])->group(function (): void {
+        // Console auth (staff token lifecycle, max 3 devices).
+        Route::prefix('auth')->group(function (): void {
+            Route::post('login', [StaffAuthController::class, 'login'])->withoutMiddleware(['auth:sanctum', 'active', 'staff']);
+            Route::get('me', [StaffAuthController::class, 'me']);
+            Route::post('logout', [StaffAuthController::class, 'logout']);
+        });
+    });
+
+    // Subscription review queue. The support role owns activation, admins too.
+    Route::prefix('admin/subscriptions')->middleware(['auth:sanctum', 'active', 'staff', 'throttle:api'])->group(function (): void {
         Route::get('stats', [SubscriptionAdminController::class, 'stats']);
         Route::get('/', [SubscriptionAdminController::class, 'index']);
         Route::post('{subscription}/approve', [SubscriptionAdminController::class, 'approve'])->whereNumber('subscription');
         Route::post('{subscription}/reject', [SubscriptionAdminController::class, 'reject'])->whereNumber('subscription');
     });
 
-    // The report queue. Behind `admin`, and the UI for it belongs in the
+    // The report queue. Behind `staff`, and the UI for it belongs in the
     // separate admin app - it names the accounts that reported other accounts.
-    Route::prefix('admin/reports')->middleware(['auth:sanctum', 'active', 'admin', 'throttle:api'])->group(function (): void {
+    Route::prefix('admin/reports')->middleware(['auth:sanctum', 'active', 'staff', 'throttle:api'])->group(function (): void {
         Route::get('/', [ReportAdminController::class, 'index']);
         Route::patch('{report}', [ReportAdminController::class, 'update'])->whereNumber('report');
+    });
+
+    // Admin console: dashboard, users, plans, support desk, email, gateways.
+    Route::prefix('admin')->middleware(['auth:sanctum', 'active', 'staff', 'throttle:api'])->group(function (): void {
+        Route::get('dashboard/stats', [DashboardAdminController::class, 'stats']);
+
+        Route::get('users', [UserAdminController::class, 'index']);
+
+        Route::get('plans/{plan}/countries', [PlanAdminController::class, 'countries'])->whereIn('plan', ['simple', 'standard', 'premium']);
+        Route::post('plans/pricing', [PlanAdminController::class, 'save']);
+
+        Route::get('support/tickets', [SupportAdminController::class, 'index']);
+        Route::post('support/tickets/{ticket}/reply', [SupportAdminController::class, 'reply'])->whereNumber('ticket');
+
+        Route::get('email/templates', [EmailAdminController::class, 'templates']);
+        Route::post('email/templates', [EmailAdminController::class, 'createTemplate']);
+        Route::patch('email/templates/{template}', [EmailAdminController::class, 'updateTemplate'])->whereNumber('template');
+        Route::delete('email/templates/{template}', [EmailAdminController::class, 'deleteTemplate'])->whereNumber('template');
+
+        Route::get('email/config', [EmailAdminController::class, 'config']);
+        Route::put('email/config', [EmailAdminController::class, 'saveConfig']);
+
+        Route::get('gateways', [GatewayAdminController::class, 'index']);
+        Route::post('gateways', [GatewayAdminController::class, 'save']);
     });
 });

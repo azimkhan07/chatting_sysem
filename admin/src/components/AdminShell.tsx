@@ -69,7 +69,7 @@ export default function AppShellLayout() {
           <Group>
             {admin && (
               <Text size="sm" c="dimmed">
-                {admin.name || admin.email}
+                {admin.display_name || admin.username}
               </Text>
             )}
             <Button

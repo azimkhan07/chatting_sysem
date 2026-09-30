@@ -86,6 +86,6 @@ export const adminApi = {
 
 export const authApi = {
   login: (identifier: string, password: string) =>
-    adminApi.post<AuthPayload>('/auth/login', { identifier, password }),
-  logout: () => adminApi.post<{ logged_out: boolean }>('/auth/logout'),
+    adminApi.post<AuthPayload>('/admin/auth/login', { identifier, password }),
+  logout: () => adminApi.post<{ logged_out: boolean }>('/admin/auth/logout'),
 }
