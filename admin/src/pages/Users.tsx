@@ -25,7 +25,13 @@ interface UsersResponse {
     is_verified: boolean
     created_at: string
   }>
+  summary: { all: number; today: number; month: number; year: number }
   meta: { total: number; page: number; per_page: number }
+}
+
+interface CountryItem {
+  code: string
+  name: string
 }
 
 export default function Users() {
@@ -33,6 +39,11 @@ export default function Users() {
   const [country, setCountry] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+
+  const { data: countryData } = useQuery({
+    queryKey: ['admin', 'countries'],
+    queryFn: () => adminApi.get<{ countries: CountryItem[] }>('/admin/countries'),
+  })
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['admin', 'users', filter, country, search, page],
@@ -49,10 +60,10 @@ export default function Users() {
   })
 
   const statCards = [
-    { label: 'All users', value: 0 },
-    { label: 'Joined today', value: 0 },
-    { label: 'Joined this month', value: 0 },
-    { label: 'Joined this year', value: 0 },
+    { label: 'All users', value: data?.summary?.all ?? 0 },
+    { label: 'Joined today', value: data?.summary?.today ?? 0 },
+    { label: 'Joined this month', value: data?.summary?.month ?? 0 },
+    { label: 'Joined this year', value: data?.summary?.year ?? 0 },
   ]
 
   return (
@@ -100,7 +111,10 @@ export default function Users() {
           placeholder="All countries"
           searchable
           clearable
-          data={[]}
+          data={(countryData?.countries ?? []).map((c) => ({
+            value: c.code,
+            label: `${c.name} (${c.code})`,
+          }))}
           onChange={(v) => {
             setCountry(v ?? 'all')
             setPage(1)

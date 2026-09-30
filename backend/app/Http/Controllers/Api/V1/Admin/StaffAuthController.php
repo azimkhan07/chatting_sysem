@@ -52,19 +52,25 @@ final class StaffAuthController extends Controller
         }
 
         return ApiResponse::success([
+            'user' => (new UserResource($result['user']))->resolve() + [
+                'role' => $result['user']->roles->first()?->name,
+            ],
             'access_token' => $result['token'],
             'token_type' => 'Bearer',
             'expires_in' => $result['expires_in'],
             'superseded' => $result['superseded'],
             'active_devices' => $result['active_devices'],
-            'user' => (new UserResource($result['user']))->resolve(),
         ]);
     }
 
     public function me(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         return ApiResponse::success([
-            'user' => (new UserResource($request->user()))->resolve(),
+            'user' => (new UserResource($user))->resolve() + [
+                'role' => $user->roles->first()?->name,
+            ],
         ]);
     }
 
@@ -73,5 +79,28 @@ final class StaffAuthController extends Controller
         $request->user()->currentAccessToken()?->delete();
 
         return ApiResponse::success(['logged_out' => true]);
+    }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+
+        if (! \Illuminate\Support\Facades\Hash::check($data['current_password'], $user->password)) {
+            return ApiResponse::error(
+                'INVALID_CURRENT_PASSWORD',
+                'The current password is incorrect.',
+                422,
+                'current_password',
+            );
+        }
+
+        $user->forceFill(['password' => $data['new_password']])->save();
+
+        return ApiResponse::success(['message' => 'Password updated.']);
     }
 }

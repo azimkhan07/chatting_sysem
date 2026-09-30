@@ -28,7 +28,10 @@ final class ChatEntitlements
      */
     public function unlockedMap(User $user): array
     {
-        $unlocked = $this->subscriptions->isVerified($user->id);
+        // Free launch: until subscription billing is turned on, every chat
+        // feature is unlocked for every account. Subscription renewal is
+        // paused, so the entitlement is unconditional regardless of plan.
+        $unlocked = true;
 
         $map = [];
         foreach (ChatFeature::cases() as $feature) {

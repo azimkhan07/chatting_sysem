@@ -18,11 +18,20 @@ use Illuminate\Support\Carbon;
  * filterable list. Filters: status, country, free-text search (username, name
  * or email).
  *
+ * Staff accounts (admin / super_admin / support) are excluded everywhere: the
+ * Users tab is for the product's users, and the support team has its own
+ * screen.
+ *
  * `suspicious` is a Phase 2 concept (flagging is not implemented in the app
  * yet). The filter is accepted but matches nothing until flag data exists.
  */
 final class UserAdminController extends Controller
 {
+    /**
+     * @return list<string>
+     */
+    private const STAFF_ROLES = ['admin', 'super_admin', 'support'];
+
     public function index(Request $request): JsonResponse
     {
         $status = (string) $request->query('status', 'all');
@@ -33,7 +42,10 @@ final class UserAdminController extends Controller
 
         $now = Carbon::now();
 
-        $query = User::query()->withTrashed()->with('roles');
+        $query = User::query()
+            ->withTrashed()
+            ->with('roles')
+            ->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', self::STAFF_ROLES));
 
         if ($status === 'suspended') {
             $query->where('status', UserStatus::Suspended);
@@ -61,10 +73,10 @@ final class UserAdminController extends Controller
 
         return ApiResponse::success([
             'summary' => [
-                'all' => (int) User::withTrashed()->count(),
-                'today' => (int) User::withTrashed()->whereDate('created_at', $now->toDateString())->count(),
-                'month' => (int) User::withTrashed()->where('created_at', '>=', $now->copy()->startOfMonth())->count(),
-                'year' => (int) User::withTrashed()->where('created_at', '>=', $now->copy()->startOfYear())->count(),
+                'all' => $this->userCount(),
+                'today' => $this->userCount(fn ($q) => $q->whereDate('created_at', $now->toDateString())),
+                'month' => $this->userCount(fn ($q) => $q->where('created_at', '>=', $now->copy()->startOfMonth())),
+                'year' => $this->userCount(fn ($q) => $q->where('created_at', '>=', $now->copy()->startOfYear())),
             ],
             'users' => collect($paginator->items())
                 ->map(fn (User $u) => array_merge((new UserResource($u))->resolve(), [
@@ -81,5 +93,14 @@ final class UserAdminController extends Controller
                 'per_page' => $paginator->perPage(),
             ],
         ]);
+    }
+
+    private function userCount(?callable $scope = null): int
+    {
+        return (int) User::query()
+            ->withTrashed()
+            ->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', self::STAFF_ROLES))
+            ->when($scope !== null, $scope)
+            ->count();
     }
 }

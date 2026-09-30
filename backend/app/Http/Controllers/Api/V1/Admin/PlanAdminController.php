@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Domain\Plans\Models\Feature;
 use App\Domain\Plans\Models\PlanPrice;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SavePlanPricingRequest;
 use App\Support\ApiResponse;
+use App\Support\Countries;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +22,27 @@ use Illuminate\Http\Request;
  */
 final class PlanAdminController extends Controller
 {
-    public function countries(Request $request, string $plan): JsonResponse
+    /**
+     * The full feature catalogue (key + label) seeded into the `features`
+     * table. The admin subscription form renders one checkbox per row, so
+     * adding a feature keyword in the DB surfaces it in the editor.
+     */
+    public function features(Request $request): JsonResponse
+    {
+        return ApiResponse::success(['features' => Feature::catalogue()]);
+    }
+
+    /**
+     * The full country list + currency/symbol, so the subscription form and
+     * user filters never hard-code a country table into the client, and picking
+     * a country can autofill currency details.
+     */
+    public function countries(Request $request): JsonResponse
+    {
+        return ApiResponse::success(['countries' => Countries::all()]);
+    }
+
+    public function countriesForPlan(Request $request, string $plan): JsonResponse
     {
         $rows = PlanPrice::query()
             ->where('plan', $plan)

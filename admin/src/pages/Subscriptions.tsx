@@ -12,31 +12,22 @@ import {
   TextInput,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { adminApi, ApiError } from '../lib/api'
 
-const CURRENCY_BY_COUNTRY: Record<string, { code: string; symbol: string }> = {
-  IN: { code: 'INR', symbol: '₹' },
-  US: { code: 'USD', symbol: '$' },
-  AE: { code: 'AED', symbol: 'د.إ' },
-  GB: { code: 'GBP', symbol: '£' },
-  CA: { code: 'CAD', symbol: 'C$' },
-  AU: { code: 'AUD', symbol: 'A$' },
-  DE: { code: 'EUR', symbol: '€' },
-  FR: { code: 'EUR', symbol: '€' },
+interface FeatureCatalogueItem {
+  key: string
+  label: string
+  blurb: string | null
 }
 
-const FEATURES = [
-  { key: 'calls', label: 'Voice & video calls' },
-  { key: 'stories', label: 'Stories' },
-  { key: 'groups', label: 'Groups & families' },
-  { key: 'archive', label: 'Archive' },
-  { key: 'saved', label: 'Saved collections' },
-  { key: 'export', label: 'JSON export' },
-  { key: 'badge', label: 'Blue tick (verified)' },
-  { key: 'priority', label: 'Priority support' },
-]
+interface CountryItem {
+  code: string
+  name: string
+  currency: string
+  symbol: string
+}
 
 interface PricingPayload {
   plan: string
@@ -47,9 +38,33 @@ interface PricingPayload {
   features: string[]
 }
 
+const PLAN_DEFAULT_FEATURES: Record<string, string[]> = {
+  simple: ['calls'],
+  standard: ['calls', 'stories', 'groups', 'archive', 'saved', 'export'],
+  premium: [], // filled from the API list live in the component
+}
+
 export default function Subscriptions() {
   const qc = useQueryClient()
   const [plan, setPlan] = useState<'simple' | 'standard' | 'premium'>('standard')
+
+  const { data: featuresData } = useQuery({
+    queryKey: ['admin', 'features'],
+    queryFn: () =>
+      adminApi.get<{ features: FeatureCatalogueItem[] }>('/admin/features'),
+  })
+
+  const { data: countriesData } = useQuery({
+    queryKey: ['admin', 'countries'],
+    queryFn: () => adminApi.get<{ countries: CountryItem[] }>('/admin/countries'),
+  })
+
+  const features = featuresData?.features ?? []
+  const countries = countriesData?.countries ?? []
+
+  const countryByCode = Object.fromEntries(
+    countries.map((c) => [c.code, c]),
+  )
 
   const form = useForm<PricingPayload>({
     initialValues: {
@@ -63,7 +78,7 @@ export default function Subscriptions() {
           ? ['calls']
           : plan === 'standard'
             ? ['calls', 'stories', 'groups', 'archive', 'saved', 'export']
-            : FEATURES.map((f) => f.key),
+            : [],
     },
     validate: {
       country: (v) => (!v ? 'Country is required' : null),
@@ -76,15 +91,27 @@ export default function Subscriptions() {
     mutationFn: (values: PricingPayload) =>
       adminApi.post<{ saved: boolean }>('/admin/plans/pricing', { ...values, plan }),
     onSuccess: () => {
-      form.setFieldValue('plan', plan)
       void qc.invalidateQueries({ queryKey: ['admin', 'plan-countries', plan] })
     },
   })
+
+  function switchPlan(next: 'simple' | 'standard' | 'premium') {
+    setPlan(next)
+    if (next === 'premium') {
+      form.setFieldValue('features', features.map((f) => f.key))
+    } else {
+      form.setFieldValue('features', PLAN_DEFAULT_FEATURES[next])
+    }
+  }
 
   return (
     <Stack gap="md">
       <Text fz="lg" fw={700}>
         Subscriptions
+      </Text>
+      <Text size="sm" c="dimmed">
+        Feature checkboxes load from the backend catalogue, so any new keyword
+        registered on the server shows up here automatically.
       </Text>
 
       <Group>
@@ -92,10 +119,7 @@ export default function Subscriptions() {
           <Button
             key={p}
             variant={plan === p ? 'filled' : 'default'}
-            onClick={() => {
-              setPlan(p)
-              save.mutate(form.values)
-            }}
+            onClick={() => switchPlan(p)}
           >
             {p[0].toUpperCase() + p.slice(1)}
           </Button>
@@ -115,15 +139,15 @@ export default function Subscriptions() {
             <Select
               label="Country"
               searchable
-              data={Object.entries(CURRENCY_BY_COUNTRY).map(([code, c]) => ({
-                value: code,
-                label: `${code} — ${c.symbol}`,
+              data={countries.map((c) => ({
+                value: c.code,
+                label: `${c.name} (${c.code})`,
               }))}
               value={form.values.country || null}
               onChange={(v) => {
                 form.setFieldValue('country', v ?? '')
-                const cur = v ? CURRENCY_BY_COUNTRY[v] : undefined
-                form.setFieldValue('currency', cur?.code ?? '')
+                const cur = v ? countryByCode[v] : undefined
+                form.setFieldValue('currency', cur?.currency ?? '')
                 form.setFieldValue('currency_symbol', cur?.symbol ?? '')
               }}
               error={form.errors.country}
@@ -141,24 +165,30 @@ export default function Subscriptions() {
           <Text fw={600} mt="lg" mb="sm">
             Features unlocked by this plan
           </Text>
-          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-            {FEATURES.map((f) => (
-              <Checkbox
-                key={f.key}
-                label={f.label}
-                checked={form.values.features.includes(f.key)}
-                onChange={(e) => {
-                  const checked = e.currentTarget.checked
-                  form.setFieldValue(
-                    'features',
-                    checked
-                      ? [...form.values.features, f.key]
-                      : form.values.features.filter((k) => k !== f.key),
-                  )
-                }}
-              />
-            ))}
-          </SimpleGrid>
+          {features.length === 0 ? (
+            <Text size="sm" c="dimmed">
+              Loading feature catalogue…
+            </Text>
+          ) : (
+            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+              {features.map((f) => (
+                <Checkbox
+                  key={f.key}
+                  label={f.label}
+                  checked={form.values.features.includes(f.key)}
+                  onChange={(e) => {
+                    const checked = e.currentTarget.checked
+                    form.setFieldValue(
+                      'features',
+                      checked
+                        ? [...form.values.features, f.key]
+                        : form.values.features.filter((k) => k !== f.key),
+                    )
+                  }}
+                />
+              ))}
+            </SimpleGrid>
+          )}
 
           {save.isSuccess && <Alert color="green" mt="md">Pricing saved.</Alert>}
           {save.isError && (

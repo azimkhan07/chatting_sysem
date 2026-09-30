@@ -61,8 +61,8 @@ export default function AppShellLayout() {
                   color: 'white',
                 },
                 '&:not([data-active]):hover': {
-                  background: 'var(--mantine-color-dark-7)',
-                  color: 'white',
+                  background: 'var(--mantine-color-gray-2)',
+                  color: 'var(--mantine-color-dark-9)',
                 },
               },
               label: { fontSize: 12.5, fontWeight: 500 },

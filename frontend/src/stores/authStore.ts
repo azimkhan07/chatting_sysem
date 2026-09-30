@@ -7,6 +7,10 @@ import type { LoginInput, RegisterInput, User } from '@/types/user'
 
 type AuthStatus = 'idle' | 'loading' | 'guest' | 'authenticated'
 
+interface AppealInput extends LoginInput {
+  message: string
+}
+
 interface AuthState {
   token: string | null
   user: User | null
@@ -20,6 +24,8 @@ interface AuthState {
    */
   reactivate: (input: LoginInput) => Promise<void>
   register: (input: RegisterInput) => Promise<void>
+  /** Files an appeal for a suspended account; does not sign in. */
+  appeal: (input: AppealInput) => Promise<{ id: number; status: string }>
   logout: () => Promise<void>
   setUser: (user: User | null) => void
 }
@@ -65,6 +71,22 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           set({ status: 'guest' })
           throw error
+        }
+      },
+
+      async appeal(input) {
+        set({ status: 'loading' })
+        try {
+          const data = await api.post<{
+            appeal: { id: number; status: string }
+          }>('/auth/appeal', input)
+          return data.appeal
+        } catch (error) {
+          throw error
+        } finally {
+          // The appeal does not authenticate the user, so the session stays
+          // guest; only reset the loading state.
+          set({ status: 'guest' })
         }
       },
 

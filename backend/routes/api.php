@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Admin\StaffManagementController;
 use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
 use App\Http\Controllers\Api\V1\Admin\SupportAdminController;
 use App\Http\Controllers\Api\V1\Admin\UserAdminController;
+use App\Http\Controllers\Api\V1\Auth\AppealController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\CategoryController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
@@ -54,6 +55,8 @@ Route::prefix('v1')->group(function (): void {
         Route::post('login', [AuthController::class, 'login']);
         // Unauthenticated by necessity: deactivation revoked every token.
         Route::post('reactivate', ReactivateAccountController::class);
+        // Unauthenticated by necessity: suspension revoked every token.
+        Route::post('appeal', AppealController::class);
     });
 
     Route::prefix('password')->middleware('throttle:password')->group(function (): void {
@@ -306,11 +309,18 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('users', [UserAdminController::class, 'index']);
 
-        Route::get('plans/{plan}/countries', [PlanAdminController::class, 'countries'])->whereIn('plan', ['simple', 'standard', 'premium']);
+        Route::get('features', [PlanAdminController::class, 'features']);
+        Route::get('countries', [PlanAdminController::class, 'countries']);
+
+        Route::get('plans/{plan}/countries', [PlanAdminController::class, 'countriesForPlan'])->whereIn('plan', ['simple', 'standard', 'premium']);
         Route::post('plans/pricing', [PlanAdminController::class, 'save']);
 
+        Route::get('support/agents', [SupportAdminController::class, 'agents']);
         Route::get('support/tickets', [SupportAdminController::class, 'index']);
         Route::post('support/tickets/{ticket}/reply', [SupportAdminController::class, 'reply'])->whereNumber('ticket');
+
+        Route::get('appeals', [SupportAdminController::class, 'appeals']);
+        Route::post('appeals/{appeal}/resolve', [SupportAdminController::class, 'resolveAppeal'])->whereNumber('appeal');
 
         Route::get('email/templates', [EmailAdminController::class, 'templates']);
         Route::post('email/templates', [EmailAdminController::class, 'createTemplate']);

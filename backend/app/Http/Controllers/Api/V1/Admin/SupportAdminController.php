@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Domain\Auth\Models\User;
+use App\Domain\Moderation\Models\AccountAppeal;
+use App\Domain\Moderation\Services\AppealService;
 use App\Domain\Support\Models\SupportMessage;
 use App\Domain\Support\Models\SupportTicket;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ReplyTicketRequest;
+use App\Http\Requests\ResolveAppealRequest;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,9 +20,16 @@ use Illuminate\Http\Request;
  * Support desk. Tickets are user-filed queries/complaints; the support role
  * replies inline (and optionally emails the user through the configured
  * transport - the email lib is plugged in here once the mail config exists).
+ *
+ * The support role also owns two queues:
+ *   - support agents (the accounts that staff the desk), and
+ *   - suspension appeals (a suspended user's request to be unsuspended), which
+ *     are approved/rejected straight from this screen.
  */
 final class SupportAdminController extends Controller
 {
+    public function __construct(private readonly AppealService $appeals) {}
+
     public function index(Request $request): JsonResponse
     {
         $status = (string) $request->query('status', '');
@@ -77,6 +88,95 @@ final class SupportAdminController extends Controller
             'ticket' => [
                 'id' => $ticket->id,
                 'status' => $ticket->status,
+            ],
+        ]);
+    }
+
+    /**
+     * The accounts staffing the support desk. Regular end-users are excluded,
+     * so the Support tab shows the support team, not the whole user table.
+     */
+    public function agents(Request $request): JsonResponse
+    {
+        $roleNames = ['support', 'super_admin', 'admin'];
+
+        $agents = User::query()
+            ->with('roles')
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', $roleNames))
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(static fn (User $u): array => [
+                'id' => (int) $u->id,
+                'username' => $u->username,
+                'display_name' => $u->display_name,
+                'role' => $u->roles->first()?->name,
+                'status' => $u->status->value,
+                'created_at' => $u->created_at?->toIso8601String(),
+            ]);
+
+        return ApiResponse::success(['agents' => $agents->values()]);
+    }
+
+    /**
+     * Suspension appeals, pending first (the queue the support role works fast).
+     */
+    public function appeals(Request $request): JsonResponse
+    {
+        $status = (string) $request->query('status', 'pending');
+        $allowed = [AccountAppeal::STATUS_PENDING, AccountAppeal::STATUS_APPROVED, AccountAppeal::STATUS_REJECTED];
+
+        $appeals = AccountAppeal::query()
+            ->with(['user', 'handler'])
+            ->when($status !== 'all' && in_array($status, $allowed, true), fn ($q) => $q->where('status', $status))
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->latest()
+            ->limit(100)
+            ->get()
+            ->map(static fn (AccountAppeal $a): array => [
+                'id' => $a->id,
+                'status' => $a->status,
+                'message' => $a->message,
+                'resolution' => $a->resolution,
+                'handled_at' => $a->handled_at?->toIso8601String(),
+                'created_at' => $a->created_at?->toIso8601String(),
+                'user' => [
+                    'id' => $a->user?->id,
+                    'username' => $a->user?->username,
+                    'display_name' => $a->user?->display_name,
+                    'status' => $a->user?->status->value,
+                ],
+                'handler' => [
+                    'id' => $a->handler?->id,
+                    'username' => $a->handler?->username,
+                    'display_name' => $a->handler?->display_name,
+                ],
+            ]);
+
+        return ApiResponse::success(['appeals' => $appeals->values()]);
+    }
+
+    public function resolveAppeal(ResolveAppealRequest $request, int $appealId): JsonResponse
+    {
+        $appeal = AccountAppeal::query()->with('user')->find($appealId);
+
+        if ($appeal === null) {
+            return ApiResponse::error('NOT_FOUND', 'Appeal not found.', 404);
+        }
+
+        if (! $appeal->isPending()) {
+            return ApiResponse::error('ALREADY_HANDLED', 'This appeal has already been handled.', 409);
+        }
+
+        $action = (string) $request->validated('action');
+
+        $appeal = $action === 'approve'
+            ? $this->appeals->approve((int) $request->user()->id, $appeal, $request->validated('resolution'))
+            : $this->appeals->reject((int) $request->user()->id, $appeal, $request->validated('resolution'));
+
+        return ApiResponse::success([
+            'appeal' => [
+                'id' => $appeal->id,
+                'status' => $appeal->status,
             ],
         ]);
     }
