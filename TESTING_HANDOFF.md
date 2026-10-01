@@ -30,9 +30,21 @@ docker compose exec backend php artisan migrate --force   # Nothing to migrate
 docker compose up -d                                      # phir http://localhost:5173
 ```
 
-**Agar testing me error aaye:** pehle `php artisan chat:features --dry-run` chalao,
-phir role matrix `C:\Users\azimk\AppData\Local\Temp\opencode\matrix.ps1`
-(expected: `104 passed, 0 failed`).
+**If testing me error aaye:** pehle `php artisan chat:features --dry-run` chalao,
+phir role matrix `tools\role-matrix.ps1` (expected: `104 passed, 0 failed`).
+
+**Login atak jaye (`429`) — ye zaroor hoga:** console login ka limit **30 attempts
+per din per IP** hai. `docker compose exec admin-backend php artisan cache:clear`
+chalao. Details section 4 me.
+
+**Credentials** (chaaron verify kiye hain):
+
+| Role | Identifier | Password |
+| ---- | ---------- | -------- |
+| super_admin | `superadmin` | `super123` |
+| admin | `admin` | `admin123` |
+| moderator | `moderator` | `moderator123` |
+| support | `support` | `support123` |
 
 **Phase 2 ka pehla kaam (sabse bada gap):** subscription runtime enforcement —
 `ChatEntitlements` abhi bhi har feature `true` deta hai, plan ka `features` array
@@ -120,6 +132,22 @@ form me tick karne se plan JSON me keyword chala jayega. **Paid** banana hai to
 | P7 | **Sessions me city/country** | Abhi sirf IP. GeoIP DB nahi hai | Low |
 | P8 | **Admin offboarding nahi hai** | Real admin account ko console se deactivate/delete nahi kar sakte. Matrix me ek probe isliye bachta hai | Medium |
 | P9 | **`email_templates` 0 rows** | Templates banane padenge (UI se ban sakte hain) | Medium |
+| P10 | **Login throttle daily limit** | 30 attempts/din/IP. Testing chalti rahe to lock ho jayega — `cache:clear` (section 4) | Low, but **zaroori** |
+
+## ✅ Is push me kya verify hua
+
+- 4on role login **alag-alag verify**: `superadmin/super123`, `admin/admin123`,
+  `moderator/moderator123`, `support/support123`.
+- `chat:features` output: `6 registered · 1 updated · 8 retired`.
+- DB truth: `active=6`, `retired=8`, `calls active=0`.
+- `tools\role-matrix.ps1` → `104 passed, 0 failed`.
+- `admin/src` me **koi bhi feature ka naam nahi** (grep clean) — form poora DB se aata hai.
+- Har doc me likha file path actually exist karta hai (15/15 check).
+- `admin-backend/storage/framework/{cache,views}` pehle repo me **tracked** the,
+  har test pe `git status` dirty hota tha. Ab ignore + `.gitignore` stubs —
+  cache likhne par bhi `git status` clean rehta hai (verify kiya).
+- Matrix script pehle sirf `C:\...\Temp\` me thi (restart pe gayab) — ab
+  `tools\role-matrix.ps1` repo me hai.
 
 ---
 
@@ -142,10 +170,30 @@ docker compose exec backend php artisan chat:features
 
 | Role | Identifier | Password | Kya dekh sakta hai |
 | ---- | ---------- | -------- | ----------------- |
-| super_admin | `superadmin` | `admin123` | Sab + Administrators + Sessions |
+| super_admin | `superadmin` | `super123` | Sab + Administrators + Sessions |
 | admin | `admin` | `admin123` | Sab config + Team |
-| moderator | `moderator` | `admin123` | Read-only |
-| support | `support` | `admin123` | Sirf queues |
+| moderator | `moderator` | `moderator123` | Read-only |
+| support | `support` | `support123` | Sirf queues |
+
+Chaaron ek-ek karke verify kiye hain. Ye `ConsoleStaffSeeder` ke defaults hain
+(`admin-backend/database/seeders/ConsoleStaffSeeder.php:30-42`). Seeder dobara chalane
+par **purana account ka password nahi badalta** — agar kisi ne login se password
+change kiya hoga to yahan wala kaam nahi karega.
+
+> ### ⚠️ Login throttle — 30 attempts / din / IP
+>
+> `staff-auth` limiter **per day 30** rakhta hai, per IP
+> (`admin-backend/app/Providers/AppServiceProvider.php:35`). Bahut zyada baar
+> login try karne se poora din console login band ho jata hai aur sab kuch
+> `429` return karta hai — ye security kaam hai, error nahi.
+>
+> **Atak jao to:**
+> ```powershell
+> docker compose exec admin-backend php artisan cache:clear
+> ```
+>
+> Matrix 4 login karta hai per run, isliye jaldi repeat mat karo — ek run me hi
+> daily limit khatam ho jaata hai.
 
 ---
 
@@ -184,8 +232,10 @@ the ab yahan nahi hain → P1, P2, P9. `plan_prices` me `simple/IN` price 999
 2. Plan save 422 de → error body me `field` dekho (`features.0` = keyword invalid)
 3. DB hi galat lag raha hai → `docker compose exec admin-backend php -r "..."`
    se `APP_DB_DATABASE` confirm karo, `backend/amtechat` honi chahiye
-4. Role se related → `C:\Users\azimk\AppData\Local\Temp\opencode\matrix.ps1`
-   (`104 passed, 0 failed` expected)
+4. Role se related → `tools\role-matrix.ps1` (`104 passed, 0 failed` expected).
+   Usme 4on role ke dev passwords already hain (wahi jo `ConsoleStaffSeeder`
+   me public hain — ise secret mat samjho). Ye script repo me hai, temp me nahi,
+   isliye restart ke baad bhi milega.
 
 ---
 

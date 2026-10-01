@@ -18,6 +18,23 @@
 /public/storage
 /storage/*.key
 /storage/pail
+
+# Compiled views and the file cache are build output, regenerated on request,
+# and they churn on every test run - which shows up as a diff that has nothing
+# to do with the change under test. The directories themselves must stay in the
+# repo (as .gitignore stubs) or a fresh clone has no writable views/ or cache/
+# and Laravel fails to start. See storage/framework/.gitignore.
+/storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/testing/*
+!/storage/framework/testing/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+
 /vendor
 Homestead.json
 Homestead.yaml
