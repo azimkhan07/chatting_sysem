@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { adminApi, ApiError } from '../lib/api'
+import { useCan } from '../lib/permissions'
 
 interface EmailTemplate {
   id: number
@@ -56,6 +57,7 @@ const EMPTY_CONFIG: EmailConfig = {
 
 export default function Email() {
   const qc = useQueryClient()
+  const canEditEmail = useCan()('editEmail')
   const [section, setSection] = useState<'templates' | 'config'>('templates')
   const [mode, setMode] = useState<'none' | 'create' | 'edit'>('none')
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -133,14 +135,20 @@ export default function Email() {
             <Text fz="sm" c="dimmed">
               Templates are picked by title when a reply or broadcast is sent.
             </Text>
-            <Button
-              onClick={() => {
-                setMode('create')
-                setForm(EMPTY)
-              }}
-            >
-              New template
-            </Button>
+            {canEditEmail ? (
+              <Button
+                onClick={() => {
+                  setMode('create')
+                  setForm(EMPTY)
+                }}
+              >
+                New template
+              </Button>
+            ) : (
+              <Text size="xs" c="dimmed">
+                View only
+              </Text>
+            )}
           </Group>
 
           {templatesQuery.isError && (
@@ -177,39 +185,45 @@ export default function Email() {
                           </Text>
                         </Table.Td>
                         <Table.Td>
-                          <Group gap="xs">
-                            <Button
-                              size="compact-sm"
-                              variant="light"
-                              onClick={() => {
-                                setMode('edit')
-                                setEditingId(t.id)
-                                setForm({
-                                  title: t.title,
-                                  subject: t.subject,
-                                  html_body: t.html_body,
-                                })
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              size="compact-sm"
-                              variant="subtle"
-                              color="red"
-                              onClick={() => {
-                                void adminApi
-                                  .delete(`/admin/email/templates/${t.id}`)
-                                  .then(() =>
-                                    qc.invalidateQueries({
-                                      queryKey: ['admin', 'email-templates'],
-                                    }),
-                                  )
-                              }}
-                            >
-                              Delete
-                            </Button>
-                          </Group>
+                          {canEditEmail ? (
+                            <Group gap="xs">
+                              <Button
+                                size="compact-sm"
+                                variant="light"
+                                onClick={() => {
+                                  setMode('edit')
+                                  setEditingId(t.id)
+                                  setForm({
+                                    title: t.title,
+                                    subject: t.subject,
+                                    html_body: t.html_body,
+                                  })
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="compact-sm"
+                                variant="subtle"
+                                color="red"
+                                onClick={() => {
+                                  void adminApi
+                                    .delete(`/admin/email/templates/${t.id}`)
+                                    .then(() =>
+                                      qc.invalidateQueries({
+                                        queryKey: ['admin', 'email-templates'],
+                                      }),
+                                    )
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </Group>
+                          ) : (
+                            <Text size="xs" c="dimmed">
+                              View only
+                            </Text>
+                          )}
                         </Table.Td>
                       </Table.Tr>
                     ))}
@@ -308,14 +322,20 @@ export default function Email() {
                 />{' '}
                 Sending enabled
               </label>
-              <Button
-                variant="light"
-                size="compact-sm"
-                onClick={() => saveConfig.mutate(cfg)}
-                loading={saveConfig.isPending}
-              >
-                Save config
-              </Button>
+              {canEditEmail ? (
+                <Button
+                  variant="light"
+                  size="compact-sm"
+                  onClick={() => saveConfig.mutate(cfg)}
+                  loading={saveConfig.isPending}
+                >
+                  Save config
+                </Button>
+              ) : (
+                <Text size="xs" c="dimmed">
+                  View only
+                </Text>
+              )}
             </Group>
             <Divider />
             <Text size="xs" c="dimmed">

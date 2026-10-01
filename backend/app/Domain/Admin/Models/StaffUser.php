@@ -41,6 +41,30 @@ final class StaffUser extends Authenticatable
 
     public const ROLE_SUPPORT = 'support';
 
+    public const ROLE_MODERATOR = 'moderator';
+
+    /**
+     * Roles that may change data rather than only read it. A moderator is
+     * deliberately absent: it sees the whole console and writes nothing.
+     *
+     * @return list<string>
+     */
+    public static function operatorRoles(): array
+    {
+        return [self::ROLE_SUPPORT, self::ROLE_ADMIN, self::ROLE_SUPER_ADMIN];
+    }
+
+    /**
+     * Roles that may mint another admin-level account. Support hiring is an
+     * admin job, but only a super_admin can create an admin or a super_admin.
+     *
+     * @return list<string>
+     */
+    public static function adminRoles(): array
+    {
+        return [self::ROLE_ADMIN, self::ROLE_SUPER_ADMIN];
+    }
+
     /**
      * @var list<string>
      */

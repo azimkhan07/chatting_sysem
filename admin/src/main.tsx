@@ -6,6 +6,8 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { theme } from './theme'
+// Unlayered, so it outranks the Mantine layer: see admin-nav.css.
+import './admin-nav.css'
 import '@mantine/core/styles.layer.css'
 import '@mantine/dates/styles.layer.css'
 import '@mantine/notifications/styles.layer.css'

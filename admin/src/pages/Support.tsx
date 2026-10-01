@@ -15,7 +15,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { adminApi, ApiError } from '../lib/api'
-import { useAdminStore } from '../stores/session'
+import { useCan } from '../lib/permissions'
 
 interface ReplyPayload {
   reply: string
@@ -52,8 +52,9 @@ export default function Support() {
   const [resolution, setResolution] = useState('')
   const [appealError, setAppealError] = useState<string | null>(null)
 
-  const admin = useAdminStore((s) => s.admin)
-  const canResolve = admin?.role === 'support' || admin?.role === 'super_admin'
+  const can = useCan()
+  const canResolve = can('resolveAppeals')
+  const canReply = can('replyTickets')
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['admin', 'support-tickets'],
@@ -253,17 +254,21 @@ export default function Support() {
                         {new Date(a.created_at).toLocaleString()}
                       </Text>
                     </Table.Td>
-                    <Table.Td>
-                      {a.status === 'pending' && canResolve ? (
-                        <Button
-                          size="compact-sm"
-                          variant="light"
-                          onClick={() => setResolveModal(a)}
-                        >
-                          Handle
-                        </Button>
-                      ) : null}
-                    </Table.Td>
+                      <Table.Td>
+                        {a.status === 'pending' && canResolve ? (
+                          <Button
+                            size="compact-sm"
+                            variant="light"
+                            onClick={() => setResolveModal(a)}
+                          >
+                            Handle
+                          </Button>
+                        ) : a.status === 'pending' ? (
+                          <Text size="xs" c="dimmed">
+                            Support only
+                          </Text>
+                        ) : null}
+                      </Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -323,13 +328,19 @@ export default function Support() {
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Button
-                          size="compact-sm"
-                          variant="light"
-                          onClick={() => setReplyId(t.id)}
-                        >
-                          Reply
-                        </Button>
+                        {canReply ? (
+                          <Button
+                            size="compact-sm"
+                            variant="light"
+                            onClick={() => setReplyId(t.id)}
+                          >
+                            Reply
+                          </Button>
+                        ) : (
+                          <Text size="xs" c="dimmed">
+                            View only
+                          </Text>
+                        )}
                       </Table.Td>
                     </Table.Tr>
                   ))}

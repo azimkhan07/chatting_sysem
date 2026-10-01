@@ -131,6 +131,73 @@ services:
       - "8080:8080"
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
 
+  admin-backend:
+    build:
+      context: ../
+      dockerfile: admin-backend/Dockerfile
+    image: amtechat/admin-backend
+    working_dir: /srv
+    volumes:
+      - ../admin-backend:/srv
+      # The bind mount above hides the vendor/ directory that the image built.
+      # A named volume mounted on top of it keeps the installed dependencies
+      # visible while the rest of the source stays live-editable from Windows.
+      - admin-backend-vendor:/srv/vendor
+      # The console database lives here, not under /srv. SQLite needs POSIX
+      # advisory locking, and a bind mount coming from a Windows host does not
+      # provide it � with it, concurrent access segfaults the PHP process rather
+      # than returning SQLITE_BUSY. Keeping the file on a Docker-managed volume
+      # also means `docker compose down` does not take the staff database with
+      # it, which is the correct default for the one file that holds every
+      # console password.
+      - admin-backend-data:/var/lib/console
+      # The main app's development database. The console reads it directly and
+      # writes to it for decisions (approving a subscription, closing a report,
+      # saving a gateway). Mounted rather than reached over MySQL because local
+      # development runs the main app on SQLite — the `amtechat` MySQL database
+      # exists but holds no application tables, so pointing the console at it
+      # produced "Table 'amtechat.users' doesn't exist" on the first dashboard
+      # load. In production this is a real MySQL connection instead, and this
+      # mount disappears with the dev stack.
+      #
+      # Mounted from ../backend, not ../backend/database, because that is where
+      # the file actually is. The app's SQLite database is `backend/amtechat`,
+      # named by DB_DATABASE=amtechat and resolved relative to the working
+      # directory, so it lands beside `database/` rather than inside it. This
+      # mount used to be ../backend/database with the filename database.sqlite,
+      # which pointed the console at backend/database/database.sqlite — a
+      # different file that the app never opens. The console therefore spent its
+      # whole life reading and writing a private copy: it showed a stale feature
+      # catalogue, and every decision it saved (a price, a closed report, an
+      # approved subscription) went somewhere the app could not see. Verified
+      # 2026-10-01: backend/amtechat had 0 users while the file the console was
+      # using had 22. Do not "simplify" this path back to database/.
+      - ../backend:/srv/app-database
+    env_file: ../admin-backend/.env
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - DB_CONNECTION=admin
+      - ADMIN_DB_CONNECTION=sqlite
+      - ADMIN_DB_DATABASE=/var/lib/console/admin.sqlite
+      - APP_DB_CONNECTION=sqlite
+      - APP_DB_DATABASE=/srv/app-database/amtechat
+      - QUEUE_CONNECTION=sync
+      - CACHE_STORE=file
+      - SESSION_DRIVER=array
+      # `php artisan serve` and a bare `php -S` both died under Docker Desktop
+      # on Windows. The built-in server is single-process unless told otherwise,
+      # handling each request in a forked worker; this gives it several up
+      # front. The docroot and router are passed explicitly rather than through
+      # artisan.
+      - PHP_CLI_SERVER_WORKERS=4
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    command: php -S 0.0.0.0:8000 -t public public/index.php
+
   redis:
     image: redis:7-alpine
     command: redis-server /usr/local/etc/redis/redis.conf
@@ -173,6 +240,13 @@ services:
       - MYSQL_USER=amtechat
       - MYSQL_PASSWORD=secret
       - MYSQL_ROOT_PASSWORD=rootsecret
+      # Read by 01-admin-console-grants.sh, which creates the console's own
+      # least-privilege MySQL user. The password lives here and not in the script
+      # so it never enters the repository; the script refuses to run without it.
+      # This is also the value admin-backend/.env must carry as
+      # APP_DB_PASSWORD, and it is deliberately NOT the app user's password.
+      - CONSOLE_DB_USER=amtechat_admin_console
+      - CONSOLE_DB_PASSWORD=console_secret_change_me
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootsecret"]
       interval: 10s
@@ -182,7 +256,12 @@ services:
       - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      # Executed by the MySQL entrypoint on first boot of an empty data
+      # directory. Not re-run on an existing volume.
+      - ./mysql:/docker-entrypoint-initdb.d:ro
 
 volumes:
+  admin-backend-data:
+  admin-backend-vendor:
   redis-data:
   mysql-data:

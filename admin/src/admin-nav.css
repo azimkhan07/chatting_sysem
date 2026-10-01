@@ -1,0 +1,29 @@
+/*
+ * Sidebar links.
+ *
+ * The navbar is dark (--mantine-color-dark-8, set in AdminShell) while
+ * Mantine paints NavLink text for a light surface, so labels vanished on
+ * hover: the hover background went light and the text stayed dark on a dark
+ * bar. These rules are unlayered and !important so they beat the library
+ * cascade regardless of injection order, and every state names both colours.
+ */
+.admin-nav {
+  border-radius: 8px;
+  margin-bottom: 2px;
+  color: var(--mantine-color-dark-0) !important;
+}
+
+.admin-nav .mantine-NavLink-section,
+.admin-nav .mantine-NavLink-label {
+  color: inherit;
+}
+
+.admin-nav[data-active] {
+  background: var(--mantine-primary-color-filled) !important;
+  color: #fff !important;
+}
+
+.admin-nav:not([data-active]):hover {
+  background: var(--mantine-color-dark-6) !important;
+  color: #fff !important;
+}

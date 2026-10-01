@@ -79,6 +79,43 @@ Not a bare list first. Layout, top → bottom:
   a "locked" feature must never be silently absent. The lock crown in-app points to
   the same `ChatFeature` keys the admin unlocks.
 
+### Feature registration (shipped)
+
+`ChatFeature` is the **single registration point**. Adding a case is the whole job —
+there is no seed array to append to and the admin app needs no rebuild.
+
+```php
+// backend/app/Domain/Chat/Enums/ChatFeature.php
+case VoiceNotes = 'voice_notes';
+```
+
+- The case's backing value is the **keyword** a plan stores in its `features` list.
+- `label()` / `blurb()` hold the title shown on the admin checkbox and the one-liner
+  shown on the in-app lock. Both fall back to a humanised keyword rather than
+  throwing, so a half-finished registration shows an ugly label instead of bricking
+  the boot.
+- `tier()` returns `FeatureTier::Premium` or `FeatureTier::Free`. **Default is
+  `free`.** A new case is not paid until somebody names it in the `match` on
+  purpose — the expensive mistake is marking a live feature premium by accident and
+  locking every existing subscriber out of it. Phase 2 flips specific cases to
+  `Premium` when subscriptions go live.
+- `FeatureCatalogueSync` materialises the enum into the `features` table on every
+  boot, which is what the console's subscription form reads. It is idempotent, only
+  writes rows that actually differ, and **deactivates rather than deletes** an
+  unregistered keyword so plan JSON that still names it stays resolvable.
+- `php artisan chat:features` lists every registration (keyword, title, tier) and
+  `php artisan chat:features --dry-run` reports what would change without writing.
+
+A plan may only name a keyword that is **live in the catalogue** — enforced by
+`Rule::exists` on `SavePlanPricingRequest`. This is what stops a plan selling a
+feature the app does not implement, which is how `calls` ended up on a plan. The
+console strips retired keywords when it loads a row, so re-saving an older plan
+still works.
+
+`premium` features become checkboxes on the plan form; `free` ones are listed as
+read-only "Free for everyone" because a box that unlocks nothing would read as
+something you are buying.
+
 ## Support tab
 
 - Inbox of user filed queries/complaints (`support_tickets`), with status

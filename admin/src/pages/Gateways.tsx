@@ -13,6 +13,7 @@ import {
 import { useForm } from '@mantine/form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApi, ApiError } from '../lib/api'
+import { useCan } from '../lib/permissions'
 
 interface GatewayConfig {
   name: string
@@ -31,6 +32,8 @@ export default function Gateways() {
     queryKey: ['admin', 'gateways'],
     queryFn: () => adminApi.get<{ gateways: GatewayConfig[] }>('/admin/gateways'),
   })
+
+  const canEditGateways = useCan()('editGateways')
 
   const form = useForm<GatewayConfig>({
     initialValues: { name: '', key: '', merchant_id: '', secret: '', endpoint: '', currency: 'INR', enabled: true },
@@ -83,25 +86,32 @@ export default function Gateways() {
         <Text fw={600} mb="md">
           Add / update gateway credential
         </Text>
+        {!canEditGateways && (
+          <Text size="xs" c="dimmed" mb="sm">
+            View only — gateway credentials can only be changed by an admin.
+          </Text>
+        )}
         <form onSubmit={form.onSubmit((v) => save.mutate(v))}>
           <SimpleGrid cols={{ base: 1, md: 2 }}>
-            <TextInput label="Gateway name" placeholder="Razorpay" {...form.getInputProps('name')} />
-            <TextInput label="Gateway key" placeholder="rzp_live_xxx" {...form.getInputProps('key')} />
-            <TextInput label="Merchant id" {...form.getInputProps('merchant_id')} />
-            <TextInput label="Secret key" {...form.getInputProps('secret')} />
-            <TextInput label="Endpoint" placeholder="https://api.razorpay.com/v1" {...form.getInputProps('endpoint')} />
-            <TextInput label="Currency" {...form.getInputProps('currency')} />
+            <TextInput label="Gateway name" placeholder="Razorpay" disabled={!canEditGateways} {...form.getInputProps('name')} />
+            <TextInput label="Gateway key" placeholder="rzp_live_xxx" disabled={!canEditGateways} {...form.getInputProps('key')} />
+            <TextInput label="Merchant id" disabled={!canEditGateways} {...form.getInputProps('merchant_id')} />
+            <TextInput label="Secret key" disabled={!canEditGateways} {...form.getInputProps('secret')} />
+            <TextInput label="Endpoint" placeholder="https://api.razorpay.com/v1" disabled={!canEditGateways} {...form.getInputProps('endpoint')} />
+            <TextInput label="Currency" disabled={!canEditGateways} {...form.getInputProps('currency')} />
           </SimpleGrid>
-          <Group mt="md">
-            <Switch
-              label="Enabled"
-              checked={form.values.enabled}
-              onChange={(e) => form.setFieldValue('enabled', e.currentTarget.checked)}
-            />
-            <Button type="submit" loading={save.isPending}>
-              Save gateway
-            </Button>
-          </Group>
+          {canEditGateways && (
+            <Group mt="md">
+              <Switch
+                label="Enabled"
+                checked={form.values.enabled}
+                onChange={(e) => form.setFieldValue('enabled', e.currentTarget.checked)}
+              />
+              <Button type="submit" loading={save.isPending}>
+                Save gateway
+              </Button>
+            </Group>
+          )}
           {save.isError && (
             <Alert color="red" mt="md">
               {save.error instanceof ApiError ? save.error.message : 'Save failed'}

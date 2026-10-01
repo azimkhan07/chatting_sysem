@@ -11,6 +11,7 @@ import {
 import { useDisclosure } from '@mantine/hooks'
 import {
   IconCalendarStats,
+  IconFlag,
   IconMail,
   IconSettings,
   IconTicket,
@@ -20,15 +21,27 @@ import {
 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { NavLink as RouterNavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useCan, type Capability } from '../lib/permissions'
 import { useAdminStore } from '../stores/session'
 
-const nav = [
+// `capability` is what decides whether the link is rendered. Leaving a link out
+// is not a cosmetic choice: the API answers 403 for a role that has no business
+// on the screen, so a link that is shown anyway takes the person to a dead page
+// and an error box. Hiding it is also the honest signal - the screen is not
+// theirs to use.
+const nav: { to: string; label: string; icon: typeof IconCalendarStats; capability?: Capability }[] = [
   { to: '/dashboard', label: 'Dashboard', icon: IconCalendarStats },
   { to: '/users', label: 'Users', icon: IconUsers },
   { to: '/subscriptions', label: 'Subscriptions', icon: IconWallet },
+  { to: '/reports', label: 'Reports', icon: IconFlag },
   { to: '/support', label: 'Support', icon: IconTicket },
-  { to: '/email', label: 'Email', icon: IconMail },
-  { to: '/gateways', label: 'Gateways', icon: IconSettings },
+  { to: '/email', label: 'Email', icon: IconMail, capability: 'viewConfig' },
+  { to: '/gateways', label: 'Gateways', icon: IconSettings, capability: 'viewConfig' },
+  // No capability: Settings opens for every staff role, because it carries the
+  // change-your-own-password form and that is the one thing all of them need.
+  // The team roster inside the page is gated on `viewStaff` by the page itself.
+  // Gating the whole page on the roster would lock support and moderator out of
+  // rotating their own credentials.
   { to: '/settings', label: 'Settings', icon: IconUserCog },
 ]
 
@@ -40,41 +53,28 @@ export default function AppShellLayout() {
   const admin = useAdminStore((s) => s.admin)
   const logout = useAdminStore((s) => s.logout)
   const navigate = useNavigate()
+  const can = useCan()
 
-  const links = nav.map((n) => {
-    const Icon = n.icon
-    return (
-      <RouterNavLink key={n.to} to={n.to} style={{ textDecoration: 'none' }}>
-        {({ isActive }) => (
-          <NavLink
-            component="span"
-            active={isActive}
-            label={n.label}
-            leftSection={<Icon size={16} stroke={1.6} />}
-            styles={{
-              root: {
-                borderRadius: 8,
-                marginBottom: 2,
-                color: 'var(--mantine-color-dark-0)',
-                '&[data-active]': {
-                  background: 'var(--mantine-primary-color-filled)',
-                  color: 'white',
-                },
-                '&:not([data-active]):hover': {
-                  background: 'var(--mantine-color-gray-2)',
-                  color: 'var(--mantine-color-dark-9)',
-                  '& .mantine-NavLink-label': {
-                    color: 'var(--mantine-color-dark-9)',
-                  },
-                },
-              },
-              label: { fontSize: 12.5, fontWeight: 500 },
-            }}
-          />
-        )}
-      </RouterNavLink>
-    )
-  })
+  const links = nav
+    // No capability means every staff role may open it.
+    .filter((n) => n.capability === undefined || can(n.capability))
+    .map((n) => {
+      const Icon = n.icon
+      return (
+        <RouterNavLink key={n.to} to={n.to} style={{ textDecoration: 'none' }}>
+          {({ isActive }) => (
+            <NavLink
+              component="span"
+              className="admin-nav"
+              active={isActive}
+              label={n.label}
+              leftSection={<Icon size={16} stroke={1.6} />}
+              styles={{ label: { fontSize: 12.5, fontWeight: 500 } }}
+            />
+          )}
+        </RouterNavLink>
+      )
+    })
 
   return (
     <AppShell

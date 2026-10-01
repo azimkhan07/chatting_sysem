@@ -21,6 +21,14 @@ Desktop.ini
 tmp/
 temp/
 
+# Local databases
+# These hold real records and bcrypt password hashes, and dev runs on SQLite
+# (see ADR-010), so they exist in the worktree by default. `git add -A` would
+# otherwise commit them.
+*.sqlite
+*.sqlite3
+*.db
+
 # Dependencies (each app also has its own .gitignore)
 node_modules/
 vendor/

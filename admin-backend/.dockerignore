@@ -1,0 +1,35 @@
+# Keep the image free of anything that only matters on a developer machine or
+# would leak a real secret. The build stage runs `composer install` itself, so
+# vendor/ is installed inside the image rather than copied from the host - that
+# is what keeps the image correct on a machine whose PHP extension set differs
+# from the one this Dockerfile installs.
+vendor
+
+# Secrets. `.env` here is a local dev file; baking it into a published image is
+# how database passwords end up readable by anyone who can pull it. Compose
+# passes the real environment in at run time instead.
+.env
+.env.*
+!.env.example
+
+# The console's own SQLite file and any local test databases.
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Per-developer state and tooling output.
+node_modules
+.phpunit.cache
+.phpunit.result.cache
+.php-cs-fixer.cache
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/debugbar
+tests
+.DS_Store
+.idea
+.vscode
+*.log

@@ -2,16 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\Api\V1\Admin\DashboardAdminController;
-use App\Http\Controllers\Api\V1\Admin\EmailAdminController;
-use App\Http\Controllers\Api\V1\Admin\GatewayAdminController;
-use App\Http\Controllers\Api\V1\Admin\PlanAdminController;
-use App\Http\Controllers\Api\V1\Admin\ReportAdminController;
-use App\Http\Controllers\Api\V1\Admin\StaffAuthController;
-use App\Http\Controllers\Api\V1\Admin\StaffManagementController;
-use App\Http\Controllers\Api\V1\Admin\SubscriptionAdminController;
-use App\Http\Controllers\Api\V1\Admin\SupportAdminController;
-use App\Http\Controllers\Api\V1\Admin\UserAdminController;
 use App\Http\Controllers\Api\V1\Auth\AppealController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\CategoryController;
@@ -270,69 +260,5 @@ Route::prefix('v1')->group(function (): void {
         Route::get('blocks', [BlockController::class, 'index']);
         Route::post('blocks/{userId}', [BlockController::class, 'store'])->whereNumber('userId');
         Route::delete('blocks/{userId}', [BlockController::class, 'destroy'])->whereNumber('userId');
-    });
-
-    Route::prefix('admin')->middleware(['auth:sanctum', 'active', 'staff'])->group(function (): void {
-        // Console auth (staff token lifecycle, max 3 devices).
-        Route::prefix('auth')->group(function (): void {
-            Route::post('login', [StaffAuthController::class, 'login'])->withoutMiddleware(['auth:sanctum', 'active', 'staff']);
-            Route::get('me', [StaffAuthController::class, 'me']);
-            Route::post('logout', [StaffAuthController::class, 'logout']);
-            Route::post('password', [StaffAuthController::class, 'changePassword']);
-        });
-
-        // Team. Creating staff is admin-only; support agents name their own
-        // password from the Settings screen.
-        Route::get('staff', [StaffManagementController::class, 'index'])->middleware('admin');
-        Route::post('staff', [StaffManagementController::class, 'store'])->middleware('admin');
-        Route::delete('staff/{userId}', [StaffManagementController::class, 'destroy'])->whereNumber('userId')->middleware('admin');
-    });
-
-    // Subscription review queue. The support role owns activation, admins too.
-    Route::prefix('admin/subscriptions')->middleware(['auth:sanctum', 'active', 'staff', 'throttle:api'])->group(function (): void {
-        Route::get('stats', [SubscriptionAdminController::class, 'stats']);
-        Route::get('/', [SubscriptionAdminController::class, 'index']);
-        Route::post('{subscription}/approve', [SubscriptionAdminController::class, 'approve'])->whereNumber('subscription');
-        Route::post('{subscription}/reject', [SubscriptionAdminController::class, 'reject'])->whereNumber('subscription');
-    });
-
-    // The report queue. Behind `staff`, and the UI for it belongs in the
-    // separate admin app - it names the accounts that reported other accounts.
-    Route::prefix('admin/reports')->middleware(['auth:sanctum', 'active', 'staff', 'throttle:api'])->group(function (): void {
-        Route::get('/', [ReportAdminController::class, 'index']);
-        Route::patch('{report}', [ReportAdminController::class, 'update'])->whereNumber('report');
-    });
-
-    // Admin console: dashboard, users, plans, support desk, email, gateways.
-    Route::prefix('admin')->middleware(['auth:sanctum', 'active', 'staff', 'throttle:api'])->group(function (): void {
-        Route::get('dashboard/stats', [DashboardAdminController::class, 'stats']);
-
-        Route::get('users', [UserAdminController::class, 'index']);
-
-        Route::get('features', [PlanAdminController::class, 'features']);
-        Route::get('countries', [PlanAdminController::class, 'countries']);
-
-        Route::get('plans/{plan}/countries', [PlanAdminController::class, 'countriesForPlan'])->whereIn('plan', ['simple', 'standard', 'premium']);
-        Route::post('plans/pricing', [PlanAdminController::class, 'save']);
-
-        Route::get('support/agents', [SupportAdminController::class, 'agents']);
-        Route::get('support/tickets', [SupportAdminController::class, 'index']);
-        Route::post('support/tickets/{ticket}/reply', [SupportAdminController::class, 'reply'])->whereNumber('ticket');
-
-        Route::get('appeals', [SupportAdminController::class, 'appeals']);
-        Route::post('appeals/{appeal}/resolve', [SupportAdminController::class, 'resolveAppeal'])
-            ->whereNumber('appeal')
-            ->middleware('appeal.handler');
-
-        Route::get('email/templates', [EmailAdminController::class, 'templates']);
-        Route::post('email/templates', [EmailAdminController::class, 'createTemplate']);
-        Route::patch('email/templates/{template}', [EmailAdminController::class, 'updateTemplate'])->whereNumber('template');
-        Route::delete('email/templates/{template}', [EmailAdminController::class, 'deleteTemplate'])->whereNumber('template');
-
-        Route::get('email/config', [EmailAdminController::class, 'config']);
-        Route::put('email/config', [EmailAdminController::class, 'saveConfig']);
-
-        Route::get('gateways', [GatewayAdminController::class, 'index']);
-        Route::post('gateways', [GatewayAdminController::class, 'save']);
     });
 });

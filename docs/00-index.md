@@ -24,7 +24,7 @@ any feature. If something is not documented here, decide → document → implem
 | 13 | [Git Workflow](13-git-workflow.md) | Branching, commits, releases |
 | 15 | [UI Design System](15-ui-design-system.md) | "Midnight Bloom" theme, tokens, primitives, motion |
 | 16 | [Security & Route Strategy](16-security-and-route-strategy.md) | Encrypted/opaque routes, auth, admin perimeter |
-| 17 | [Admin Panel & Subscriptions](17-admin-panel-and-subscriptions.md) | Admin app, roles, subscription/billing, AI support |
+| 17 | [Admin Panel & Subscriptions](17-admin-panel-and-subscriptions.md) | Admin app, roles, subscription/billing, **feature registration** (shipped), AI support |
 | 18 | [Business Strategy](18-business-strategy.md) | Monetization, growth, KPIs, phased roadmap |
 
 ## Non-negotiable principles
@@ -54,6 +54,8 @@ Major decisions get recorded here so we never forget *why*.
 | ADR-007 | Chat message reactions + delete ship as part of Phase 1 chat | Natural messaging primitives users expect; one small table, pure DB aggregates, Reverb events | 2026-09-23 |
 | ADR-008 | Engagement metrics (like/comment/share) drive a Redis-ranked trending feed | One sorted set + scheduled rebuild; DB-ranked fallback keeps trending available without Redis | 2026-09-23 |
 | ADR-009 | Chat inbox aggregates live in Redis hashes with DB fallback | 100+ groups inbox + unread badge never scan the full message table; source of truth stays Postgres | 2026-09-23 |
+| ADR-010 | The console reads the app database the app actually opens | Dev runs both on SQLite. The console was pointed at `backend/database/database.sqlite` while the app used `backend/amtechat` — two different files, so the console read and wrote a private copy and no admin decision ever reached the app. Fixed by repointing the console only; the app's own config and data were left untouched and the two databases were **not** merged | 2026-10-01 |
+| ADR-011 | `ChatFeature` enum is the single feature registration point | The `features` table has to exist because the console is a separate service that cannot match a PHP enum, and the enum has to exist because routes enforce against it. `FeatureCatalogueSync` reconciles the two so there is only one place to edit. New features default to free so an unmarked case cannot lock a live feature behind a paywall | 2026-10-01 |
 
 ## Progress tracker
 
@@ -90,11 +92,26 @@ are green on the machine that built them: `phpunit` (176 passing + 1 Redis-gated
 | Archive (posts + auto-expired stories) | `posts.archived_at` author-only archive/unarchive (hidden from profile grid + feed); `me/archive/calendar` (rolling one-year), `/posts`, `/stories`; Archive page = year toggle + 12-month calendar with day dots + day grids | phpunit/11 tests + phpstan + build ✅ |
 | Saved collections + All-saved | `saved_items` (unique user+saveable) + `saved_collections` + composite pivot; save/unsave posts & stories (bookmark on PostCard, ReelCard, StoryViewer), create/delete collection (keeps items in All); Saved page = folder grid + detail + create modal, linked from Settings | phpunit/11 tests + phpstan + build ✅ |
 | Mobile responsive self-check | Headless-Chrome layout audit (no horizontal scroll at 360/390px, tap targets ≥32px) across home/profile/archive/saved/settings/chat; fixed AppShell logout hit-box | build ✅ |
+| Feature registration (single source) | `ChatFeature` enum is the only place a feature is declared; `FeatureCatalogueSync` materialises it into `features` on every boot, so the admin console's plan form needs no rebuild. `FeatureTier` (premium/free, default free), `tier` column, 8 hardcoded seed features deactivated (`calls` gone), `php artisan chat:features [--dry-run]`, graceful `label()`/`blurb()` fallback so a new case cannot brick boot, `Rule::exists` so a plan can only name a live keyword. No feature name hardcoded in the frontend | `chat:features` + 3-boot no-churn + save 200/422 + matrix 104 ✅ |
+| Subscription pricing: create **and** update | Saved-rows table with Edit, explicit "Update pricing" state, plan/country upsert, retired keywords stripped on load so older plans still save, premium = checkbox / free = read-only list | matrix 104 + e2e save/read-back ✅ |
+| Standalone admin console (`admin-backend/`) | Own DB, own token store, own auth perimeter; removed the old shared `/api/v1/admin/*` surface from `backend/`; role matrix enforced per route (104 checks) | matrix 104/104 ✅ |
+| Settings vertical tabs | Password (all staff) · Team (admin+) · Administrators (super) · Sessions (super, staff device list) | build + gate checks ✅ |
+| Reports cursor pagination | `useInfiniteQuery` + Load more, 25+5, no overlap, 30/30 rows reachable | e2e ✅ |
 
 ### Pending / next
 
 | Item | Notes |
 | ---- | ----- |
+| **Subscription runtime enforcement** | `ChatEntitlements::unlockedMap()` still returns `true` for every feature (free-launch) and ignores the `features` array on `plan_prices`. Admin checkboxes save correctly but the user app does not lock anything yet. Phase 2. |
+| Re-enter `email_configs` | 0 rows in the live app DB; the SMTP values that existed were overwritten by test fixtures and are not recoverable |
+| Re-create `payment_gateways` | 0 rows; the `testpay` gateway was lost with the orphaned database |
+| `email_templates` | 0 rows; no runtime mail consumer wired up yet |
+| MySQL grant hardening | `users` has table-level `UPDATE` beyond what the app needs, some redundant `INSERT`, `console_secret_change_me` is hardcoded in compose, and there is no reliable post-migration apply path |
+| Staff audit source | `backend/database/admin.sqlite` (3 staff) is still the `StaffUser` relation target for `Report` / `AccountAppeal` / `SupportMessage`. Needs a decision before any cleanup |
+| Orphan app database | `backend/database/database.sqlite` held 22 users plus old config and is no longer read by anything. **Deliberately not merged and not deleted** |
+| Admin offboarding | A real admin account cannot be deactivated or deleted from the console; only super-admin-created admins lack an exit path |
+| Session location | The Sessions panel shows IP only; a GeoIP database would be needed for city/country |
 | Full suite re-run against real MySQL + Reverb in Docker | CI covers it via GitHub Actions; Redis-backed presence sweep path still only covered in CI |
 
 See [02 — Roadmap](02-roadmap.md) for the phased plan; ticked items are shipped plus tests.
+For the current test pass see `TESTING_HANDOFF.md` at the repo root.
