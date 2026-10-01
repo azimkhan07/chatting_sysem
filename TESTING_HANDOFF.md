@@ -123,8 +123,8 @@ form me tick karne se plan JSON me keyword chala jayega. **Paid** banana hai to
 
 | # | Pending | Asar | Priority |
 | - | ------ | ---- | -------- |
-| P1 | **`email_configs` 0 rows** | Email/SMTP page khaali. Original config lost hai, dobara daalna padega | High |
-| P2 | **`payment_gateways` 0 rows** | `testpay` gateway gayab. Payment flow test nahi hoga | High |
+| P1 | **`email_configs` 0 rows** | Email/SMTP page khaali. **Jaanbujh kar defer kiya hai** — real email/SMTP provider tabhi lenge. Config khud set karenge, koi recover karne ki zaroorat nahi | Baad me |
+| P2 | **`payment_gateways` 0 rows** | `testpay` gateway gayab. Orphan DB se merge nahi kiya gaya (aapke instruction). Payment provider ke saath real gateway khud add karenge | Baad me |
 | P3 | **Subscription runtime enforcement** | `ChatEntitlements` abhi har feature `true` deta hai, plan ka `features` read nahi karta. Checkbox save to hota hai par **user app me lock nahi laga** | High (Phase 2) |
 | P4 | **Orphan DB** `backend/database/database.sqlite` | 22 users + purana data. Ab koi use nahi karta. **Merge nahi kiya** (aapke instruction). Delete bhi nahi kiya | Low — decide karna hai |
 | P5 | **MySQL grant hardening** | `users` par table-level `UPDATE`, kuch redundant `INSERT`, `console_secret_change_me` hardcoded, post-migrate apply path nahi | Medium |
